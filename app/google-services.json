@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "112742441205",
+    "project_id": "planyourtrip-79724",
+    "storage_bucket": "planyourtrip-79724.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:112742441205:android:cb3d10b6f78d3ce2f5a5bc",
+        "android_client_info": {
+          "package_name": "com.example.planyourtrip"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCK0TVreQIaBVGCnfgaRAKgda9ptdE54Zo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

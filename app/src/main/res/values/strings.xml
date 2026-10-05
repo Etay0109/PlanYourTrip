@@ -1,0 +1,182 @@
+<resources>
+    <string name="app_name">Plan Your Trip</string>
+
+    <!-- Auth screen -->
+    <string name="auth_subtitle_sign_in">Welcome back</string>
+    <string name="auth_subtitle_sign_up">Create your account</string>
+    <string name="auth_tab_sign_in">Sign In</string>
+    <string name="auth_tab_sign_up">Sign Up</string>
+    <string name="auth_full_name">Full name</string>
+    <string name="auth_email">Email</string>
+    <string name="auth_password">Password</string>
+    <string name="auth_confirm_password">Confirm password</string>
+    <string name="auth_forgot_password">Forgot password?</string>
+    <string name="auth_button_sign_in">Sign In</string>
+    <string name="auth_button_sign_up">Sign Up</string>
+    <string name="auth_show_password">Show password</string>
+    <string name="auth_hide_password">Hide password</string>
+
+    <!-- Validation errors -->
+    <string name="error_empty_name">Please enter your full name</string>
+    <string name="error_empty_email">Please enter your email</string>
+    <string name="error_invalid_email">Please enter a valid email address</string>
+    <string name="error_empty_password">Please enter your password</string>
+    <string name="error_password_too_short">Password must be at least 8 characters</string>
+    <string name="error_passwords_dont_match">Passwords do not match</string>
+
+    <!-- Auth backend errors and messages -->
+    <string name="error_wrong_credentials">Wrong email or password</string>
+    <string name="error_email_in_use">An account with this email already exists</string>
+    <string name="error_weak_password">Password is too weak. Use at least 8 characters with letters and numbers</string>
+    <string name="error_no_connection">No internet connection. Check your connection and try again</string>
+    <string name="error_too_many_requests">Too many attempts. Please wait a moment and try again</string>
+    <string name="error_unknown">Something went wrong. Please try again</string>
+    <string name="auth_reset_email_sent">If an account exists for %1$s, a password reset link is on its way.</string>
+
+    <!-- Home -->
+    <string name="home_greeting">Hi, %1$s 👋</string>
+    <string name="home_title">My Trips</string>
+    <string name="home_profile">Account menu, %1$s</string>
+    <string name="home_sign_out">Sign out</string>
+    <string name="home_next_trip">NEXT TRIP</string>
+    <string name="home_upcoming">Upcoming</string>
+    <string name="home_past_trips">Past trips</string>
+    <string name="home_now">Now</string>
+    <string name="home_add_trip">Add trip</string>
+    <string name="home_empty_title">No trips yet</string>
+    <string name="home_empty_body">Plan your first adventure — add a trip to get started.</string>
+    <string name="home_empty_button">Add your first trip</string>
+    <!-- \u00A0 keeps "· 6 days" from splitting across lines; a wrap can only happen before the length. -->
+    <string name="home_dates_with_length">%1$s\u00A0· %2$s</string>
+    <plurals name="trip_length_days">
+        <item quantity="one">%d\u00A0day</item>
+        <item quantity="other">%d\u00A0days</item>
+    </plurals>
+    <plurals name="countdown_unit">
+        <item quantity="one">DAY</item>
+        <item quantity="other">DAYS</item>
+    </plurals>
+    <plurals name="countdown_in_days">
+        <item quantity="one">In\u00A0%d\u00A0day</item>
+        <item quantity="other">In\u00A0%d\u00A0days</item>
+    </plurals>
+    <plurals name="home_trip_count">
+        <item quantity="one">%d trip</item>
+        <item quantity="other">%d trips</item>
+    </plurals>
+    <plurals name="home_archived_count">
+        <item quantity="one">%d archived</item>
+        <item quantity="other">%d archived</item>
+    </plurals>
+
+    <!-- Trip form (new and edit) -->
+    <string name="new_trip_title">New Trip</string>
+    <string name="edit_trip_title">Edit Trip</string>
+    <string name="edit_trip_save">Save changes</string>
+    <string name="new_trip_destination">Destination</string>
+    <string name="new_trip_destination_placeholder">e.g. Rome, Italy</string>
+    <string name="new_trip_start_date">Start date</string>
+    <string name="new_trip_end_date">End date</string>
+    <string name="new_trip_pick_date">Pick a date</string>
+    <string name="trip_currency_label">Trip currency (optional)</string>
+    <string name="trip_currency_placeholder">Choose a currency</string>
+    <string name="trip_currency_value">%1$s · %2$s</string>
+    <string name="trip_currency_clear">Clear currency</string>
+    <string name="new_trip_save">Save trip</string>
+    <string name="error_empty_destination">Please enter a destination</string>
+    <string name="error_missing_start">Please choose a start date</string>
+    <string name="error_missing_end">Please choose an end date</string>
+    <string name="error_end_before_start">End date can\'t be before the start date</string>
+
+    <!-- Trip screen -->
+    <string name="trip_tab_overview">Overview</string>
+    <string name="trip_tab_budget">Budget</string>
+    <string name="trip_tab_map">Map</string>
+    <string name="trip_tab_plan">Plan</string>
+    <string name="trip_edit">Edit trip</string>
+    <string name="trip_not_found">This trip is no longer available.</string>
+    <string name="trip_coming_soon_title">Coming soon</string>
+    <string name="trip_coming_soon_map">Save places and see them on a map.</string>
+    <string name="trip_coming_soon_plan">Plan each day of your trip.</string>
+    <string name="trip_places">Places</string>
+    <string name="trip_places_empty">No places yet</string>
+    <string name="trip_daily_plan">Daily plan</string>
+    <string name="trip_plan_empty">No plan yet</string>
+
+    <!-- Budget -->
+    <string name="money_shekels">₪%1$s</string>
+    <string name="currency_symbol">₪</string>
+    <string name="budget_label">TRIP BUDGET</string>
+    <string name="budget_left">left</string>
+    <string name="budget_over">%1$s over budget</string>
+    <string name="budget_spent">%1$s spent (%2$s)</string>
+    <string name="budget_total">%1$s total</string>
+    <plurals name="budget_per_day">
+        <item quantity="one">About %1$s per day for %2$d day</item>
+        <item quantity="other">About %1$s per day for %2$d days</item>
+    </plurals>
+    <string name="budget_empty_body">Set a budget to see what\'s left to spend each day.</string>
+    <string name="budget_set">Set budget</string>
+    <string name="budget_edit">Edit budget</string>
+    <string name="budget_dialog_title">Trip budget</string>
+    <string name="budget_dialog_label">Total budget</string>
+    <string name="budget_by_category">By category</string>
+    <string name="budget_expenses">Expenses</string>
+    <string name="budget_add_expense">Add expense</string>
+    <string name="budget_no_expenses_title">No expenses yet</string>
+    <string name="budget_no_expenses_body">Add what you spend on this trip to keep track of your budget.</string>
+    <string name="budget_chart_description">Spending by category</string>
+    <string name="error_empty_budget">Please enter a budget</string>
+    <string name="error_invalid_budget">Enter an amount greater than 0</string>
+
+    <!-- Currency -->
+    <string name="currency_rate_one">1</string>
+    <string name="currency_rate_value">= %1$s</string>
+    <string name="currency_updated">Updated %1$s</string>
+    <string name="currency_empty_body">Pick the local currency to see the rate and convert prices to shekels.</string>
+    <string name="currency_choose">Choose currency</string>
+    <string name="currency_change">Change currency, now %1$s</string>
+    <string name="currency_shekel_body">This trip uses shekels, so there is nothing to convert.</string>
+    <string name="currency_loading">Getting the latest rate…</string>
+    <string name="currency_unavailable">Couldn\'t get the rate. Check your connection.</string>
+    <string name="currency_try_again">Try again</string>
+    <string name="currency_amount_placeholder">0</string>
+    <string name="currency_swap">Swap currencies</string>
+    <string name="currency_amount_in">Amount in %1$s</string>
+    <string name="currency_picker_title">Trip currency</string>
+    <string name="currency_search">Search code or name</string>
+    <string name="currency_picker_failed">Couldn\'t load the currency list. Check your connection.</string>
+    <string name="currency_picker_no_results">No currency matches “%1$s”.</string>
+
+    <!-- Expense categories -->
+    <string name="category_flights">Flights</string>
+    <string name="category_hotels">Hotels</string>
+    <string name="category_food">Food</string>
+    <string name="category_shopping">Shopping</string>
+    <string name="category_transport">Transport</string>
+    <string name="category_attractions">Attractions</string>
+    <string name="category_other">Other</string>
+
+    <!-- Expense form -->
+    <string name="expense_new_title">New expense</string>
+    <string name="expense_edit_title">Edit expense</string>
+    <string name="expense_name">Name</string>
+    <string name="expense_name_placeholder">e.g. Colosseum tickets</string>
+    <string name="expense_amount">Amount</string>
+    <string name="expense_category">Category</string>
+    <string name="expense_date">Date</string>
+    <string name="expense_save">Save expense</string>
+    <string name="expense_delete">Delete expense</string>
+    <string name="expense_delete_title">Delete this expense?</string>
+    <string name="expense_delete_body">“%1$s” will be removed from the trip budget.</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_save">Save</string>
+    <string name="error_empty_expense_name">Please enter a name</string>
+    <string name="error_empty_amount">Please enter an amount</string>
+    <string name="error_invalid_amount">Enter an amount greater than 0 (up to 2 decimals)</string>
+
+    <!-- Common -->
+    <string name="action_back">Back</string>
+    <string name="action_ok">OK</string>
+    <string name="action_cancel">Cancel</string>
+</resources>

@@ -1,0 +1,29 @@
+# Gradle and build output
+.gradle/
+build/
+.kotlin/
+.externalNativeBuild
+.cxx
+/captures
+
+# Android build artifacts
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Local machine config (SDK path) — never commit
+local.properties
+
+# IDE
+*.iml
+/.idea/
+
+# Signing secrets (for later release builds)
+*.jks
+*.keystore
+keystore.properties
+
+# OS and logs
+.DS_Store
+*.log
