@@ -372,9 +372,13 @@ Reference: `design/trip_overview.png` (there is no separate Budget design; the B
 - **Budget dialog** state lives in the ViewModel (`budgetDialog: BudgetDialogState?`): prefilled with the current
   budget; empty → `EMPTY`, unparseable or ≤ 0 → `INVALID`; Save stores it with `setBudget`.
 - **Expense form:** name, amount (currency symbol prefix, decimal keyboard) with a currency selector, date
-  (`DateField`, default today), category (`FilterChip`s in the category colors, default `OTHER`). Validation on
-  Save: name not blank; amount see "Expense currency". Editing a field clears only its error. In edit mode the top
-  bar has a delete icon → confirmation dialog → delete.
+  (`DateField` with `maxDate` = the trip's last day, **no** `minDate`: flights and hotels are paid before the trip),
+  category (`FilterChip`s in the category colors, default `OTHER`). A new expense defaults to today, or to the trip's
+  last day once the trip has ended (`ExpenseValidator.defaultDate`). Validation on Save: name not blank; amount see
+  "Expense currency"; date not after the trip's end (`DATE_AFTER_TRIP`, "The date can't be after the last day of
+  the trip", under the date field). An existing expense dated after the trip (dates shortened later) is kept as it
+  is in the list; opening it shows that error right away, and it can't be saved until the date is fixed. Editing a
+  field clears only its error. In edit mode the top bar has a delete icon → confirmation dialog → delete.
 - **Expense row:** round category icon, name, date, category label (`TagPill` in the category colors); right side
   the shekel amount in bold and, for a foreign expense, the original ("€10.00", `ExpenseCurrency.formatOriginal`)
   in small gray text.
@@ -693,7 +697,7 @@ Reference: `design/home_screen.png`. Match it closely when adding or changing sc
 - Keep pure logic in plain Kotlin and unit-test it: validators, `groupTrips`, `tripStatus`, `TripFormatting`,
   `PickerDates`, `Money`, `BudgetCalculations`, `Itinerary` (`ItineraryTest`: one-day, past and current trips,
   untimed activities, activities outside the dates),
-  `CurrencyConversion` (incl. digit-by-digit typing tests), activity type and category color contrast (`TintedColorsTest`), `ExpenseCurrency` (no-decimal currency, no rate, editing with/without changing the amount, switching currency), `CurrencyPicker`, `FrankfurterJson`, `isStale`, the assistant (`AssistantJsonTest`: malformed answer, unknown type,
+  `CurrencyConversion` (incl. digit-by-digit typing tests), activity type and category color contrast (`TintedColorsTest`), `ExpenseCurrency` (no-decimal currency, no rate, editing with/without changing the amount, switching currency), the expense date limit (`ExpenseFormTest`: default after the trip ended, date after the trip on save, editing an expense already dated after the trip), `CurrencyPicker`, `FrankfurterJson`, `isStale`, the assistant (`AssistantJsonTest`: malformed answer, unknown type,
   bad times, costs, invalid date; `AssistantPromptTest`; `AssistantContextTest`: context, chips, history;
   `SuggestionsTest`: only some checked, day outside the trip), the sync (`SyncMergeTest`: edited on two devices,
 deleted on one and edited on another, first upload, children of a deleted trip; `SyncDocumentsTest`: field formats,

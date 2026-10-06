@@ -137,6 +137,101 @@ class ExpenseFormTest {
         assertTrue(vm.uiState.value.done)
     }
 
+    // ---------- Date limit: never after the trip's last day ----------
+
+    @Test
+    fun dateValidator_rejectsOnlyDatesAfterTheTrip() {
+        val end = rome.endDate
+        assertNull(ExpenseValidator.validateDate(end, end))
+        assertNull(ExpenseValidator.validateDate(LocalDate.of(2026, 1, 1), end)) // before the trip is fine
+        assertEquals(ExpenseFieldError.DATE_AFTER_TRIP, ExpenseValidator.validateDate(end.plusDays(1), end))
+        assertNull(ExpenseValidator.validateDate(end.plusDays(1), null))
+    }
+
+    @Test
+    fun defaultDate_isTodayUnlessTheTripHasEnded() {
+        val end = rome.endDate
+        assertEquals(today, ExpenseValidator.defaultDate(today, end))
+        assertEquals(end, ExpenseValidator.defaultDate(end, end))
+        assertEquals(end, ExpenseValidator.defaultDate(end.plusDays(3), end))
+        assertEquals(today, ExpenseValidator.defaultDate(today, null))
+    }
+
+    @Test
+    fun newExpense_exposesTheTripEndAsTheLatestDate() = runTest(dispatcher) {
+        val vm = vm()
+        advanceUntilIdle()
+        assertEquals(rome.endDate, vm.uiState.value.tripEnd)
+        assertNull(vm.uiState.value.dateError)
+    }
+
+    @Test
+    fun newExpense_afterTheTripEnded_defaultsToItsLastDay() = runTest(dispatcher) {
+        val past = rome.copy(startDate = LocalDate.of(2026, 9, 1), endDate = LocalDate.of(2026, 9, 4))
+        trips.trips.value = listOf("u1" to past)
+        val vm = vm()
+        advanceUntilIdle()
+        assertEquals(past.endDate, vm.uiState.value.date)
+        assertNull(vm.uiState.value.dateError)
+    }
+
+    @Test
+    fun newExpense_beforeTheTrip_defaultsToToday_andCanBeSaved() = runTest(dispatcher) {
+        val vm = vm()
+        advanceUntilIdle()
+        vm.onNameChange("Flight")
+        vm.onAmountChange("900")
+        vm.onSave()
+        advanceUntilIdle()
+        assertTrue(vm.uiState.value.done)
+        assertEquals(today, repo.expenses.value.single { it.name == "Flight" }.date)
+    }
+
+    @Test
+    fun save_withADateAfterTheTrip_showsTheDateError_andDoesNotSave() = runTest(dispatcher) {
+        val vm = vm()
+        advanceUntilIdle()
+        vm.onNameChange("Souvenir")
+        vm.onAmountChange("30")
+        vm.onDateChange(rome.endDate.plusDays(1))
+        vm.onSave()
+        advanceUntilIdle()
+        assertEquals(ExpenseFieldError.DATE_AFTER_TRIP, vm.uiState.value.dateError)
+        assertNull(vm.uiState.value.nameError)
+        assertNull(vm.uiState.value.amountError)
+        assertFalse(vm.uiState.value.done)
+        assertEquals(listOf(dinner), repo.expenses.value)
+
+        vm.onDateChange(rome.endDate)
+        assertNull(vm.uiState.value.dateError)
+        vm.onSave()
+        advanceUntilIdle()
+        assertTrue(vm.uiState.value.done)
+        assertEquals(rome.endDate, repo.expenses.value.single { it.name == "Souvenir" }.date)
+    }
+
+    @Test
+    fun editingAnExpenseDatedAfterTheTrip_keepsItsDate_andShowsTheErrorUntilFixed() = runTest(dispatcher) {
+        val late = dinner.copy(date = LocalDate.of(2026, 11, 20)) // the trip was shortened after it was added
+        repo.expenses.value = listOf(late)
+        val vm = vm(expenseId = late.id)
+        advanceUntilIdle()
+        assertEquals(late.date, vm.uiState.value.date)
+        assertEquals(ExpenseFieldError.DATE_AFTER_TRIP, vm.uiState.value.dateError)
+
+        vm.onSave()
+        advanceUntilIdle()
+        assertFalse(vm.uiState.value.done)
+        assertEquals(listOf(late), repo.expenses.value) // untouched
+
+        vm.onDateChange(LocalDate.of(2026, 11, 16))
+        assertNull(vm.uiState.value.dateError)
+        vm.onSave()
+        advanceUntilIdle()
+        assertTrue(vm.uiState.value.done)
+        assertEquals(LocalDate.of(2026, 11, 16), repo.expenses.value.single().date)
+    }
+
     // ---------- Trip currency ----------
 
     @Test

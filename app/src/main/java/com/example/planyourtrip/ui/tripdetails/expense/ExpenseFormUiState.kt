@@ -31,8 +31,12 @@ data class ExpenseFormUiState(
     val preview: ConversionPreview? = null,
     val category: ExpenseCategory = ExpenseCategory.OTHER,
     val date: LocalDate,
+    /** The trip's last day: the latest date the picker offers. Null until the trip is loaded. */
+    val tripEnd: LocalDate? = null,
     val nameError: ExpenseFieldError? = null,
     val amountError: ExpenseFieldError? = null,
+    /** [ExpenseFieldError.DATE_AFTER_TRIP]; also shown when an edited expense is already dated after the trip. */
+    val dateError: ExpenseFieldError? = null,
     val isSaving: Boolean = false,
     /** Set once the expense is saved or deleted; the screen then navigates back. */
     val done: Boolean = false,

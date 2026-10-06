@@ -1,5 +1,7 @@
 package com.example.planyourtrip.ui.tripdetails.expense
 
+import java.time.LocalDate
+
 /** Validation error codes for the expense form, mapped to string resources in the UI. */
 enum class ExpenseFieldError {
     EMPTY_NAME,
@@ -8,6 +10,8 @@ enum class ExpenseFieldError {
     INVALID_AMOUNT,
     /** A trip-currency amount while its rate is still being fetched. */
     NO_RATE,
+    /** The date is after the trip's last day. */
+    DATE_AFTER_TRIP,
 }
 
 /**
@@ -17,4 +21,12 @@ enum class ExpenseFieldError {
 object ExpenseValidator {
     fun validateName(name: String): ExpenseFieldError? =
         if (name.isBlank()) ExpenseFieldError.EMPTY_NAME else null
+
+    /** No minimum: flights and hotels are often paid before the trip starts. Null [tripEnd] = no limit. */
+    fun validateDate(date: LocalDate, tripEnd: LocalDate?): ExpenseFieldError? =
+        if (tripEnd != null && date > tripEnd) ExpenseFieldError.DATE_AFTER_TRIP else null
+
+    /** A new expense is dated today, or the trip's last day when the trip has already ended. */
+    fun defaultDate(today: LocalDate, tripEnd: LocalDate?): LocalDate =
+        if (tripEnd != null && today > tripEnd) tripEnd else today
 }

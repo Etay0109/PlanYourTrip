@@ -248,6 +248,7 @@
         <item quantity="other">Enter an amount greater than 0 (up to %d decimals)</item>
     </plurals>
     <string name="error_invalid_amount_whole">Enter a whole amount greater than 0 (no decimals)</string>
+    <string name="error_expense_after_trip">The date can\'t be after the last day of the trip</string>
     <string name="error_no_rate">The exchange rate is still loading. Try again in a moment.</string>
     <string name="expense_currency">Currency of the amount</string>
     <!-- "≈ ₪40.20 · 1 EUR = ₪4.02 · rate of 2 Oct" -->

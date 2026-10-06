@@ -161,9 +161,11 @@ fun ExpenseFormContent(
             DateField(
                 label = R.string.expense_date,
                 date = state.date,
-                errorRes = null,
-                initialPickerDate = state.date,
+                errorRes = state.dateError?.dateMessageRes(),
+                // A date already after the trip opens the picker on the last selectable day.
+                initialPickerDate = state.tripEnd?.let { minOf(state.date, it) } ?: state.date,
                 onDatePicked = onDateChange,
+                maxDate = state.tripEnd,
             )
 
             Text(
@@ -338,6 +340,7 @@ private fun AmountStatus(state: ExpenseFormUiState) {
 private fun amountErrorText(error: ExpenseFieldError, state: ExpenseFormUiState): String = when (error) {
     ExpenseFieldError.EMPTY_NAME -> stringResource(R.string.error_empty_expense_name)
     ExpenseFieldError.EMPTY_AMOUNT -> stringResource(R.string.error_empty_amount)
+    ExpenseFieldError.DATE_AFTER_TRIP -> stringResource(R.string.error_expense_after_trip)
     ExpenseFieldError.NO_RATE ->
         if (state.foreignRate == ForeignRateState.Unavailable) {
             stringResource(R.string.expense_rate_unavailable, state.currencyCode)
@@ -355,6 +358,10 @@ private fun amountErrorText(error: ExpenseFieldError, state: ExpenseFormUiState)
 /** The name field's only error. */
 @StringRes
 private fun ExpenseFieldError.nameMessageRes(): Int = R.string.error_empty_expense_name
+
+/** The date field's only error. */
+@StringRes
+private fun ExpenseFieldError.dateMessageRes(): Int = R.string.error_expense_after_trip
 
 private val previewRate = ExchangeRate("EUR", BigDecimal("4.02"), LocalDate.of(2026, 10, 2), Instant.EPOCH)
 

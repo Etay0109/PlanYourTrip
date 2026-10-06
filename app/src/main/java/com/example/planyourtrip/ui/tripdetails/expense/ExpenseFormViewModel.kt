@@ -64,13 +64,14 @@ class ExpenseFormViewModel(
             _uiState.update { state ->
                 val base = state.copy(
                     isLoading = false,
+                    tripEnd = trip?.endDate,
                     foreignCode = foreignCode,
                     foreignRate = if (foreignCode != null) ForeignRateState.Loading else null,
                     // A new expense starts in the trip currency when there is one.
                     currencyCode = foreignCode ?: ILS,
                 )
                 if (expense == null) {
-                    base
+                    base.copy(date = ExpenseValidator.defaultDate(state.date, trip?.endDate))
                 } else {
                     val entered = ExpenseCurrency.entered(expense)
                     base.copy(
@@ -79,6 +80,8 @@ class ExpenseFormViewModel(
                         currencyCode = entered.currencyCode,
                         category = expense.category,
                         date = expense.date,
+                        // Dated after the trip (its dates were shortened later): kept, but flagged to fix.
+                        dateError = ExpenseValidator.validateDate(expense.date, trip?.endDate),
                     )
                 }.withPreview()
             }
@@ -137,7 +140,7 @@ class ExpenseFormViewModel(
 
     fun onCategoryChange(category: ExpenseCategory) = _uiState.update { it.copy(category = category) }
 
-    fun onDateChange(date: LocalDate) = _uiState.update { it.copy(date = date) }
+    fun onDateChange(date: LocalDate) = _uiState.update { it.copy(date = date, dateError = null) }
 
     fun onSave() {
         val state = _uiState.value
@@ -148,9 +151,10 @@ class ExpenseFormViewModel(
         val validated = state.copy(
             nameError = ExpenseValidator.validateName(state.name),
             amountError = (amount as? AmountResult.Invalid)?.error,
+            dateError = ExpenseValidator.validateDate(state.date, state.tripEnd),
         )
         _uiState.value = validated
-        if (validated.nameError != null || amount !is AmountResult.Ok) return
+        if (validated.nameError != null || validated.dateError != null || amount !is AmountResult.Ok) return
 
         val ownerId = authRepository.currentUser.value?.uid ?: return
         val name = validated.name.trim()
