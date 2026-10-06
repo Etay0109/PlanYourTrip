@@ -69,15 +69,6 @@ class AuthViewModelTest {
     }
 
     @Test
-    fun forgotPassword_neverAuthenticates() = runTest(dispatcher) {
-        vm.onEmailChange("user@example.com")
-        vm.onForgotPassword()
-        advanceUntilIdle()
-
-        assertFalse(vm.uiState.value.isAuthenticated)
-    }
-
-    @Test
     fun signUp_invalidInput_showsAllErrors() = runTest(dispatcher) {
         vm.onModeToggle()
         vm.onEmailChange("bad-email")
@@ -131,18 +122,7 @@ class AuthViewModelTest {
         assertEquals(FieldError.EMPTY_PASSWORD, state.passwordError)
     }
 
-    @Test
-    fun forgotPassword_invalidEmail_showsError_validEmail_callsRepository() = runTest(dispatcher) {
-        vm.onForgotPassword()
-        assertEquals(FieldError.EMPTY_EMAIL, vm.uiState.value.emailError)
-
-        vm.onEmailChange("user@example.com")
-        vm.onForgotPassword()
-        advanceUntilIdle()
-        assertEquals(listOf("reset:user@example.com"), repo.calls)
-    }
-
-    // ---- Backend errors, reset and double taps ----
+    // ---- Backend errors and double taps ----
 
     private fun fillValidSignIn() {
         vm.onEmailChange("user@example.com")
@@ -219,38 +199,5 @@ class AuthViewModelTest {
         advanceUntilIdle()
 
         assertEquals(listOf("signIn:user@example.com"), repo.calls)
-    }
-
-    @Test
-    fun forgotPassword_success_showsConfirmation() = runTest(dispatcher) {
-        vm.onEmailChange(" user@example.com ")
-        vm.onForgotPassword()
-        assertTrue(vm.uiState.value.isSendingReset)
-        assertTrue(vm.uiState.value.isBusy)
-        advanceUntilIdle()
-
-        val s = vm.uiState.value
-        assertEquals(AuthMessage.ResetEmailSent("user@example.com"), s.message)
-        assertFalse(s.isSendingReset)
-    }
-
-    @Test
-    fun forgotPassword_failure_showsFailureMessage() = runTest(dispatcher) {
-        repo.nextResetError = AuthError.NO_CONNECTION
-        vm.onEmailChange("user@example.com")
-        vm.onForgotPassword()
-        advanceUntilIdle()
-
-        assertEquals(AuthMessage.Failure(AuthError.NO_CONNECTION), vm.uiState.value.message)
-    }
-
-    @Test
-    fun submit_isIgnoredWhileResetRuns() = runTest(dispatcher) {
-        fillValidSignIn()
-        vm.onForgotPassword()
-        vm.onSubmit()
-        advanceUntilIdle()
-
-        assertEquals(listOf("reset:user@example.com"), repo.calls)
     }
 }

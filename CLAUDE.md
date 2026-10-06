@@ -617,13 +617,13 @@ Reference: `design/home_screen.png`. Match it closely when adding or changing sc
 ## Auth screen behavior
 - Two modes, `SIGN_IN` / `SIGN_UP`, switched with one tap on a Material 3 segmented button.
 - Switching modes **keeps** typed email/password and **clears** all errors.
-- Sign In: email, password (show/hide), "Sign In" button, "Forgot password?" link.
+- Sign In: email, password (show/hide), "Sign In" button. There is no "Forgot password?" option (removed on
+  purpose), so the Sign In form has the same spacing as Sign Up.
 - Sign Up: full name, email, password, confirm password (each with show/hide), "Sign Up" button.
 - A valid form calls `AuthRepository` (Firebase). Sign up creates the account and saves the full name as the display
-  name. On success the ViewModel sets `isAuthenticated`, which navigates to Home. "Forgot password?" never navigates.
-- **Requests and double taps:** while sign in/up runs, the main button shows a spinner (`isLoading`); while a reset
-  runs (`isSendingReset`), the main button and the link are disabled. `onSubmit`/`onForgotPassword` return early
-  while `isBusy`, and the loading flag is set synchronously, so double taps send one request.
+  name. On success the ViewModel sets `isAuthenticated`, which navigates to Home.
+- **Requests and double taps:** while sign in/up runs, the main button shows a spinner (`isLoading`). `onSubmit`
+  returns early while `isLoading`, and the flag is set synchronously, so double taps send one request.
 
 ### Backend errors (`AuthError`, mapped in `FirebaseAuthRepository`)
 | Firebase exception | `AuthError` | Shown |
@@ -637,10 +637,7 @@ Reference: `design/home_screen.png`. Match it closely when adding or changing sc
 
 - Firebase's email-enumeration protection reports a wrong email and a wrong password the same way, so the app shows
   one message for both.
-- **Password reset:** the snackbar says "If an account exists for <email>, a password reset link is on its way." —
-  Firebase does not reveal whether the email has an account. Reset emails use the device language
-  (`auth.useAppLanguage()`).
-- Snackbar messages live in `AuthUiState.message` (`AuthMessage.ResetEmailSent` / `AuthMessage.Failure`) and are
+- Snackbar messages live in `AuthUiState.message` (`AuthMessage.Failure`) and are
   cleared with `onMessageShown()` after display.
 - If the account is created but saving the display name fails, sign up still succeeds; the greeting falls back to
   the email prefix.
@@ -657,7 +654,6 @@ Reference: `design/home_screen.png`. Match it closely when adding or changing sc
 - Errors are shown under the field via `OutlinedTextField.supportingText` + `isError`.
 - The 8-char minimum is enforced only on Sign Up: existing accounts may predate the rule, and the backend decides
   whether a sign-in password is correct.
-- "Forgot password?" validates the email first; if invalid, shows the email error instead of calling the repository.
 - Email regex is our own `Regex`, not `android.util.Patterns`, because `Patterns` is null in JVM unit tests.
 - Email and name are trimmed before being sent to the repository; passwords are sent as-is.
 

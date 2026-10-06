@@ -25,8 +25,6 @@ class FirebaseAuthRepository(private val auth: FirebaseAuth) : AuthRepository {
     override val currentUser: StateFlow<AuthUser?> = _currentUser.asStateFlow()
 
     init {
-        // Password reset emails in the device language.
-        auth.useAppLanguage()
         // Fires on sign in and sign out (not on profile changes; signUp publishes those itself).
         auth.addAuthStateListener { _currentUser.value = it.currentUser?.toAuthUser() }
     }
@@ -44,10 +42,6 @@ class FirebaseAuthRepository(private val auth: FirebaseAuth) : AuthRepository {
         }.onFailure { if (it is CancellationException) throw it }.isSuccess
         val signedIn = user.toAuthUser()
         _currentUser.value = if (nameSaved) signedIn.copy(displayName = fullName) else signedIn
-    }
-
-    override suspend fun sendPasswordReset(email: String): Result<Unit> = request {
-        auth.sendPasswordResetEmail(email).await()
     }
 
     override fun signOut() = auth.signOut()

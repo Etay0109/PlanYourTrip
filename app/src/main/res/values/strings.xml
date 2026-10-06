@@ -10,7 +10,6 @@
     <string name="auth_email">Email</string>
     <string name="auth_password">Password</string>
     <string name="auth_confirm_password">Confirm password</string>
-    <string name="auth_forgot_password">Forgot password?</string>
     <string name="auth_button_sign_in">Sign In</string>
     <string name="auth_button_sign_up">Sign Up</string>
     <string name="auth_show_password">Show password</string>
@@ -31,7 +30,6 @@
     <string name="error_no_connection">No internet connection. Check your connection and try again</string>
     <string name="error_too_many_requests">Too many attempts. Please wait a moment and try again</string>
     <string name="error_unknown">Something went wrong. Please try again</string>
-    <string name="auth_reset_email_sent">If an account exists for %1$s, a password reset link is on its way.</string>
 
     <!-- Home -->
     <string name="home_greeting">Hi, %1$s 👋</string>

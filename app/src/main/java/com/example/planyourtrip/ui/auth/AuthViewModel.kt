@@ -45,7 +45,7 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
 
     fun onSubmit() {
         val state = _uiState.value
-        if (state.isBusy) return
+        if (state.isLoading) return
 
         val validated = when (state.mode) {
             AuthMode.SIGN_IN -> state.copy(
@@ -79,31 +79,6 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
                 result.fold(
                     onSuccess = { current.copy(isLoading = false, isAuthenticated = true) },
                     onFailure = { current.copy(isLoading = false).withError(it.authError()) },
-                )
-            }
-        }
-    }
-
-    fun onForgotPassword() {
-        val state = _uiState.value
-        if (state.isBusy) return
-        val error = AuthValidator.validateEmail(state.email)
-        if (error != null) {
-            _uiState.update { it.copy(emailError = error) }
-            return
-        }
-
-        val email = state.email.trim()
-        _uiState.update { it.copy(isSendingReset = true, message = null) }
-        viewModelScope.launch {
-            val result = repository.sendPasswordReset(email)
-            _uiState.update { current ->
-                current.copy(
-                    isSendingReset = false,
-                    message = result.fold(
-                        onSuccess = { AuthMessage.ResetEmailSent(email) },
-                        onFailure = { AuthMessage.Failure(it.authError()) },
-                    ),
                 )
             }
         }

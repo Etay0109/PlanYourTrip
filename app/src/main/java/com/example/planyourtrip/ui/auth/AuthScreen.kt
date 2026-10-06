@@ -28,7 +28,6 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -74,7 +73,6 @@ fun AuthScreen(
         onPasswordChange = viewModel::onPasswordChange,
         onConfirmChange = viewModel::onConfirmChange,
         onSubmit = viewModel::onSubmit,
-        onForgotPassword = viewModel::onForgotPassword,
         onMessageShown = viewModel::onMessageShown,
     )
 }
@@ -89,7 +87,6 @@ fun AuthContent(
     onPasswordChange: (String) -> Unit,
     onConfirmChange: (String) -> Unit,
     onSubmit: () -> Unit,
-    onForgotPassword: () -> Unit,
     onMessageShown: () -> Unit,
 ) {
     val isSignUp = state.mode == AuthMode.SIGN_UP
@@ -198,17 +195,6 @@ fun AuthContent(
                     )
                 }
 
-                AnimatedVisibility(
-                    visible = !isSignUp,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Box(contentAlignment = Alignment.CenterEnd) {
-                        TextButton(onClick = onForgotPassword, enabled = !state.isBusy) {
-                            Text(stringResource(R.string.auth_forgot_password))
-                        }
-                    }
-                }
-
                 Spacer(Modifier.height(8.dp))
 
                 PrimaryButton(
@@ -217,7 +203,6 @@ fun AuthContent(
                     ),
                     onClick = onSubmit,
                     loading = state.isLoading,
-                    enabled = !state.isSendingReset,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -264,8 +249,9 @@ private fun PasswordField(
         trailingIcon = {
             IconButton(onClick = { visible = !visible }) {
                 Icon(
+                    // The icon shows the current state: crossed-out eye while hidden, open eye while visible.
                     painter = painterResource(
-                        if (visible) R.drawable.ic_visibility_off else R.drawable.ic_visibility
+                        if (visible) R.drawable.ic_visibility else R.drawable.ic_visibility_off
                     ),
                     contentDescription = stringResource(
                         if (visible) R.string.auth_hide_password else R.string.auth_show_password
@@ -298,7 +284,6 @@ private fun FieldError.messageRes(): Int = when (this) {
 
 @Composable
 private fun messageText(message: AuthMessage): String = when (message) {
-    is AuthMessage.ResetEmailSent -> stringResource(R.string.auth_reset_email_sent, message.email)
     is AuthMessage.Failure -> stringResource(
         when (message.error) {
             AuthError.NO_CONNECTION -> R.string.error_no_connection
@@ -319,7 +304,7 @@ private fun AuthSignInPreview() {
         AuthContent(
             state = AuthUiState(email = "traveler@example", emailError = FieldError.INVALID_EMAIL),
             onModeToggle = {}, onNameChange = {}, onEmailChange = {}, onPasswordChange = {},
-            onConfirmChange = {}, onSubmit = {}, onForgotPassword = {}, onMessageShown = {},
+            onConfirmChange = {}, onSubmit = {}, onMessageShown = {},
         )
     }
 }
@@ -335,7 +320,7 @@ private fun AuthSignUpPreview() {
                 passwordError = FieldError.PASSWORD_TOO_SHORT,
             ),
             onModeToggle = {}, onNameChange = {}, onEmailChange = {}, onPasswordChange = {},
-            onConfirmChange = {}, onSubmit = {}, onForgotPassword = {}, onMessageShown = {},
+            onConfirmChange = {}, onSubmit = {}, onMessageShown = {},
         )
     }
 }

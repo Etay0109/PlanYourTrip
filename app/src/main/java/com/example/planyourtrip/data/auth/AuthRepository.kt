@@ -16,7 +16,5 @@ interface AuthRepository {
     /** Creates the account, signs it in and saves [fullName] as its display name. */
     suspend fun signUp(fullName: String, email: String, password: String): Result<Unit>
 
-    suspend fun sendPasswordReset(email: String): Result<Unit>
-
     fun signOut()
 }
