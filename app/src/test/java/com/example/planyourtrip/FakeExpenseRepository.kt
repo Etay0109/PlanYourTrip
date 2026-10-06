@@ -3,6 +3,7 @@ package com.example.planyourtrip
 import com.example.planyourtrip.data.trip.Expense
 import com.example.planyourtrip.data.trip.ExpenseCategory
 import com.example.planyourtrip.data.trip.ExpenseRepository
+import com.example.planyourtrip.data.trip.ForeignAmount
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -39,10 +40,11 @@ class FakeExpenseRepository(
         amountAgorot: Long,
         category: ExpenseCategory,
         date: LocalDate,
+        original: ForeignAmount?,
     ): Long? {
         if (!owns(ownerId, tripId)) return null
         val id = (expenses.value.maxOfOrNull { it.id } ?: 0) + 1
-        expenses.update { it + Expense(id, tripId, name.trim(), amountAgorot, category, date) }
+        expenses.update { it + Expense(id, tripId, name.trim(), amountAgorot, category, date, original) }
         return id
     }
 
@@ -53,10 +55,11 @@ class FakeExpenseRepository(
         amountAgorot: Long,
         category: ExpenseCategory,
         date: LocalDate,
+        original: ForeignAmount?,
     ) = expenses.update { list ->
         list.map {
             if (it.id == id && owns(ownerId, it.tripId)) {
-                it.copy(name = name.trim(), amountAgorot = amountAgorot, category = category, date = date)
+                it.copy(name = name.trim(), amountAgorot = amountAgorot, category = category, date = date, original = original)
             } else it
         }
     }

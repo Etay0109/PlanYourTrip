@@ -6,12 +6,20 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import com.example.planyourtrip.data.trip.ActivityType
 import com.example.planyourtrip.data.trip.ExpenseCategory
 import com.example.planyourtrip.data.trip.TripColor
 
 /** Background + letter color for a trip's letter square. */
 @Immutable
 data class PastelColor(val container: Color, val content: Color)
+
+/**
+ * Colors of one activity type or expense category: [content] for the icon, label, chart slice and timeline dot,
+ * on the light [container] tint.
+ */
+@Immutable
+data class TintedColor(val container: Color, val content: Color)
 
 /** Brand colors that have no Material 3 color role. */
 @Immutable
@@ -42,15 +50,19 @@ data class ExtendedColors(
     val budgetTrack: Color,
     /** Background of the round icon chips on trip cards (wallet, bookmark, plan). */
     val iconChip: Color,
-    /** Donut slices and category icons: distinct teal/blue shades. */
-    val categories: Map<ExpenseCategory, Color>,
+    /** Expense categories: one clearly different hue each, shared with activity types where the meaning matches. */
+    val categories: Map<ExpenseCategory, TintedColor>,
+    /** Itinerary types: one clearly different hue each (teal, rose, indigo, purple, gray; never orange). */
+    val activityTypes: Map<ActivityType, TintedColor>,
 ) {
     val heroGradient: Brush
         get() = Brush.linearGradient(listOf(heroGradientStart, heroGradientEnd))
 
     fun pastel(color: TripColor): PastelColor = pastels.getValue(color)
 
-    fun category(category: ExpenseCategory): Color = categories.getValue(category)
+    fun category(category: ExpenseCategory): TintedColor = categories.getValue(category)
+
+    fun activityType(type: ActivityType): TintedColor = activityTypes.getValue(type)
 }
 
 val LightExtendedColors = ExtendedColors(
@@ -83,13 +95,20 @@ val LightExtendedColors = ExtendedColors(
     budgetTrack = Gray150,
     iconChip = Gray100,
     categories = mapOf(
-        ExpenseCategory.FLIGHTS to CategoryTeal,
-        ExpenseCategory.HOTELS to CategoryBlue,
-        ExpenseCategory.FOOD to CategoryAqua,
-        ExpenseCategory.SHOPPING to CategoryCornflower,
-        ExpenseCategory.TRANSPORT to CategoryDeepTeal,
-        ExpenseCategory.ATTRACTIONS to CategorySky,
-        ExpenseCategory.OTHER to CategorySlate,
+        ExpenseCategory.FLIGHTS to TintedColor(HueSkyContainer, HueSky),
+        ExpenseCategory.HOTELS to TintedColor(HuePurpleContainer, HuePurple),
+        ExpenseCategory.FOOD to TintedColor(HueRoseContainer, HueRose),
+        ExpenseCategory.SHOPPING to TintedColor(HueGreenContainer, HueGreen),
+        ExpenseCategory.TRANSPORT to TintedColor(HueIndigoContainer, HueIndigo),
+        ExpenseCategory.ATTRACTIONS to TintedColor(HueGreenTealContainer, HueGreenTeal),
+        ExpenseCategory.OTHER to TintedColor(HueGrayContainer, HueGray),
+    ),
+    activityTypes = mapOf(
+        ActivityType.ACTIVITY to TintedColor(HueTealContainer, HueTeal),
+        ActivityType.DINING to TintedColor(HueRoseContainer, HueRose),
+        ActivityType.TRANSPORT to TintedColor(HueIndigoContainer, HueIndigo),
+        ActivityType.LODGING to TintedColor(HuePurpleContainer, HuePurple),
+        ActivityType.OTHER to TintedColor(HueGrayContainer, HueGray),
     ),
 )
 
@@ -123,13 +142,20 @@ val DarkExtendedColors = ExtendedColors(
     budgetTrack = NightSurfaceHigh,
     iconChip = NightSurfaceHigh,
     categories = mapOf(
-        ExpenseCategory.FLIGHTS to CategoryTealDark,
-        ExpenseCategory.HOTELS to CategoryBlueDark,
-        ExpenseCategory.FOOD to CategoryAquaDark,
-        ExpenseCategory.SHOPPING to CategoryCornflowerDark,
-        ExpenseCategory.TRANSPORT to CategoryDeepTealDark,
-        ExpenseCategory.ATTRACTIONS to CategorySkyDark,
-        ExpenseCategory.OTHER to CategorySlateDark,
+        ExpenseCategory.FLIGHTS to TintedColor(HueSkyContainerDark, HueSkyDark),
+        ExpenseCategory.HOTELS to TintedColor(HuePurpleContainerDark, HuePurpleDark),
+        ExpenseCategory.FOOD to TintedColor(HueRoseContainerDark, HueRoseDark),
+        ExpenseCategory.SHOPPING to TintedColor(HueGreenContainerDark, HueGreenDark),
+        ExpenseCategory.TRANSPORT to TintedColor(HueIndigoContainerDark, HueIndigoDark),
+        ExpenseCategory.ATTRACTIONS to TintedColor(HueGreenTealContainerDark, HueGreenTealDark),
+        ExpenseCategory.OTHER to TintedColor(HueGrayContainerDark, HueGrayDark),
+    ),
+    activityTypes = mapOf(
+        ActivityType.ACTIVITY to TintedColor(HueTealContainerDark, HueTealDark),
+        ActivityType.DINING to TintedColor(HueRoseContainerDark, HueRoseDark),
+        ActivityType.TRANSPORT to TintedColor(HueIndigoContainerDark, HueIndigoDark),
+        ActivityType.LODGING to TintedColor(HuePurpleContainerDark, HuePurpleDark),
+        ActivityType.OTHER to TintedColor(HueGrayContainerDark, HueGrayDark),
     ),
 )
 

@@ -66,13 +66,13 @@ fun CategoryChartCard(totals: List<CategoryTotal>, modifier: Modifier = Modifier
 @Composable
 private fun Donut(totals: List<CategoryTotal>, modifier: Modifier = Modifier) {
     val colors = ExtendedTheme.colors
-    val sliceColors = totals.map { colors.category(it.category) }
+    val sliceColors = totals.map { colors.category(it.category).content }
     val description = stringResource(R.string.budget_chart_description)
     Box(modifier.semantics { contentDescription = description }, contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
             val strokeWidth = 26.dp.toPx()
             val inset = strokeWidth / 2
-            // A small gap between slices keeps neighbouring shades apart; none for a single slice.
+            // A small gap between slices keeps neighbouring colors apart; none for a single slice.
             val gap = if (totals.size > 1) 2f else 0f
             var start = -90f
             totals.forEachIndexed { i, total ->

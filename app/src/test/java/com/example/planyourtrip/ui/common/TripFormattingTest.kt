@@ -3,6 +3,7 @@ package com.example.planyourtrip.ui.common
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.time.LocalDate
+import java.time.LocalTime
 import java.util.Locale
 
 class TripFormattingTest {
@@ -54,6 +55,17 @@ class TripFormattingTest {
         assertEquals("Aug 2026", TripFormatting.monthYear(date, en))
         assertEquals("août 2026", TripFormatting.monthYear(date, Locale.FRENCH))
         assertEquals("Aug 2026", TripFormatting.monthYear(date, en))
+    }
+
+    @Test
+    fun weekdayDayMonth() {
+        assertEquals("Thu 12 Nov", TripFormatting.weekdayDayMonth(d(2026, 11, 12), en))
+    }
+
+    @Test
+    fun time_isAlways24Hour() {
+        assertEquals("13:00", TripFormatting.time(LocalTime.of(13, 0), Locale.US))
+        assertEquals("09:05", TripFormatting.time(LocalTime.of(9, 5), Locale.US))
     }
 
     @Test

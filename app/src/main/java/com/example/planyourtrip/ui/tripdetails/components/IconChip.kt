@@ -10,7 +10,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.data.trip.ExpenseCategory
@@ -36,20 +35,20 @@ fun IconChip(@DrawableRes icon: Int, modifier: Modifier = Modifier) {
     }
 }
 
-/** Rounded square with the category icon, tinted with the category's chart color. */
+/** Round category icon: the category color on its light tint (expense rows and the chart legend). */
 @Composable
 fun CategoryIcon(category: ExpenseCategory, modifier: Modifier = Modifier) {
-    val color: Color = ExtendedTheme.colors.category(category)
+    val color = ExtendedTheme.colors.category(category)
     Box(
         modifier = modifier
             .size(Dimens.CategoryIconSize)
-            .background(color.copy(alpha = 0.16f), MaterialTheme.shapes.small),
+            .background(color.container, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             painter = painterResource(category.iconRes()),
             contentDescription = null,
-            tint = color,
+            tint = color.content,
             modifier = Modifier.size(22.dp),
         )
     }

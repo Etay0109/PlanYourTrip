@@ -22,6 +22,7 @@ class RoomExpenseRepository(
         amountAgorot: Long,
         category: ExpenseCategory,
         date: LocalDate,
+        original: ForeignAmount?,
     ): Long? {
         // Never attach an expense to another account's trip.
         if (!tripDao.exists(tripId, ownerId)) return null
@@ -32,6 +33,10 @@ class RoomExpenseRepository(
                 amountAgorot = amountAgorot,
                 category = category,
                 date = date,
+                originalAmount = original?.amount,
+                originalCurrency = original?.currencyCode,
+                exchangeRate = original?.ilsPerUnit,
+                rateDate = original?.rateDate,
             )
         )
     }
@@ -43,7 +48,11 @@ class RoomExpenseRepository(
         amountAgorot: Long,
         category: ExpenseCategory,
         date: LocalDate,
-    ) = expenseDao.update(id, ownerId, name.trim(), amountAgorot, category, date)
+        original: ForeignAmount?,
+    ) = expenseDao.update(
+        id, ownerId, name.trim(), amountAgorot, category, date,
+        original?.amount, original?.currencyCode, original?.ilsPerUnit, original?.rateDate,
+    )
 
     override suspend fun deleteExpense(id: Long, ownerId: String) = expenseDao.delete(id, ownerId)
 }

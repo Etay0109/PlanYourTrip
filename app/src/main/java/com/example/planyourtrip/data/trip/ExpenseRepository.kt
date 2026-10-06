@@ -3,7 +3,10 @@ package com.example.planyourtrip.data.trip
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
 
-/** Expenses of the owner's trips; callers pass the signed-in user's uid as [ownerId]. Amounts are in agorot. */
+/**
+ * Expenses of the owner's trips; callers pass the signed-in user's uid as [ownerId]. Amounts are in agorot;
+ * [ForeignAmount] (null = entered in shekels) records the original amount and the rate used.
+ */
 interface ExpenseRepository {
     /** The trip's expenses, newest first (by date, then by id). Empty if the trip is not the owner's. */
     fun observeExpenses(tripId: Long, ownerId: String): Flow<List<Expense>>
@@ -19,6 +22,7 @@ interface ExpenseRepository {
         amountAgorot: Long,
         category: ExpenseCategory,
         date: LocalDate,
+        original: ForeignAmount? = null,
     ): Long?
 
     suspend fun updateExpense(
@@ -28,6 +32,7 @@ interface ExpenseRepository {
         amountAgorot: Long,
         category: ExpenseCategory,
         date: LocalDate,
+        original: ForeignAmount? = null,
     )
 
     suspend fun deleteExpense(id: Long, ownerId: String)

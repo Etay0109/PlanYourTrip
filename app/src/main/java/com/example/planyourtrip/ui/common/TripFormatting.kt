@@ -1,6 +1,7 @@
 package com.example.planyourtrip.ui.common
 
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.time.temporal.ChronoUnit
@@ -14,6 +15,8 @@ object TripFormatting {
     private class Formatters(locale: Locale) {
         val day: DateTimeFormatter = DateTimeFormatter.ofPattern("d", locale)
         val dayMonth: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM", locale)
+        val weekdayDayMonth: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE d MMM", locale)
+        val time: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm", locale)
         val full: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM yyyy", locale)
         val monthYear: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM yyyy", locale)
         val field: DateTimeFormatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale)
@@ -51,6 +54,13 @@ object TripFormatting {
     /** "2 Oct" — e.g. the date of an exchange rate. */
     fun dayMonth(date: LocalDate, locale: Locale = Locale.getDefault()): String =
         date.format(formatters(locale).dayMonth)
+
+    /** "Thu 12 Nov" — itinerary day chips and the Overview day section. */
+    fun weekdayDayMonth(date: LocalDate, locale: Locale = Locale.getDefault()): String =
+        date.format(formatters(locale).weekdayDayMonth)
+
+    /** "13:00" — activity start times, always 24-hour. */
+    fun time(time: LocalTime, locale: Locale = Locale.getDefault()): String = time.format(formatters(locale).time)
 
     /** "Aug 2026" — used for past trips. */
     fun monthYear(date: LocalDate, locale: Locale = Locale.getDefault()): String =

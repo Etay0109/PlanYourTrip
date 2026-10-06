@@ -1,14 +1,17 @@
 # Plan Your Trip — Android app
 
 Trip-planning app. Kotlin + Jetpack Compose + Material 3, single Activity (`MainActivity`) hosting a
-Navigation Compose graph. Firebase Authentication (email/password); trips, budgets and expenses are stored locally
-with Room, per account. Exchange rates come from the free Frankfurter API and are cached in Room.
+Navigation Compose graph. Firebase Authentication (email/password); trips, budgets, expenses and itinerary activities are
+stored locally with Room, per account. Exchange rates come from the free Frankfurter API and are cached in Room.
+An AI trip assistant (Gemini through Firebase AI Logic, protected by Firebase App Check) chats about the trip and can
+add suggested day plans to the itinerary.
 Package: `com.example.planyourtrip`. minSdk 26, targetSdk 36.
 
 ## Commands
 - Build: `./gradlew assembleDebug` (also regenerates the Room schema JSON in `app/schemas/`)
 - Unit tests: `./gradlew testDebugUnitTest`
 - Instrumented tests (needs an emulator): `./gradlew connectedDebugAndroidTest`
+- Release build: `./gradlew assembleRelease` (unsigned APK; must compile too, see the Compose BoM note in Conventions)
 - Firebase config: `app/google-services.json` (project `planyourtrip-79724`, package `com.example.planyourtrip`).
   The Google services plugin only reads it from `app/`.
 - Gradle 8.13 fails on the system JDK 24 ("Type T not present"). From the terminal, use Android Studio's JDK:
@@ -18,17 +21,23 @@ Package: `com.example.planyourtrip`. minSdk 26, targetSdk 36.
 ```
 app/src/main/java/com/example/planyourtrip/
   MainActivity.kt              # PlanYourTripTheme { AppNavHost() }
-  PlanYourTripApplication.kt   # creates the AppContainer; CreationExtras.appContainer() helper
+  PlanYourTripApplication.kt   # installAppCheck(), then creates the AppContainer; CreationExtras.appContainer() helper
   AppContainer.kt              # manual DI: AuthRepository, AppDatabase, TripRepository, ExpenseRepository,
-                               # CurrencyRepository, Clock
+                               # ActivityRepository, CurrencyRepository, AssistantRepository, Clock
   data/auth/                   # AuthRepository (interface), AuthUser, AuthError/AuthException,
                                # FirebaseAuthRepository (the only Firebase Auth code)
   data/trip/                   # Trip, TripColor, TripEntity, TripDao, TripRepository + RoomTripRepository,
                                # Expense, ExpenseCategory, ExpenseEntity, ExpenseDao,
-                               # ExpenseRepository + RoomExpenseRepository, Converters, AppDatabase
+                               # ExpenseRepository + RoomExpenseRepository, ActivityType, TripActivity (+ ActivityInput),
+                               # ActivityEntity, ActivityDao, ActivityRepository + RoomActivityRepository,
+                               # Converters, AppDatabase
   data/currency/               # Currency, ExchangeRate, ILS, ExchangeRateEntity/Dao (rate cache),
                                # CurrencyRepository (+ isStale, RATE_MAX_AGE) + RoomCurrencyRepository,
                                # RatesApi + FrankfurterRatesApi (the only HTTP code), FrankfurterJson (pure parsers)
+  data/assistant/              # AssistantRepository (interface; AssistantRequest, ChatTurn, AssistantResponse,
+                               # AssistantError), FirebaseAssistantRepository (the only Firebase AI code + JSON schema),
+                               # AssistantPrompt (pure: AssistantModel, assistantInstructions, classifyServerMessage),
+                               # AssistantJson (pure: parseReply → AssistantReply / SuggestedPlan / SuggestedActivity)
   data/user/                   # CurrentUser (AuthUser.greetingName()), UserNames (firstName()/initials())
   ui/navigation/               # Routes.kt (type-safe routes), AppNavHost.kt, SessionViewModel
   ui/auth/                     # AuthScreen, AuthViewModel, AuthUiState, AuthValidator
@@ -36,12 +45,23 @@ app/src/main/java/com/example/planyourtrip/
                                # components/ (NextTripCard, TripCards: upcoming + past list cards)
   ui/tripform/                 # TripFormScreen/ViewModel/UiState, TripValidator — new trip AND edit trip
   ui/tripdetails/              # the trip area: TripDetailsScreen (header + 4 tabs), TripDetailsViewModel,
-                               # TripDetailsUiState (+ TripTab, BudgetDialogState, CurrencyCardState),
+                               # TripDetailsUiState (+ TripTab, BudgetDialogState, CurrencyCardState, ItineraryState,
+                               # PlanDayState, OverviewDayState),
                                # BudgetCalculations (pure), CurrencyConversion (pure: converter math + typing reducer),
-                               # ExpenseCategoryUi (icon/label), components/ (TripHeader, BudgetCard, CurrencyCard,
-                               # CategoryChartCard, ExpenseRow, BudgetDialog, FeatureCard,
-                               # IconChip/CategoryIcon),
-                               # expense/ (ExpenseFormScreen/ViewModel/UiState, ExpenseValidator)
+                               # Itinerary (pure: days, ordering, planned days, default day, titles, daily cost),
+                               # ExpenseCategoryUi / ActivityTypeUi (icon/label), components/ (TripHeader, BudgetCard,
+                               # CurrencyCard, CategoryChartCard, ExpenseRow, BudgetDialog, FeatureCard,
+                               # IconChip/CategoryIcon, ActivityTimeline (TimelineRow, ActivityCard,
+                               # CompactActivityCard, TagPill), ItineraryComponents (ItineraryActions, ItineraryHeader,
+                               # DayChipsRow, DaySummaryCard, AddActivityButton, PlanTimeline, DailyPlanProgress,
+                               # DayPreviewCard)),
+                               # expense/ (ExpenseFormScreen/ViewModel/UiState (+ ForeignRateState), ExpenseValidator,
+                               # ExpenseCurrency (pure: per-currency parsing, conversion to agorot, save rule)),
+                               # activity/ (ActivityFormScreen/ViewModel/UiState, ActivityValidator),
+                               # assistant/ (AssistantScreen, AssistantViewModel, AssistantUiState (+ ChatMessage,
+                               # PlanCardState, AddStatus), SuggestedPlanCard, AssistantContext (pure: buildTripContext,
+                               # AssistantChip + suggestionChips, chatHistory, planCard), Suggestions (pure:
+                               # suggestionInputs))
   ui/common/                   # code shared by several features:
                                #   TripFormatting (dates, cached formatters), TripTexts (datesWithLength,
                                #   statusLabel), TripStatus (tripStatus()), Money (agorot format/parse, percent,
@@ -52,9 +72,12 @@ app/src/main/java/com/example/planyourtrip/
                                #   TripComponents (LetterSquare, Pill, TripDatesRow, ChevronIcon),
                                #   CurrencyPickerSheet (searchable currency list, trip form + trip screen)
   ui/theme/                    # Color, ExtendedColors, Shape, Type (Inter + named styles), Dimens, Theme
+app/src/debug/.../AppCheckSetup.kt    # installAppCheck(): App Check debug provider
+app/src/release/.../AppCheckSetup.kt  # installAppCheck(): Play Integrity provider
 app/schemas/                   # exported Room schemas — commit them
 design/home_screen.png         # visual reference for the home screen and the app theme
 design/trip_overview.png       # visual reference for the trip screen (Overview tab)
+design/trip_plan.png           # visual reference for the Plan tab (see "Plan tab" for the deliberate differences)
 third_party/inter/OFL.txt      # Inter font license
 ```
 
@@ -70,9 +93,11 @@ third_party/inter/OFL.txt      # Inter font license
   screens call `viewModel(factory = XxxViewModel.Factory)`. Tests pass fakes directly. Move to Hilt if wiring grows.
 - **Time and dispatchers are injected.** `HomeViewModel` and `TripDetailsViewModel` take a `java.time.Clock` (tests
   fix "today") and a `computeDispatcher` (default `Dispatchers.Default`; tests pass their test dispatcher so no work
-  outlives a test). `ExpenseFormViewModel` takes the `Clock` for the default expense date.
-- **Firebase stays behind interfaces.** Only `data/auth/FirebaseAuthRepository.kt` and `AppContainer.kt` import
-  Firebase. ViewModels see `AuthRepository`, `AuthUser` and `AuthError`; tests use `FakeAuthRepository`.
+  outlives a test). `ExpenseFormViewModel` takes the `Clock` for the default expense date and the rate's 12-hour check.
+- **Firebase stays behind interfaces.** Only `data/auth/FirebaseAuthRepository.kt`,
+  `data/assistant/FirebaseAssistantRepository.kt`, the two `AppCheckSetup.kt` files and `AppContainer.kt` import
+  Firebase. ViewModels see `AuthRepository`/`AuthUser`/`AuthError` and `AssistantRepository`/`AssistantError`; tests
+  use `FakeAuthRepository` and `FakeAssistantRepository`.
 - **ViewModels have no Android `Context`.** Validation returns enum codes (`FieldError`, `TripFieldError`,
   `ExpenseFieldError`, `BudgetFieldError`); the UI maps them to string resources.
 - **Package rules.** Each feature package (`auth`, `home`, `tripform`, `tripdetails`) owns its screen, ViewModel,
@@ -80,14 +105,14 @@ third_party/inter/OFL.txt      # Inter font license
   `ui/common/components` for composables) — features never import from each other.
 - **Heavy work stays off the main thread.** Room and Firebase calls are `suspend`/`Flow`; `HomeViewModel` groups
   trips and `TripDetailsViewModel` computes budget totals with `flowOn(computeDispatcher)`.
-- **One-shot results are state flags.** `AuthUiState.isAuthenticated`, `TripFormUiState.saved` and
-  `ExpenseFormUiState.done` are observed in a `LaunchedEffect` that triggers navigation.
-- **Edit forms reuse the create forms.** `TripForm(tripId?)` and `ExpenseForm(tripId, expenseId?)` create when the
-  id is null and edit otherwise; the ViewModel loads the item once (`isLoading` hides the fields until then) and
+- **One-shot results are state flags.** `AuthUiState.isAuthenticated`, `TripFormUiState.saved`,
+  `ExpenseFormUiState.done` and `ActivityFormUiState.done` are observed in a `LaunchedEffect` that triggers navigation.
+- **Edit forms reuse the create forms.** `TripForm(tripId?)`, `ExpenseForm(tripId, expenseId?)` and
+  `ActivityForm(tripId, activityId?, dateEpochDay?)` create when the id is null and edit otherwise; the ViewModel loads the item once (`isLoading` hides the fields until then) and
   saving sets `isSaving` synchronously, so double taps save once.
 
 ## Data model (Room)
-Database `plan_your_trip.db`, `AppDatabase` version 4, three tables:
+Database `plan_your_trip.db`, `AppDatabase` version 6, four tables:
 
 | `trips` column | Type | Notes |
 |---|---|---|
@@ -105,9 +130,29 @@ Database `plan_your_trip.db`, `AppDatabase` version 4, three tables:
 | `id` | INTEGER PK | auto-generated |
 | `trip_id` | INTEGER, indexed | FK → `trips.id`, **`ON DELETE CASCADE`** (deleting a trip deletes its expenses) |
 | `name` | TEXT | trimmed, never blank |
-| `amount_agorot` | INTEGER | > 0 (validated in the form) |
+| `amount_agorot` | INTEGER | > 0; the **shekel** amount the budget uses, also for foreign-currency expenses |
 | `category` | TEXT | `ExpenseCategory` enum **name**; unknown names fall back to `OTHER` |
 | `date` | INTEGER | epoch day |
+| `original_amount` | TEXT, nullable | amount as typed in a foreign currency, exact `BigDecimal` text ("10.00", "1500") |
+| `original_currency` | TEXT, nullable | ISO 4217 code of that amount |
+| `exchange_rate` | TEXT, nullable | shekels per 1 unit used for the conversion, exact `BigDecimal` text |
+| `rate_date` | INTEGER, nullable | epoch day of that rate (from the rates service) |
+
+The four `original_*`/`exchange_rate`/`rate_date` columns are all set or all null (null = entered in shekels);
+they map to `Expense.original: ForeignAmount?`.
+
+| `activities` column | Type | Notes |
+|---|---|---|
+| `id` | INTEGER PK | auto-generated |
+| `trip_id` | INTEGER, indexed | FK → `trips.id`, **`ON DELETE CASCADE`** (deleting a trip deletes its activities) |
+| `date` | INTEGER | epoch day; may fall outside the trip after its dates are edited (never deleted for that) |
+| `start_time` | INTEGER, nullable | `LocalTime` as minute of the day (0..1439); `null` = no time |
+| `title` | TEXT | trimmed, never blank |
+| `note` | TEXT, nullable | trimmed; blank is stored as `null` |
+| `type` | TEXT | `ActivityType` enum **name**; unknown names fall back to `OTHER` |
+| `location` | TEXT, nullable | free text, trimmed; blank is stored as `null` |
+| `estimated_cost_agorot` | INTEGER, nullable | > 0 when set (validated in the form); `null` = no estimate |
+| `booked` | INTEGER | Boolean |
 
 | `exchange_rates` column | Type | Notes |
 |---|---|---|
@@ -121,6 +166,10 @@ Database `plan_your_trip.db`, `AppDatabase` version 4, three tables:
   `Money.formatAgorot` / `shekels()` ("₪2,550", "₪12.50"). Doubles are used only for displayed percentages.
 - `ExpenseCategory` = `FLIGHTS, HOTELS, FOOD, SHOPPING, TRANSPORT, ATTRACTIONS, OTHER`, same naming rules as `TripColor`.
   Icons/labels live in `ui/tripdetails/ExpenseCategoryUi.kt`, colors in `ExtendedColors.categories`.
+- `ActivityType` = `ACTIVITY, DINING, TRANSPORT, LODGING, OTHER`, same naming rules. Icons/labels in
+  `ui/tripdetails/ActivityTypeUi.kt`, colors in `ExtendedColors.activityTypes` (one hue per type, see Design rules).
+  The domain model is `TripActivity` (not `Activity`, which would clash with `android.app.Activity`); the form
+  saves an `ActivityInput`, which repositories `normalized()` (trim, blank optionals → null).
 
 - `TripEntity` is the Room row; `Trip` is the domain model used by the UI (mapped with `toTrip()`).
   The UI never sees Room types, so storage can change later (e.g. Firestore sync).
@@ -131,18 +180,21 @@ Database `plan_your_trip.db`, `AppDatabase` version 4, three tables:
   color). The actual colors live in the theme (`ExtendedColors.pastels`), with light and dark variants.
 - **Every query is scoped to one owner** (`observeAll(ownerId)`, `observeById(id, ownerId)`, `count(ownerId)`,
   `update`/`setBudget` with `AND owner_id = :ownerId`), so an account never sees or changes another account's trips.
-  Expense queries join/sub-select `trips` on `owner_id`; `addExpense` returns null for a trip the owner doesn't own. `TripRepository` takes `ownerId` explicitly; ViewModels pass
+  Expense and activity queries join/sub-select `trips` on `owner_id`; `addExpense` / `addActivity` return null
+  for a trip the owner doesn't own. `TripRepository` takes `ownerId` explicitly; ViewModels pass
   `authRepository.currentUser.value?.uid` (New Trip does nothing and Details shows nothing without a user).
 - `observeAll` returns trips ordered by `start_date, id`. Grouping into home sections happens in Kotlin.
   Expenses are returned newest first (`date DESC, id DESC`).
 - **Migrations:** v1 → v2 is an `AutoMigration` that adds `owner_id`. Trips created before v2 get `""` and are shown
   to no account. v2 → v3 is an `AutoMigration` that adds `trips.budget_agorot` (null) and creates `expenses`;
   existing trips are kept. v3 → v4 is an `AutoMigration` that adds `trips.currency_code` (null) and creates
-  `exchange_rates`; existing trips and expenses are kept. Room turns on `PRAGMA foreign_keys` itself (the cascade is covered in `TripDaoTest`).
+  `exchange_rates`; existing trips and expenses are kept. v4 → v5 is an `AutoMigration` that creates `activities`;
+  all existing data is kept. v5 → v6 is an `AutoMigration` that adds the four nullable foreign-amount columns to
+  `expenses`, so every existing expense stays a shekel expense. Room turns on `PRAGMA foreign_keys` itself (the cascade is covered in `TripDaoTest`).
 - **Never seed sample trips into the database.** Sample data belongs only in previews and tests.
 - **Changing the schema:** bump `version`, add a `Migration` or `AutoMigration`, build, and commit the new JSON in
   `app/schemas/`. Do not use `fallbackToDestructiveMigration` — users would lose their trips.
-- There is no "delete trip" UI yet; when added, the FK cascade removes the expenses.
+- There is no "delete trip" UI yet; when added, the FK cascade removes the expenses and activities.
 
 ## Navigation
 Type-safe Navigation Compose routes (`@Serializable`) in `ui/navigation/Routes.kt`:
@@ -155,6 +207,9 @@ Home ──(tap any trip card)─────────▶ TripDetails(tripId:
 TripDetails ──(header edit icon)───▶ TripForm(tripId)            Save / back arrow → pop (to the trip)
 TripDetails ──("+ Add expense")────▶ ExpenseForm(tripId)         Save / back arrow → pop
 TripDetails ──(tap an expense)─────▶ ExpenseForm(tripId, expenseId)  Save / Delete / back → pop
+TripDetails ──("Add activity")─────▶ ActivityForm(tripId, dateEpochDay = selected day)  Save / back → pop
+TripDetails ──(tap an activity)────▶ ActivityForm(tripId, activityId)  Save / Delete / back → pop
+TripDetails ──(sparkle FAB)────────▶ TripAssistant(tripId)       back arrow → pop (conversation is kept)
 (session becomes null) ──▶ Login                   popUpTo(graph) inclusive → whole back stack cleared
 ```
 - `SessionViewModel.startsSignedIn` picks the start destination once. Firebase restores a saved session
@@ -163,8 +218,11 @@ TripDetails ──(tap an expense)─────▶ ExpenseForm(tripId, expense
   menu "Sign out", or Firebase signing the user out), it navigates to Login and clears the back stack.
 - Login → Home is driven by `AuthUiState.isAuthenticated`, not by the session flow, so Home opens only after sign up
   has saved the display name.
-- `TripDetailsViewModel`, `TripFormViewModel` and `ExpenseFormViewModel` read their ids via
+- `TripDetailsViewModel`, `TripFormViewModel`, `ExpenseFormViewModel` and `ActivityFormViewModel` read their ids via
   `SavedStateHandle.toRoute<...>()`.
+- `AssistantViewModel` is created with the **`TripDetails` back stack entry** as its owner
+  (`viewModel(navController.getBackStackEntry<TripDetails>(), factory = ...)`), so it reads `TripDetails` from the
+  `SavedStateHandle` and the conversation lives exactly as long as the trip screen.
 - The trip screen's 4 tabs are **not** destinations: the selected `TripTab` is Compose state (`rememberSaveable`).
 - Navigation calls live only in `AppNavHost`; screens receive callbacks (`onAddTrip`, `onTripClick`, `onBack`, ...).
 
@@ -187,23 +245,86 @@ TripDetails ──(tap an expense)─────▶ ExpenseForm(tripId, expense
 
 ## Trip screen (`ui/tripdetails`)
 Reference: `design/trip_overview.png` (there is no separate Budget design; the Budget tab reuses the Overview style).
-- `Scaffold` with a Material 3 `NavigationBar`: **Overview, Budget, Map, Plan**. Map and Plan show "Coming soon".
+- `Scaffold` with a Material 3 `NavigationBar`: **Overview, Budget, Map, Plan**. Map shows "Coming soon".
+  A round `secondary` FAB with a sparkle (`AssistantFab`) sits above the navigation bar on all four tabs and opens
+  the assistant; the list has `FabClearance` bottom padding so it never covers the last card.
 - **Header** (`TripHeader`, on every tab, scrolls with the list): hero gradient + `HeroWaves`, only bottom corners
   rounded (`extraLarge`), drawn behind the status bar (`contentWindowInsets = WindowInsets(0)` +
   `statusBarsPadding()`); back circle, status pill ("In 38 days" / "Now", **hidden after the trip ended**), edit
   circle (→ `TripForm(tripId)`), destination (`headlineLarge`, ≤ 3 lines), dates with length.
 - **Overview:** `BudgetCard` (tap → Budget tab; "Set budget" button opens the budget dialog), then `CurrencyCard`,
-  then Places ("No places yet" → Map tab) and Daily plan ("No plan yet" → Plan tab) side by side. Not built yet on
-  purpose: "First day", assistant FAB — add them when those features exist.
+  then Places ("No places yet" → Map tab) and Daily plan (→ Plan tab) side by side, then the day section
+  (`DayPreviewCard`, see "Plan tab"). Not built yet on purpose: the map preview in Places.
 - **Budget:** `BudgetCard` with an edit icon next to the total (opens the dialog), "By category" donut + legend (only
   categories with spending, largest first), "Expenses" title + "+ Add expense" button + rows newest first (tap →
   edit), or an empty state.
 - `TripDetailsUiState`: `Loading` (nothing drawn) / `NotFound` (not the user's trip or deleted) / `Loaded`.
 - **Budget dialog** state lives in the ViewModel (`budgetDialog: BudgetDialogState?`): prefilled with the current
   budget; empty → `EMPTY`, unparseable or ≤ 0 → `INVALID`; Save stores it with `setBudget`.
-- **Expense form:** name, amount (₪ prefix, decimal keyboard), date (`DateField`, default today), category
-  (`FilterChip`s, default `OTHER`). Validation on Save: name not blank; amount not empty, parseable and > 0. Editing
-  a field clears only its error. In edit mode the top bar has a delete icon → confirmation dialog → delete.
+- **Expense form:** name, amount (currency symbol prefix, decimal keyboard) with a currency selector, date
+  (`DateField`, default today), category (`FilterChip`s in the category colors, default `OTHER`). Validation on
+  Save: name not blank; amount see "Expense currency". Editing a field clears only its error. In edit mode the top
+  bar has a delete icon → confirmation dialog → delete.
+- **Expense row:** round category icon, name, date, category label (`TagPill` in the category colors); right side
+  the shekel amount in bold and, for a foreign expense, the original ("€10.00", `ExpenseCurrency.formatOriginal`)
+  in small gray text.
+
+### Expense currency (`expense/ExpenseCurrency.kt`, pure + unit-tested)
+- The selector (`SingleChoiceSegmentedButtonRow`) offers **ILS** and one foreign currency: the trip currency (none
+  when the trip has no currency or it is ILS → no selector), or, when editing a foreign expense, **that expense's
+  own currency** (even if the trip currency changed since). A new expense defaults to the trip currency; an
+  edited one to its stored currency. The selector moves under the field below 360dp or above font scale 1.2.
+- The form follows `CurrencyRepository.observeRate(code)` for its whole life and calls `refreshRate` once on open
+  when `isStale` (no cache or ≥ 12 hours). No cached rate and the fetch fails → `ForeignRateState.Unavailable`:
+  the foreign option is disabled (`foreignEnabled = false`) with a short message and the selection moves to ILS —
+  **except** for an edited foreign expense, which keeps its currency and stored rate. While the first fetch runs,
+  saving a foreign amount reports `NO_RATE`.
+- **Save rule** (`resolveAmount`): editing with the same currency and the same amount ("10" = "10.00") keeps the
+  stored `amountAgorot` and `ForeignAmount` (rate fixed at the first save). Otherwise ILS → `Money.parseAgorot`, no
+  original; foreign → `parseAmount` with the currency's decimals (`java.util.Currency.defaultFractionDigits`:
+  JPY 0, EUR 2, KWD 3; unknown → 2), shekels = amount × latest rate, `BigDecimal`, **HALF_UP to whole agorot**, no
+  fees, no manual adjustment; ≤ 0 agorot or above `Money.MAX_AGOROT` → `INVALID_AMOUNT`.
+- Live line under a valid foreign amount: "≈ ₪40.20 · 1 EUR = ₪4.02 · rate of 2 Oct" (`conversionPreview`,
+  `CurrencyConversion.formatRate`, `TripFormatting.dayMonth` of the **service's** rate date); it shows the stored
+  rate while an edited amount is unchanged.
+- Budget totals, the donut and the Overview budget card only ever sum `amountAgorot`, so they need no conversion.
+
+### Plan tab and itinerary (`Itinerary.kt` pure + unit-tested, `components/ItineraryComponents.kt`)
+Reference: `design/trip_plan.png`, **with these deliberate differences**: no top bar ("Plan" title, logo,
+profile), no share/map icons, no walking distance / "On Track" / "22 min walk", no "Not scheduled yet" section and
+no assistant button inside the tab (the trip screen's sparkle FAB opens the assistant), and **no orange** — each type has its own hue
+(`activityTypes`), used for the round type icon, the type label, the timeline dot, the Overview day section
+(label, note icon, dot) and the type chips in the activity form. "Booked" is a neutral pill with a check, so it
+never looks like a second type label.
+- A day is **planned** when it has ≥ 1 activity. Activities outside the trip dates never count.
+- **Default day:** today while the trip is happening (`start ≤ today ≤ end`), otherwise (before *or* after the
+  trip) the first day. The selected days live in `TripDetailsViewModel` (`planDay`, `overviewDay`, null = default);
+  a selection that is no longer inside the trip dates (dates edited) falls back to the default
+  (`validDayOrDefault`). The tab itself stays Compose state.
+- **Ordering** (`sortActivities`): by date, then start time with **untimed activities last**, then id.
+- **Plan tab** (below the usual `TripHeader`): "Itinerary" + "12–17 Nov 2026 · Rome, Italy"; `DayChipsRow`
+  ("Day 1 · Thu 12 Nov", selected = filled teal + check icon, opens scrolled to the selected chip);
+  `DaySummaryCard` ("DAILY RHYTHM", "N activities", "~₪210 planned" = `dailyCostAgorot`, hidden when no activity
+  of the day has a cost); the timeline (`PlanTimeline` → `TimelineRow` + `ActivityCard`: 24-hour time, title,
+  round type icon, note box, type pill, "Booked" pill, location) as **one** lazy item so the rail line is
+  unbroken; or the empty state; then the full-width `AddActivityButton` (opens the form on the selected day).
+- **Outside trip dates:** activities whose date is outside the (edited) trip dates are never deleted; they are
+  listed last under "Outside trip dates", with their date shown on the card.
+- **Daily plan card:** with activities, "5 of 6 days planned" + `DailyPlanProgress`: one segment per day
+  (filled = planned) for trips of ≤ 14 days (`MAX_PROGRESS_SEGMENTS`), one continuous bar for longer trips; "5 days
+  set" / "1 open" under it. Without any activity it keeps "No plan yet".
+- **Overview day section** (`DayPreviewCard`, hidden while the trip has no activities at all): title from
+  `daySectionTitle` — "First day" (day 1, before the trip), "Today" (the current day during the trip), else
+  "Day N"; date with previous/next arrows (disabled at the ends); up to 3 compact activities, then "+N more"; an
+  empty day shows "Nothing planned for this day" + "Add activity". "See full plan" calls `onSeeFullPlan()` (copies
+  the day into `planDay`) and switches to the Plan tab.
+- **Activity form** (`ActivityForm(tripId, activityId?, dateEpochDay?)`): title, type (`FilterChip`s, default
+  `ACTIVITY`), date (`DateField` limited to the trip with `minDate`/`maxDate`; default = the passed day, else the
+  default day), optional start time (read-only field → `AlertDialog` with a 24-hour M3 `TimePicker`, written
+  when material3 1.3 had no `TimePickerDialog` (1.4 adds one); × clears it), location, estimated cost (₪, optional), "Booked" switch row, note.
+  The ViewModel loads the trip first (`isLoading`); a trip that isn't the user's sets `done`. Validation on Save:
+  title not blank; cost empty or `Money.parseAgorot` > 0. Edit mode: delete icon → confirmation → delete. An
+  existing date outside the trip is kept unless the user picks another one.
 
 ### Currency card (`CurrencyCard`, `CurrencyConversion.kt`, `data/currency`)
 - `TripDetailsViewModel.currencyCard` (`CurrencyCardState?`, null = nothing drawn until the trip loads):
@@ -241,7 +362,71 @@ Reference: `design/trip_overview.png` (there is no separate Budget design; the B
 - **Amounts are always fully visible:** the code label sits above the amount, and the amount font steps down
   from 24sp to 10sp (`ConverterAmountStyles` in `Type.kt`, picked with `CurrencyConversion.largestFittingSize` +
   `rememberTextMeasurer`) until the whole number fits its box; the line height stays fixed.
-- Expenses are unaffected: they stay in shekels.
+- The converter is independent of expenses; expenses in the trip currency are described in "Expense currency".
+
+### AI trip assistant (`ui/tripdetails/assistant`, `data/assistant`)
+Reference: `design/trip_assistant.png`, **with these deliberate differences**: one header only (`BackTopAppBar`, back
+arrow + "Trip assistant"); no profile icon, "AI PRO" badge, "Online" status, map or refresh icons; no walking
+distances, weather, plan photo, microphone or like/dislike buttons; **no orange** (timeline dots use `activityTypes`).
+- **Model:** Firebase AI Logic, Gemini Developer API backend (`Firebase.ai(backend = GenerativeBackend.googleAI())`),
+  model names only in `AssistantModel` (`AssistantPrompt.kt`): `PRIMARY` = `gemini-3.5-flash-lite` (default),
+  `FALLBACK` = `gemini-3.8-flash`. Both are stable and support structured output (Firebase AI Logic models page,
+  2026-10-01). Flash-Lite was chosen as the default for its free daily limit: free tier ~500 requests/day for
+  3.5 Flash-Lite and 3.1 Flash-Lite vs ~20 for the Flash models (3.5–3.8). Google's docs don't publish these numbers
+  (they point to AI Studio → Rate limits); 20/day for `gemini-3.8-flash` was confirmed by a real quota error, the
+  rest comes from third-party summaries, so check AI Studio when choosing again. Each model has its own quota.
+  `AssistantRequest.model` picks the model; no API key in the app or repo. `FirebaseAssistantRepository` builds the
+  model per request, because the system instruction (`assistantInstructions(tripContext)`) carries the current trip.
+- **Never test against the real model** (no emulator chat requests, no direct calls): the free quota is tiny. Use
+  `FakeAssistantRepository` in unit tests; the developer tests on the device.
+- **Trip context** (`buildTripContext`, English + ISO dates whatever the device language): destination, today, dates +
+  length + whether the trip is before/now/after, every day's activities in timeline order ("nothing planned" for empty
+  days), activities outside the dates, trip currency (or "not chosen"), budget total/spent/remaining in ₪ (or "no
+  budget set", or "over budget by"). Built from the latest Room data for **every** request.
+- **Rules in the instructions:** answer in the language of the user's message; respect the remaining budget; never
+  repeat planned activities; say when unsure about opening hours, prices etc.; plain text, no markdown.
+- **Structured answer** (`responseMimeType = "application/json"` + `responseSchema`):
+  `{reply, plan?: {date: yyyy-MM-dd, title, activities: [{time: HH:mm, title, type: ActivityType name, note,
+  costShekels?}]}}`. `AssistantJson.parseReply` is lenient: not JSON / neither reply nor plan → null (`UNREADABLE`);
+  a ```json fence is stripped; unknown type → `OTHER`; a time that isn't a valid 24-hour H:mm → null (untimed);
+  cost → agorot HALF_UP, ≤ 0 or above ₪1,000,000,000 → null; blank titles dropped; invalid date or no activities →
+  no plan (the text stays).
+- **History:** each request sends the earlier turns (`chatHistory`: answered user messages + the model's raw JSON),
+  so a failed message is never sent twice. The conversation is **in memory only** (never in Room).
+- **Chips** (only while the conversation is empty, `suggestionChips`): "Plan day N for me" (first trip day without
+  activities; left out when all days are planned), "Dinner ideas for day N" (the default day: today during the
+  trip, otherwise day 1), "Am I within budget?". A chip sends its text as a message.
+- **Chat UI:** user bubbles right (`primary`), answers left (`surfaceContainerLowest`, sparkle avatar) with "AI
+  generated · check details before booking" under each; three pulsing dots while `isSending`; input text is Compose
+  `rememberSaveable` state (not ViewModel state, see the converter cursor bug); send is disabled while a request runs,
+  for blank text and before the trip loads (`onSend` also returns false then, and the field is only cleared on true).
+  The input bar pads for the navigation bar and the keyboard (`MainActivity` uses `adjustResize`).
+- **Plan card** (`SuggestedPlanCard`): "SUGGESTED PLAN", "Day N · Fri 13 Nov", title, `TimelineRow` per suggestion
+  (time, title, note, type `TagPill`, "~₪90" pill, checkbox checked by default; the whole row toggles). "Add to Day N"
+  adds the checked ones via `suggestionInputs` (not booked, no location) with `ActivityRepository.addActivity`; status
+  NEW → ADDING → ADDED ("Added", disabled, toggles locked). Plan tab and Overview update through their Room flows.
+  `withinTrip`/`dayNumber` are recomputed from the **current** trip dates; outside the trip there is no button,
+  only a note.
+- **Errors** (`AssistantError`, card after the conversation with "Try again" = resend the last message without a
+  second bubble): `QuotaExceededException` or a message with quota / rate limit / RESOURCE_EXHAUSTED / 429 →
+  `RATE_LIMIT` (the free tier allows only ~20 requests a day for this model); a 503 "high demand" / overloaded /
+  unavailable message → `BUSY`. After `BUSY` or `RATE_LIMIT` the ViewModel sends the same request **once** to
+  `model.other` (still "typing", no delay) and only then shows the last error; "Try again" starts again with
+  `PRIMARY`. Other errors are shown right away. A message mentioning App Check / attestation → `APP_CHECK` (`classifyServerMessage`);
+  `RequestTimeoutException` or an `IOException` cause → `NO_CONNECTION`; stopped/blocked/unparseable responses →
+  `UNREADABLE`; everything else → `UNKNOWN`. Every failure is logged with its exception
+  (`adb logcat -s TripAssistant`), and an answer that isn't readable JSON is logged with its raw text.
+
+### App Check
+- Firebase enforces App Check for Firebase AI Logic. `PlanYourTripApplication.onCreate()` calls `installAppCheck()`
+  before anything else: `src/debug` installs `DebugAppCheckProviderFactory` (`firebase-appcheck-debug`, debug only),
+  `src/release` installs `PlayIntegrityAppCheckProviderFactory` (`firebase-appcheck-playintegrity`, release only; the
+  app must be linked in Play Console / have its SHA-256 in Firebase).
+- **Debug token:** with `firebase-appcheck-debug` 19.0.2 (BoM 34.12.0) it is logged **only when a new token is created**
+  (first launch after install or after clearing app data), Logcat level **Debug**, tag
+  `com.google.firebase.appcheck.debug.internal.DebugAppCheckProvider`, text "Enter this debug secret into the allow
+  list in the Firebase Console for your project: <token>". Register it in Firebase console → App Check → Apps →
+  ⋮ → Manage debug tokens. **Never commit the token.**
 
 ### Budget rules (`BudgetCalculations.kt`, pure + unit-tested)
 - `budgetSummary(...)` is `null` when there is no budget → card shows a short message and "Set budget".
@@ -258,8 +443,29 @@ Reference: `design/home_screen.png`. Match it closely when adding or changing sc
 - **Use theme tokens, never hard-coded colors in screens.** Material roles come from `MaterialTheme.colorScheme`;
   brand colors without a Material role come from `ExtendedTheme.colors` (hero gradient and its overlay, wave and glow
   colors, mint dot, badge, past-card colors, pastel letter squares, `budgetWarning` orange, `budgetTrack`,
-  `iconChip`, and `categories` — 7 distinct teal/blue shades for expense categories). Raw color values live only in
-  `ui/theme/Color.kt` and `ExtendedColors.kt` — no exceptions.
+  `iconChip`, `categories` and `activityTypes`). Raw color values live only in `ui/theme/Color.kt` and
+  `ExtendedColors.kt` — no exceptions.
+- **Activity type and category colors** (`ExtendedColors.activityTypes` / `categories`, both
+  `Map<…, TintedColor>`): each entry has a `content` color (icon, label text, chart slice, timeline dot) and a
+  light `container` tint, with dark-mode variants. Raw values are the `Hue*` constants in `Color.kt`; a hue means
+  the same thing in both maps:
+
+  | Hue | Activity type | Expense category |
+  |---|---|---|
+  | teal (brand) | Activity | — |
+  | rose | Dining | Food |
+  | purple | Lodging | Hotels |
+  | indigo | Transport | Transport |
+  | gray | Other | Other |
+  | sky blue | — | Flights |
+  | green-teal | — | Attractions |
+  | green | — | Shopping |
+
+  **Never orange** (it means "close to or over budget"). Used for: Plan cards (icon, label, dot, note icon),
+  Overview day section, activity form chips, donut slices, legend and row icons (`CategoryIcon`, round), row
+  category labels, expense form chips. `TintedColorsTest` checks, for both maps in both modes, ≥ 4.5:1
+  content-on-tint contrast, ≥ 3:1 on the background, no repeated colors, no `budgetWarning`, and that shared
+  meanings share their hue — keep it passing when changing them.
 - **Colors:** brand teal (`primary` #0F6E86, darker `secondary` #0B5A6E for the FAB), warm off-white background
   #FBF8FA, white cards (`surfaceContainerLowest`), gray secondary text (`onSurfaceVariant`). A dark scheme exists for
   every token.
@@ -284,7 +490,9 @@ Reference: `design/home_screen.png`. Match it closely when adding or changing sc
   never covers the last card.
 - **Reuse the shared components** before writing new UI: `PrimaryButton` (pill button with optional loading
   spinner, optional leading icon), `BackTopAppBar` (optional actions), `BrandMark` (gradient circle with the plane),
-  `DateField`, `HeroWaves`, `LetterSquare`, `Pill`, `TripDatesRow`, `ChevronIcon`. The upcoming and past cards share one private `TripListCard` skeleton.
+  `DateField` (optional `minDate`/`maxDate`), `HeroWaves`, `LetterSquare`, `Pill`, `TripDatesRow`, `ChevronIcon`.
+  Trip-area cards that need a gray fill (note box, day summary, compact activity cards, progress box, unselected
+  day chips) use `surfaceContainerHighest`. The upcoming and past cards share one private `TripListCard` skeleton.
 - **Long text never gets cut off.** Dates have no `maxLines` and wrap; destinations wrap to at most 2–3 lines
   with an ellipsis. Text columns use `weight(1f)`. Upcoming cards move the countdown badge under the dates when
   the card is narrower than 360dp or the font scale is above 1.2. Trip lengths and badges use non-breaking spaces
@@ -362,15 +570,23 @@ Reference: `design/home_screen.png`. Match it closely when adding or changing sc
   error enum to string resources.
 - All date formatting goes through `TripFormatting` (never build a `DateTimeFormatter` in a composable).
 - Dependencies go through the version catalog `gradle/libs.versions.toml`. Room 2.7.2, KSP 2.0.21-1.0.28,
-  Navigation 2.9.0, serialization 1.7.3 and **Firebase BoM 34.12.0** were chosen to match Kotlin 2.0.21; check
-  Kotlin/KSP compatibility before upgrading them. Kotlin 2.0 can read library metadata up to Kotlin 2.1:
+  Navigation 2.9.0, serialization 1.7.3, **Compose BoM 2025.09.01** (Compose 1.9.2, Material 3 1.4.0) and
+  **Firebase BoM 34.12.0** were chosen to match Kotlin 2.0.21; check
+  Kotlin/KSP compatibility before upgrading them. Keep the Compose BoM at least as new as the Compose version that
+  Navigation/Activity and debug-only `ui-tooling` pull in (1.9.2 now): an older BoM leaves release on older Compose
+  artifacts than debug, so code like `FlowRow(itemVerticalAlignment)` compiles in debug and fails in release. Check
+  that both `assembleDebug` and `assembleRelease` build after changing Compose versions. Kotlin 2.0 can read library metadata up to Kotlin 2.1:
   `kotlinx-serialization-json` uses the same version as `-core` (1.7.3). `firebase-auth` 24.1.0+ (BoM 34.13.0+) is compiled with Kotlin 2.3 metadata and fails to build
-  ("incompatible version of Kotlin ... metadata is 2.3.0"), so upgrading Firebase requires upgrading Kotlin first. Only declare dependencies that code actually uses (`androidx.test:runner` is declared
+  ("incompatible version of Kotlin ... metadata is 2.3.0"), so upgrading Firebase requires upgrading Kotlin first. `firebase-ai` 17.11.0 (in BoM 34.12.0) is built
+  with Kotlin 2.0.21 + serialization 1.7.3; check its POM before upgrading the BoM. Only declare dependencies that code actually uses (`androidx.test:runner` is declared
   explicitly because `AndroidJUnitRunner` needs it).
 - Keep pure logic in plain Kotlin and unit-test it: validators, `groupTrips`, `tripStatus`, `TripFormatting`,
-  `PickerDates`, `Money`, `BudgetCalculations`,
-  `CurrencyConversion` (incl. digit-by-digit typing tests), `CurrencyPicker`, `FrankfurterJson`, `isStale`, `firstName`/`initials`/`greetingName`, `TripColor`, and every
-  ViewModel (with `FakeTripRepository`, `FakeExpenseRepository`, `FakeCurrencyRepository` and `FakeAuthRepository` in
+  `PickerDates`, `Money`, `BudgetCalculations`, `Itinerary` (`ItineraryTest`: one-day, past and current trips,
+  untimed activities, activities outside the dates),
+  `CurrencyConversion` (incl. digit-by-digit typing tests), activity type and category color contrast (`TintedColorsTest`), `ExpenseCurrency` (no-decimal currency, no rate, editing with/without changing the amount, switching currency), `CurrencyPicker`, `FrankfurterJson`, `isStale`, the assistant (`AssistantJsonTest`: malformed answer, unknown type,
+  bad times, costs, invalid date; `AssistantPromptTest`; `AssistantContextTest`: context, chips, history;
+  `SuggestionsTest`: only some checked, day outside the trip), `firstName`/`initials`/`greetingName`, `TripColor`, and every
+  ViewModel (with `FakeTripRepository`, `FakeExpenseRepository`, `FakeActivityRepository`, `FakeCurrencyRepository`, `FakeAssistantRepository` (scripted responses, recorded requests, `gate`) and `FakeAuthRepository` in
   `app/src/test`; set `nextSignInError`, `FakeCurrencyRepository.offline` etc. to simulate backend failures).
   `TripDaoTest` in `app/src/androidTest` covers Room (owner scoping, updates, currency, rate cache, expenses,
-  cascade).
+  activities, cascades).

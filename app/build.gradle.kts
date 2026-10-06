@@ -68,6 +68,12 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
+    // Gemini through Firebase AI Logic (trip assistant); no API key in the app.
+    implementation(libs.firebase.ai)
+    // App Check is enforced for Firebase AI Logic: debug provider in debug builds, Play Integrity in release.
+    implementation(libs.firebase.appcheck)
+    debugImplementation(libs.firebase.appcheck.debug)
+    releaseImplementation(libs.firebase.appcheck.playintegrity)
     implementation(libs.kotlinx.coroutines.play.services)
     ksp(libs.androidx.room.compiler)
     testImplementation(libs.junit)

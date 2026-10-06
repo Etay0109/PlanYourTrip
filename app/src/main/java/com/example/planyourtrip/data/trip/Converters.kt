@@ -4,6 +4,7 @@ import androidx.room.TypeConverter
 import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 
 class Converters {
     @TypeConverter
@@ -40,4 +41,19 @@ class Converters {
 
     @TypeConverter
     fun epochMilliToInstant(millis: Long): Instant = Instant.ofEpochMilli(millis)
+
+    /** Minute of the day (0..1439); seconds are never stored. */
+    @TypeConverter
+    fun localTimeToMinute(time: LocalTime): Int = time.hour * 60 + time.minute
+
+    @TypeConverter
+    fun minuteToLocalTime(minute: Int): LocalTime = LocalTime.of(minute / 60, minute % 60)
+
+    @TypeConverter
+    fun activityTypeToName(type: ActivityType): String = type.name
+
+    /** Unknown names fall back to [ActivityType.OTHER] instead of crashing. */
+    @TypeConverter
+    fun nameToActivityType(name: String): ActivityType =
+        ActivityType.entries.firstOrNull { it.name == name } ?: ActivityType.OTHER
 }

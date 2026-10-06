@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
+import java.math.BigDecimal
 import java.time.LocalDate
 
 /**
@@ -28,7 +29,9 @@ interface ExpenseDao {
     suspend fun insert(expense: ExpenseEntity): Long
 
     @Query(
-        "UPDATE expenses SET name = :name, amount_agorot = :amountAgorot, category = :category, date = :date " +
+        "UPDATE expenses SET name = :name, amount_agorot = :amountAgorot, category = :category, date = :date, " +
+            "original_amount = :originalAmount, original_currency = :originalCurrency, " +
+            "exchange_rate = :exchangeRate, rate_date = :rateDate " +
             "WHERE id = :id AND trip_id IN (SELECT id FROM trips WHERE owner_id = :ownerId)"
     )
     suspend fun update(
@@ -38,6 +41,10 @@ interface ExpenseDao {
         amountAgorot: Long,
         category: ExpenseCategory,
         date: LocalDate,
+        originalAmount: BigDecimal?,
+        originalCurrency: String?,
+        exchangeRate: BigDecimal?,
+        rateDate: LocalDate?,
     )
 
     @Query("DELETE FROM expenses WHERE id = :id AND trip_id IN (SELECT id FROM trips WHERE owner_id = :ownerId)")

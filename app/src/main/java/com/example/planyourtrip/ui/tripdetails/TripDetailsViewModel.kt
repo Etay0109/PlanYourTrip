@@ -13,6 +13,7 @@ import com.example.planyourtrip.data.auth.AuthRepository
 import com.example.planyourtrip.data.currency.CurrencyRepository
 import com.example.planyourtrip.data.currency.ILS
 import com.example.planyourtrip.data.currency.isStale
+import com.example.planyourtrip.data.trip.ActivityRepository
 import com.example.planyourtrip.data.trip.ExpenseRepository
 import com.example.planyourtrip.data.trip.TripRepository
 import com.example.planyourtrip.ui.common.CurrencyPickerState
@@ -45,6 +46,7 @@ class TripDetailsViewModel(
     private val tripId: Long,
     private val tripRepository: TripRepository,
     expenseRepository: ExpenseRepository,
+    activityRepository: ActivityRepository,
     private val authRepository: AuthRepository,
     private val currencyRepository: CurrencyRepository,
     private val clock: Clock,
@@ -52,14 +54,23 @@ class TripDetailsViewModel(
     computeDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : ViewModel() {
 
-    /** The trip with its expenses and budget math, if it belongs to the signed-in user. */
+    /** Day chosen on the Plan tab; null = the default day (first day, or today during the trip). */
+    private val planDay = MutableStateFlow<LocalDate?>(null)
+
+    /** Day shown in the Overview day section; null = the default day. */
+    private val overviewDay = MutableStateFlow<LocalDate?>(null)
+
+    /** The trip with its expenses, activities, budget and itinerary math, if it belongs to the signed-in user. */
     val uiState: StateFlow<TripDetailsUiState> = authRepository.currentUser
         .flatMapLatest { user ->
             if (user == null) return@flatMapLatest flowOf(TripDetailsUiState.NotFound)
             combine(
                 tripRepository.observeTrip(tripId, user.uid),
                 expenseRepository.observeExpenses(tripId, user.uid),
-            ) { trip, expenses ->
+                activityRepository.observeActivities(tripId, user.uid),
+                planDay,
+                overviewDay,
+            ) { trip, expenses, activities, planSelection, overviewSelection ->
                 if (trip == null) return@combine TripDetailsUiState.NotFound
                 val today = LocalDate.now(clock)
                 TripDetailsUiState.Loaded(
@@ -68,6 +79,9 @@ class TripDetailsViewModel(
                     summary = budgetSummary(trip.budgetAgorot, expenses, trip.startDate, trip.endDate, today),
                     categoryTotals = categoryTotals(expenses),
                     expenses = expenses,
+                    itinerary = itineraryState(
+                        trip.startDate, trip.endDate, activities, planSelection, overviewSelection, today,
+                    ),
                 )
             }
         }
@@ -104,6 +118,32 @@ class TripDetailsViewModel(
         val agorot = checkNotNull(Money.parseAgorot(dialog.input))
         _budgetDialog.value = null
         viewModelScope.launch { tripRepository.setBudget(tripId, ownerId, agorot) }
+    }
+
+    // ---------- Itinerary ----------
+
+    private fun loadedItinerary(): ItineraryState? = (uiState.value as? TripDetailsUiState.Loaded)?.itinerary
+
+    /** A day chip on the Plan tab. */
+    fun onPlanDaySelected(day: LocalDate) {
+        planDay.value = day
+    }
+
+    /** "<" in the Overview day section; does nothing on the first day. */
+    fun onOverviewPreviousDay() {
+        val shown = loadedItinerary()?.overviewDay ?: return
+        if (shown.hasPrevious) overviewDay.value = shown.day.minusDays(1)
+    }
+
+    /** ">" in the Overview day section; does nothing on the last day. */
+    fun onOverviewNextDay() {
+        val shown = loadedItinerary()?.overviewDay ?: return
+        if (shown.hasNext) overviewDay.value = shown.day.plusDays(1)
+    }
+
+    /** "See full plan": the Plan tab opens on the day shown in the Overview (the screen switches the tab). */
+    fun onSeeFullPlan() {
+        loadedItinerary()?.let { planDay.value = it.overviewDay.day }
     }
 
     // ---------- Currency card ----------
@@ -239,6 +279,7 @@ class TripDetailsViewModel(
                     tripId = handle.toRoute<TripDetails>().tripId,
                     tripRepository = container.tripRepository,
                     expenseRepository = container.expenseRepository,
+                    activityRepository = container.activityRepository,
                     authRepository = container.authRepository,
                     currencyRepository = container.currencyRepository,
                     clock = container.clock,

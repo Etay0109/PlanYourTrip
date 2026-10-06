@@ -33,8 +33,8 @@ import com.example.planyourtrip.ui.theme.DatePickerHeadlineStyle
 import java.time.LocalDate
 
 /**
- * Read-only field that opens a Material 3 date picker when tapped. Days before [minDate] are
- * disabled in the picker (the ViewModel still validates).
+ * Read-only field that opens a Material 3 date picker when tapped. Days before [minDate] and after
+ * [maxDate] are disabled in the picker (the ViewModel still validates).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,6 +46,7 @@ fun DateField(
     onDatePicked: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
     minDate: LocalDate? = null,
+    maxDate: LocalDate? = null,
 ) {
     var showPicker by rememberSaveable { mutableStateOf(false) }
     val interactionSource = remember { MutableInteractionSource() }
@@ -72,11 +73,16 @@ fun DateField(
 
     if (showPicker) {
         val minMillis = minDate?.toPickerMillis()
+        val maxMillis = maxDate?.toPickerMillis()
         val pickerState = rememberDatePickerState(
             initialSelectedDateMillis = initialPickerDate?.toPickerMillis(),
             selectableDates = object : SelectableDates {
                 override fun isSelectableDate(utcTimeMillis: Long) =
-                    minMillis == null || utcTimeMillis >= minMillis
+                    (minMillis == null || utcTimeMillis >= minMillis) &&
+                        (maxMillis == null || utcTimeMillis <= maxMillis)
+
+                override fun isSelectableYear(year: Int) =
+                    (minDate == null || year >= minDate.year) && (maxDate == null || year <= maxDate.year)
             },
         )
         DatePickerDialog(

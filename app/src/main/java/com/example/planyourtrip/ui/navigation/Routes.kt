@@ -21,3 +21,17 @@ data class TripDetails(val tripId: Long)
 /** New expense of [tripId] when [expenseId] is null; otherwise edits that expense. */
 @Serializable
 data class ExpenseForm(val tripId: Long, val expenseId: Long? = null)
+
+/**
+ * New activity of [tripId] when [activityId] is null (on the day [dateEpochDay], or the default day when null);
+ * otherwise edits that activity.
+ */
+@Serializable
+data class ActivityForm(val tripId: Long, val activityId: Long? = null, val dateEpochDay: Long? = null)
+
+/**
+ * The trip assistant chat of [tripId]. Its ViewModel belongs to the [TripDetails] entry below it, so the
+ * conversation is kept while the trip screen is open.
+ */
+@Serializable
+data class TripAssistant(val tripId: Long)

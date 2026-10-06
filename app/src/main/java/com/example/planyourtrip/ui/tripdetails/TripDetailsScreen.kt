@@ -4,6 +4,7 @@ import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -18,6 +19,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -45,7 +48,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.planyourtrip.R
 import com.example.planyourtrip.data.trip.Expense
 import com.example.planyourtrip.data.trip.ExpenseCategory
+import com.example.planyourtrip.data.trip.ForeignAmount
+import com.example.planyourtrip.data.trip.ActivityType
 import com.example.planyourtrip.data.trip.Trip
+import com.example.planyourtrip.data.trip.TripActivity
 import com.example.planyourtrip.data.trip.TripColor
 import com.example.planyourtrip.ui.common.components.BackTopAppBar
 import com.example.planyourtrip.ui.common.components.BrandMark
@@ -59,11 +65,21 @@ import com.example.planyourtrip.ui.tripdetails.components.BudgetDialog
 import com.example.planyourtrip.ui.tripdetails.components.CategoryChartCard
 import com.example.planyourtrip.ui.tripdetails.components.CurrencyCard
 import com.example.planyourtrip.ui.tripdetails.components.CurrencyCardActions
+import com.example.planyourtrip.ui.tripdetails.components.ActivityCard
+import com.example.planyourtrip.ui.tripdetails.components.AddActivityButton
+import com.example.planyourtrip.ui.tripdetails.components.DailyPlanProgress
+import com.example.planyourtrip.ui.tripdetails.components.DayChipsRow
+import com.example.planyourtrip.ui.tripdetails.components.DayPreviewCard
+import com.example.planyourtrip.ui.tripdetails.components.DaySummaryCard
 import com.example.planyourtrip.ui.tripdetails.components.ExpenseRow
 import com.example.planyourtrip.ui.tripdetails.components.FeatureCard
+import com.example.planyourtrip.ui.tripdetails.components.ItineraryActions
+import com.example.planyourtrip.ui.tripdetails.components.ItineraryHeader
+import com.example.planyourtrip.ui.tripdetails.components.PlanTimeline
 import com.example.planyourtrip.ui.tripdetails.components.TripHeader
 import java.math.BigDecimal
 import java.time.LocalDate
+import java.time.LocalTime
 
 @Composable
 fun TripDetailsScreen(
@@ -71,6 +87,9 @@ fun TripDetailsScreen(
     onEditTrip: () -> Unit,
     onAddExpense: () -> Unit,
     onExpenseClick: (Long) -> Unit,
+    onAddActivity: (LocalDate) -> Unit,
+    onActivityClick: (Long) -> Unit,
+    onOpenAssistant: () -> Unit,
     viewModel: TripDetailsViewModel = viewModel(factory = TripDetailsViewModel.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -92,12 +111,26 @@ fun TripDetailsScreen(
             onRetry = viewModel::onRetryRate,
         )
     }
+    val itineraryActions = remember(viewModel, onAddActivity, onActivityClick) {
+        ItineraryActions(
+            onPlanDaySelected = viewModel::onPlanDaySelected,
+            onOverviewPreviousDay = viewModel::onOverviewPreviousDay,
+            onOverviewNextDay = viewModel::onOverviewNextDay,
+            onSeeFullPlan = {
+                viewModel.onSeeFullPlan()
+                selectedTab = TripTab.PLAN
+            },
+            onAddActivity = onAddActivity,
+            onActivityClick = onActivityClick,
+        )
+    }
     TripDetailsContent(
         state = state,
         selectedTab = selectedTab,
         budgetDialog = budgetDialog,
         currencyCard = currencyCard,
         currencyActions = currencyActions,
+        itineraryActions = itineraryActions,
         onTabSelected = { selectedTab = it },
         onBack = onBack,
         onEditTrip = onEditTrip,
@@ -107,6 +140,7 @@ fun TripDetailsScreen(
         onDismissBudget = viewModel::onDismissBudget,
         onAddExpense = onAddExpense,
         onExpenseClick = onExpenseClick,
+        onOpenAssistant = onOpenAssistant,
     )
 
     currencyPicker?.let { picker ->
@@ -127,6 +161,7 @@ fun TripDetailsContent(
     budgetDialog: BudgetDialogState?,
     currencyCard: CurrencyCardState?,
     currencyActions: CurrencyCardActions,
+    itineraryActions: ItineraryActions,
     onTabSelected: (TripTab) -> Unit,
     onBack: () -> Unit,
     onEditTrip: () -> Unit,
@@ -136,6 +171,7 @@ fun TripDetailsContent(
     onDismissBudget: () -> Unit,
     onAddExpense: () -> Unit,
     onExpenseClick: (Long) -> Unit,
+    onOpenAssistant: () -> Unit,
 ) {
     when (state) {
         // Nothing is drawn until Room answers, so no placeholder flashes.
@@ -146,12 +182,15 @@ fun TripDetailsContent(
             // The header draws behind the status bar; the navigation bar pads itself.
             contentWindowInsets = WindowInsets(0),
             bottomBar = { TripNavigationBar(selectedTab, onTabSelected) },
+            // On every tab, above the navigation bar.
+            floatingActionButton = { AssistantFab(onOpenAssistant) },
         ) { innerPadding ->
             // A fresh list per tab, so a newly selected tab opens at the top.
             key(selectedTab) {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = innerPadding.calculateBottomPadding() + 24.dp),
+                    // Extra room at the end so the assistant button never covers the last card.
+                    contentPadding = PaddingValues(bottom = innerPadding.calculateBottomPadding() + FabClearance),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     item(key = "header") {
@@ -159,10 +198,10 @@ fun TripDetailsContent(
                     }
                     when (selectedTab) {
                         TripTab.OVERVIEW ->
-                            overviewTab(state, currencyCard, currencyActions, onTabSelected, onEditBudget)
+                            overviewTab(state, currencyCard, currencyActions, itineraryActions, onTabSelected, onEditBudget)
                         TripTab.BUDGET -> budgetTab(state, onEditBudget, onAddExpense, onExpenseClick)
                         TripTab.MAP -> comingSoon(R.drawable.ic_location, R.string.trip_coming_soon_map)
-                        TripTab.PLAN -> comingSoon(R.drawable.ic_calendar, R.string.trip_coming_soon_plan)
+                        TripTab.PLAN -> planTab(state, itineraryActions)
                     }
                 }
             }
@@ -185,9 +224,11 @@ private fun LazyListScope.overviewTab(
     state: TripDetailsUiState.Loaded,
     currencyCard: CurrencyCardState?,
     currencyActions: CurrencyCardActions,
+    itineraryActions: ItineraryActions,
     onTabSelected: (TripTab) -> Unit,
     onSetBudget: () -> Unit,
 ) {
+    val itinerary = state.itinerary
     item(key = "budget") {
         BudgetCard(
             summary = state.summary,
@@ -216,14 +257,84 @@ private fun LazyListScope.overviewTab(
                     .weight(1f)
                     .fillMaxHeight(),
             )
+            val progress = itinerary.progress
+            val progressContent: (@Composable ColumnScope.() -> Unit)? =
+                if (itinerary.hasActivities) ({ DailyPlanProgress(progress) }) else null
             FeatureCard(
                 icon = R.drawable.ic_event_note,
                 title = stringResource(R.string.trip_daily_plan),
-                subtitle = stringResource(R.string.trip_plan_empty),
+                subtitle = if (itinerary.hasActivities) {
+                    stringResource(R.string.plan_days_planned, progress.plannedDays, progress.totalDays)
+                } else {
+                    stringResource(R.string.trip_plan_empty)
+                },
                 onClick = { onTabSelected(TripTab.PLAN) },
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight(),
+                content = progressContent,
+            )
+        }
+    }
+    // The day section appears once the trip has at least one activity.
+    if (itinerary.hasActivities) {
+        item(key = "day-preview") {
+            DayPreviewCard(itinerary.overviewDay, itineraryActions, modifier = cardPadding)
+        }
+    }
+}
+
+private fun LazyListScope.planTab(state: TripDetailsUiState.Loaded, actions: ItineraryActions) {
+    val itinerary = state.itinerary
+    val plan = itinerary.plan
+    item(key = "itinerary-header") {
+        ItineraryHeader(state.trip, modifier = cardPadding.padding(top = 8.dp))
+    }
+    item(key = "day-chips") {
+        DayChipsRow(itinerary.days, selected = plan.day, onSelect = actions.onPlanDaySelected)
+    }
+    item(key = "day-summary") {
+        DaySummaryCard(plan, modifier = cardPadding)
+    }
+    if (plan.activities.isEmpty()) {
+        item(key = "day-empty") {
+            EmptyMessage(
+                icon = R.drawable.ic_event_note,
+                title = stringResource(R.string.itinerary_day_empty_title),
+                body = stringResource(R.string.itinerary_day_empty_body),
+            )
+        }
+    } else {
+        // One item, so the timeline line runs unbroken between the cards.
+        item(key = "timeline-${plan.day}") {
+            PlanTimeline(plan.activities, actions.onActivityClick, modifier = cardPadding)
+        }
+    }
+    item(key = "add-activity") {
+        AddActivityButton(onClick = { actions.onAddActivity(plan.day) }, modifier = cardPadding)
+    }
+    if (itinerary.outside.isNotEmpty()) {
+        item(key = "outside-header") {
+            Column(cardPadding.padding(top = 16.dp)) {
+                Text(
+                    text = stringResource(R.string.itinerary_outside_dates),
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.itinerary_outside_dates_body),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        items(itinerary.outside, key = { "outside-${it.id}" }) { activity ->
+            ActivityCard(
+                activity,
+                onClick = { actions.onActivityClick(activity.id) },
+                showDate = true,
+                modifier = cardPadding,
             )
         }
     }
@@ -321,6 +432,22 @@ private fun EmptyMessage(@DrawableRes icon: Int, title: String, body: String) {
     }
 }
 
+/** Bottom list padding that keeps the last card clear of the assistant button. */
+private val FabClearance = 96.dp
+
+/** Round button with a sparkle that opens the trip assistant. */
+@Composable
+private fun AssistantFab(onClick: () -> Unit) {
+    FloatingActionButton(
+        onClick = onClick,
+        shape = CircleShape,
+        containerColor = MaterialTheme.colorScheme.secondary,
+        contentColor = MaterialTheme.colorScheme.onSecondary,
+    ) {
+        Icon(painterResource(R.drawable.ic_sparkle), contentDescription = stringResource(R.string.assistant_open))
+    }
+}
+
 @Composable
 private fun TripNavigationBar(selected: TripTab, onSelect: (TripTab) -> Unit) {
     NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
@@ -402,20 +529,74 @@ private val previewExpenses = listOf(
     Expense(2, 1, "Hotel Campo de' Fiori", 120_000, ExpenseCategory.HOTELS, LocalDate.of(2026, 9, 3)),
     Expense(3, 1, "Colosseum guided tour", 25_000, ExpenseCategory.ATTRACTIONS, LocalDate.of(2026, 9, 20)),
     Expense(4, 1, "Leonardo Express", 20_000, ExpenseCategory.TRANSPORT, LocalDate.of(2026, 9, 21)),
+    // Entered in the trip currency: 10.00 EUR × 4.02 = ₪40.20.
+    Expense(
+        5, 1, "Gelato", 4_020, ExpenseCategory.FOOD, LocalDate.of(2026, 9, 22),
+        ForeignAmount(BigDecimal("10.00"), "EUR", BigDecimal("4.02"), LocalDate.of(2026, 9, 22)),
+    ),
+    // A currency without decimals: 1500 JPY × 0.02512 = ₪37.68.
+    Expense(
+        6, 1, "Souvenirs", 3_768, ExpenseCategory.SHOPPING, LocalDate.of(2026, 9, 23),
+        ForeignAmount(BigDecimal("1500"), "JPY", BigDecimal("0.02512"), LocalDate.of(2026, 9, 23)),
+    ),
+    Expense(7, 1, "SIM card", 5_900, ExpenseCategory.OTHER, LocalDate.of(2026, 9, 24)),
 ).sortedByDescending { it.date }
 
-private fun previewState(trip: Trip = previewTrip, expenses: List<Expense> = previewExpenses) =
-    TripDetailsUiState.Loaded(
-        trip = trip,
-        status = tripStatus(trip, previewToday),
-        summary = budgetSummary(trip.budgetAgorot, expenses, trip.startDate, trip.endDate, previewToday),
-        categoryTotals = categoryTotals(expenses),
-        expenses = expenses,
-    )
+private val nov12 = LocalDate.of(2026, 11, 12)
+
+private val previewActivities = listOf(
+    TripActivity(
+        1, 1, nov12, LocalTime.of(10, 0), "Colosseum", ActivityType.ACTIVITY,
+        note = "Skip-the-line tour booked (voucher in email). Duration: 2.5h",
+        location = "Piazza del Colosseo, 1", estimatedCostAgorot = 9_000, booked = true,
+    ),
+    TripActivity(
+        2, 1, nov12, LocalTime.of(13, 0), "Lunch at Campo de' Fiori", ActivityType.DINING,
+        note = "Try traditional Roman pinsa & suppli at Roscioli", estimatedCostAgorot = 12_000,
+    ),
+    TripActivity(
+        3, 1, nov12, LocalTime.of(15, 30), "Pantheon", ActivityType.ACTIVITY,
+        note = "Free entry before 17:00, audio guide recommended", location = "Piazza della Rotonda",
+    ),
+    TripActivity(
+        4, 1, nov12, LocalTime.of(20, 0), "Dinner in Trastevere", ActivityType.DINING,
+        note = "Reservation confirmed at Da Enzo al 29, table for 2", location = "Via dei Vascellari, 29",
+        booked = true,
+    ),
+    TripActivity(
+        9, 1, nov12, LocalTime.of(22, 30), "Taxi back to the hotel", ActivityType.TRANSPORT,
+        estimatedCostAgorot = 6_000,
+    ),
+    TripActivity(10, 1, nov12, LocalTime.of(23, 0), "Hotel Campo de' Fiori", ActivityType.LODGING, booked = true),
+    TripActivity(11, 1, nov12, null, "Buy a Roma Pass", ActivityType.OTHER, note = "At any metro station"),
+    TripActivity(5, 1, nov12.plusDays(1), LocalTime.of(9, 0), "Vatican Museums", ActivityType.ACTIVITY),
+    TripActivity(6, 1, nov12.plusDays(2), null, "Train to Florence", ActivityType.TRANSPORT),
+    TripActivity(7, 1, nov12.plusDays(3), null, "Uffizi", ActivityType.ACTIVITY),
+    TripActivity(8, 1, nov12.plusDays(4), null, "Check out", ActivityType.LODGING),
+)
+
+private fun previewState(
+    trip: Trip = previewTrip,
+    expenses: List<Expense> = previewExpenses,
+    activities: List<TripActivity> = previewActivities,
+    planDay: LocalDate? = null,
+) = TripDetailsUiState.Loaded(
+    trip = trip,
+    status = tripStatus(trip, previewToday),
+    summary = budgetSummary(trip.budgetAgorot, expenses, trip.startDate, trip.endDate, previewToday),
+    categoryTotals = categoryTotals(expenses),
+    expenses = expenses,
+    itinerary = itineraryState(trip.startDate, trip.endDate, activities, planDay, null, previewToday),
+)
 
 private val previewRate = CurrencyCardState.Rate("EUR", BigDecimal("3.4408"), LocalDate.of(2026, 10, 2))
 
 private val previewCurrencyActions = CurrencyCardActions(onChooseCurrency = {}, onRetry = {})
+
+private val previewItineraryActions = ItineraryActions(
+    onPlanDaySelected = {}, onOverviewPreviousDay = {}, onOverviewNextDay = {}, onSeeFullPlan = {},
+    onAddActivity = {}, onActivityClick = {},
+)
 
 @Composable
 private fun Preview(
@@ -428,8 +609,9 @@ private fun Preview(
         TripDetailsContent(
             state = state, selectedTab = tab, budgetDialog = null,
             currencyCard = currency, currencyActions = previewCurrencyActions,
+            itineraryActions = previewItineraryActions,
             onTabSelected = {}, onBack = {}, onEditTrip = {}, onEditBudget = {}, onBudgetInputChange = {},
-            onSaveBudget = {}, onDismissBudget = {}, onAddExpense = {}, onExpenseClick = {},
+            onSaveBudget = {}, onDismissBudget = {}, onAddExpense = {}, onExpenseClick = {}, onOpenAssistant = {},
         )
     }
 }
@@ -442,7 +624,7 @@ private fun OverviewPreview() = Preview(previewState(), TripTab.OVERVIEW)
 @Composable
 private fun OverviewNoBudgetPreview() =
     Preview(
-        previewState(previewTrip.copy(budgetAgorot = null), emptyList()),
+        previewState(previewTrip.copy(budgetAgorot = null), emptyList(), activities = emptyList()),
         TripTab.OVERVIEW,
         currency = CurrencyCardState.NoCurrency,
     )
@@ -465,7 +647,7 @@ private fun OverviewJpyPreview() = Preview(
     currency = CurrencyCardState.Rate("JPY", BigDecimal("0.01944"), LocalDate.of(2026, 10, 2)),
 )
 
-@Preview(name = "Budget", widthDp = 411, heightDp = 1400)
+@Preview(name = "Budget", widthDp = 411, heightDp = 1900)
 @Composable
 private fun BudgetPreview() = Preview(previewState(), TripTab.BUDGET)
 
@@ -473,6 +655,14 @@ private fun BudgetPreview() = Preview(previewState(), TripTab.BUDGET)
 @Composable
 private fun BudgetOverPreview() =
     Preview(previewState(previewTrip.copy(budgetAgorot = 300_000)), TripTab.BUDGET, darkTheme = true)
+
+@Preview(name = "Budget – dark", widthDp = 411, heightDp = 1900)
+@Composable
+private fun BudgetDarkPreview() = Preview(previewState(), TripTab.BUDGET, darkTheme = true)
+
+@Preview(name = "Budget – narrow, large font", widthDp = 320, heightDp = 2400, fontScale = 1.5f)
+@Composable
+private fun BudgetNarrowPreview() = Preview(previewState(), TripTab.BUDGET)
 
 @Preview(name = "Budget – no expenses", widthDp = 411, heightDp = 891)
 @Composable
@@ -488,3 +678,39 @@ private fun OverviewNarrowPreview() = Preview(
 @Preview(name = "Map – coming soon", widthDp = 411, heightDp = 891)
 @Composable
 private fun MapPreview() = Preview(previewState(), TripTab.MAP)
+
+@Preview(name = "Plan", widthDp = 411, heightDp = 2100)
+@Composable
+private fun PlanPreview() = Preview(previewState(), TripTab.PLAN)
+
+@Preview(name = "Plan – all types, dark", widthDp = 411, heightDp = 2100)
+@Composable
+private fun PlanDarkPreview() = Preview(previewState(), TripTab.PLAN, darkTheme = true)
+
+@Preview(name = "Overview – dark", widthDp = 411, heightDp = 1500)
+@Composable
+private fun OverviewDarkPreview() = Preview(previewState(), TripTab.OVERVIEW, darkTheme = true)
+
+@Preview(name = "Plan – empty day, dark", widthDp = 411, heightDp = 1000)
+@Composable
+private fun PlanEmptyDayPreview() =
+    Preview(previewState(planDay = nov12.plusDays(5)), TripTab.PLAN, darkTheme = true)
+
+@Preview(name = "Plan – outside trip dates", widthDp = 411, heightDp = 1200)
+@Composable
+private fun PlanOutsidePreview() = Preview(
+    previewState(
+        // Dates moved one day later: the four activities of 12 Nov are now outside the trip.
+        previewTrip.copy(startDate = nov12.plusDays(1), endDate = nov12.plusDays(6)),
+    ),
+    TripTab.PLAN,
+)
+
+@Preview(name = "Plan – narrow, large font", widthDp = 320, heightDp = 1600, fontScale = 1.5f)
+@Composable
+private fun PlanNarrowPreview() = Preview(previewState(), TripTab.PLAN)
+
+@Preview(name = "Overview – long trip progress", widthDp = 411, heightDp = 1400)
+@Composable
+private fun OverviewLongTripPreview() =
+    Preview(previewState(previewTrip.copy(endDate = nov12.plusDays(20))), TripTab.OVERVIEW)

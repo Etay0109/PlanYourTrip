@@ -9,12 +9,14 @@ import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 
 @RunWith(AndroidJUnit4::class)
 class TripDaoTest {
@@ -22,6 +24,7 @@ class TripDaoTest {
     private lateinit var db: AppDatabase
     private lateinit var repository: RoomTripRepository
     private lateinit var expenses: RoomExpenseRepository
+    private lateinit var activities: RoomActivityRepository
 
     @Before
     fun setUp() {
@@ -31,6 +34,7 @@ class TripDaoTest {
         ).build()
         repository = RoomTripRepository(db.tripDao())
         expenses = RoomExpenseRepository(db.expenseDao(), db.tripDao())
+        activities = RoomActivityRepository(db.activityDao(), db.tripDao())
     }
 
     @After
@@ -141,5 +145,83 @@ class TripDaoTest {
             buildList { while (c.moveToNext()) add(c.getLong(0)) }
         }
         assertEquals(listOf(oslo), remaining)
+    }
+
+    private fun input(title: String, date: LocalDate, time: LocalTime? = null) = ActivityInput(
+        date = date,
+        startTime = time,
+        title = title,
+        type = ActivityType.DINING,
+        note = " Pinsa ",
+        location = "  ",
+        estimatedCostAgorot = 2_500,
+        booked = true,
+    )
+
+    @Test
+    fun activities_storeAllFields_scopedToOwner_andEditable() = runTest {
+        val rome = repository.addTrip("u1", "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17))
+        val id = activities.addActivity(rome, "u1", input(" Lunch ", LocalDate.of(2026, 11, 12), LocalTime.of(13, 30)))!!
+        assertNull(activities.addActivity(rome, "u2", input("Sneaky", LocalDate.of(2026, 11, 12))))
+
+        val stored = activities.observeActivity(id, "u1").first()!!
+        assertEquals("Lunch", stored.title)
+        assertEquals(LocalTime.of(13, 30), stored.startTime)
+        assertEquals("Pinsa", stored.note)
+        assertNull(stored.location) // blank → null
+        assertEquals(2_500L, stored.estimatedCostAgorot)
+        assertTrue(stored.booked)
+        assertEquals(ActivityType.DINING, stored.type)
+        assertNull(activities.observeActivity(id, "u2").first())
+        assertTrue(activities.observeActivities(rome, "u2").first().isEmpty())
+
+        activities.updateActivity(id, "u2", input("Changed", LocalDate.of(2026, 11, 13))) // ignored
+        activities.updateActivity(id, "u1", input("Dinner", LocalDate.of(2026, 11, 14)).copy(startTime = null))
+        val updated = activities.observeActivities(rome, "u1").first().single()
+        assertEquals("Dinner", updated.title)
+        assertNull(updated.startTime)
+        assertEquals(LocalDate.of(2026, 11, 14), updated.date)
+
+        activities.deleteActivity(id, "u2") // another account deletes nothing
+        assertEquals(1, activities.observeActivities(rome, "u1").first().size)
+        activities.deleteActivity(id, "u1")
+        assertTrue(activities.observeActivities(rome, "u1").first().isEmpty())
+    }
+
+    @Test
+    fun editingTripDates_keepsActivities_andDeletingATripDeletesThem() = runTest {
+        val rome = repository.addTrip("u1", "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17))
+        val oslo = repository.addTrip("u1", "Oslo", LocalDate.of(2026, 12, 1), LocalDate.of(2026, 12, 3))
+        activities.addActivity(rome, "u1", input("Colosseum", LocalDate.of(2026, 11, 16)))
+        activities.addActivity(oslo, "u1", input("Fjord", LocalDate.of(2026, 12, 2)))
+
+        repository.updateTrip(rome, "u1", "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 14), null)
+        assertEquals(1, activities.observeActivities(rome, "u1").first().size)
+
+        db.openHelper.writableDatabase.execSQL("DELETE FROM trips WHERE id = $rome")
+        val remaining = db.openHelper.readableDatabase.query("SELECT trip_id FROM activities").use { c ->
+            buildList { while (c.moveToNext()) add(c.getLong(0)) }
+        }
+        assertEquals(listOf(oslo), remaining)
+    }
+
+    @Test
+    fun foreignExpenses_storeTheOriginalExactly_andUpdatesCanClearIt() = runTest {
+        val rome = repository.addTrip("u1", "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17))
+        val original = ForeignAmount(BigDecimal("1500"), "JPY", BigDecimal("0.02512"), LocalDate.of(2026, 10, 2))
+        val id = expenses.addExpense(
+            rome, "u1", "Souvenirs", 3_768, ExpenseCategory.SHOPPING, LocalDate.of(2026, 11, 13), original,
+        )!!
+        val stored = expenses.observeExpense(id, "u1").first()!!
+        assertEquals(3_768L, stored.amountAgorot)
+        assertEquals(original, stored.original) // BigDecimal text round-trips exactly
+
+        // Switched to shekels in the form: the original is cleared.
+        expenses.updateExpense(id, "u1", "Souvenirs", 4_000, ExpenseCategory.SHOPPING, LocalDate.of(2026, 11, 13), null)
+        assertNull(expenses.observeExpense(id, "u1").first()!!.original)
+
+        // A shekel expense has no original.
+        val ils = expenses.addExpense(rome, "u1", "Taxi", 9_000, ExpenseCategory.TRANSPORT, LocalDate.of(2026, 11, 12))!!
+        assertNull(expenses.observeExpense(ils, "u1").first()!!.original)
     }
 }

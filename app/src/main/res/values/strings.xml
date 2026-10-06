@@ -97,11 +97,75 @@
     <string name="trip_not_found">This trip is no longer available.</string>
     <string name="trip_coming_soon_title">Coming soon</string>
     <string name="trip_coming_soon_map">Save places and see them on a map.</string>
-    <string name="trip_coming_soon_plan">Plan each day of your trip.</string>
     <string name="trip_places">Places</string>
     <string name="trip_places_empty">No places yet</string>
     <string name="trip_daily_plan">Daily plan</string>
     <string name="trip_plan_empty">No plan yet</string>
+    <string name="plan_days_planned">%1$d of %2$d days planned</string>
+    <plurals name="plan_days_set">
+        <item quantity="one">%d day set</item>
+        <item quantity="other">%d days set</item>
+    </plurals>
+    <string name="plan_days_open">%d open</string>
+
+    <!-- Itinerary (Plan tab and the Overview day section) -->
+    <string name="itinerary_title">Itinerary</string>
+    <string name="itinerary_subtitle">%1$s · %2$s</string>
+    <!-- \u00A0 keeps "Day 1" and the date each on one line. -->
+    <string name="itinerary_day_chip">Day\u00A0%1$d · %2$s</string>
+    <string name="itinerary_daily_rhythm">DAILY RHYTHM</string>
+    <plurals name="itinerary_activity_count">
+        <item quantity="one">%d activity</item>
+        <item quantity="other">%d activities</item>
+    </plurals>
+    <string name="itinerary_cost_planned">~%1$s planned</string>
+    <string name="itinerary_booked">Booked</string>
+    <string name="itinerary_add_activity">Add activity</string>
+    <string name="itinerary_day_empty_title">Nothing planned for this day</string>
+    <string name="itinerary_day_empty_body">Add what you want to do, eat or see on this day.</string>
+    <string name="itinerary_outside_dates">Outside trip dates</string>
+    <string name="itinerary_outside_dates_body">These activities are not on any day of the trip. Open one to move it to a trip day.</string>
+    <string name="itinerary_first_day">First day</string>
+    <string name="itinerary_today">Today</string>
+    <string name="itinerary_day_number">Day %1$d</string>
+    <string name="itinerary_previous_day">Previous day</string>
+    <string name="itinerary_next_day">Next day</string>
+    <plurals name="itinerary_more">
+        <item quantity="one">+%d more</item>
+        <item quantity="other">+%d more</item>
+    </plurals>
+    <string name="itinerary_see_full_plan">See full plan</string>
+
+    <!-- Activity types -->
+    <string name="activity_type_activity">Activity</string>
+    <string name="activity_type_dining">Dining</string>
+    <string name="activity_type_transport">Transport</string>
+    <string name="activity_type_lodging">Lodging</string>
+    <string name="activity_type_other">Other</string>
+
+    <!-- Activity form -->
+    <string name="activity_new_title">New activity</string>
+    <string name="activity_edit_title">Edit activity</string>
+    <string name="activity_title">Title</string>
+    <string name="activity_title_placeholder">e.g. Colosseum tour</string>
+    <string name="activity_type">Type</string>
+    <string name="activity_date">Date</string>
+    <string name="activity_time">Start time (optional)</string>
+    <string name="activity_time_placeholder">Pick a time</string>
+    <string name="activity_time_clear">Clear time</string>
+    <string name="activity_time_dialog_title">Start time</string>
+    <string name="activity_location">Location (optional)</string>
+    <string name="activity_location_placeholder">e.g. Piazza del Colosseo, 1</string>
+    <string name="activity_cost">Estimated cost (optional)</string>
+    <string name="activity_booked">Booked</string>
+    <string name="activity_booked_body">Tickets or a reservation are confirmed</string>
+    <string name="activity_note">Note (optional)</string>
+    <string name="activity_save">Save activity</string>
+    <string name="activity_delete">Delete activity</string>
+    <string name="activity_delete_title">Delete this activity?</string>
+    <string name="activity_delete_body">“%1$s” will be removed from the itinerary.</string>
+    <string name="error_empty_activity_title">Please enter a title</string>
+    <string name="error_invalid_cost">Enter an amount greater than 0 (up to 2 decimals)</string>
 
     <!-- Budget -->
     <string name="money_shekels">₪%1$s</string>
@@ -173,7 +237,44 @@
     <string name="action_save">Save</string>
     <string name="error_empty_expense_name">Please enter a name</string>
     <string name="error_empty_amount">Please enter an amount</string>
-    <string name="error_invalid_amount">Enter an amount greater than 0 (up to 2 decimals)</string>
+    <plurals name="error_invalid_amount_decimals">
+        <item quantity="one">Enter an amount greater than 0 (up to %d decimal)</item>
+        <item quantity="other">Enter an amount greater than 0 (up to %d decimals)</item>
+    </plurals>
+    <string name="error_invalid_amount_whole">Enter a whole amount greater than 0 (no decimals)</string>
+    <string name="error_no_rate">The exchange rate is still loading. Try again in a moment.</string>
+    <string name="expense_currency">Currency of the amount</string>
+    <!-- "≈ ₪40.20 · 1 EUR = ₪4.02 · rate of 2 Oct" -->
+    <string name="expense_conversion">≈ %1$s · 1 %2$s = ₪%3$s · rate of %4$s</string>
+    <string name="expense_rate_loading">Getting the %1$s rate…</string>
+    <string name="expense_rate_unavailable">No %1$s rate available yet, so enter the amount in ILS.</string>
+
+    <!-- Trip assistant -->
+    <string name="assistant_title">Trip assistant</string>
+    <string name="assistant_open">Open trip assistant</string>
+    <string name="assistant_intro">Ask me to plan a day, find places to eat or check your budget.</string>
+    <string name="assistant_chip_plan_day">Plan day %1$d for me</string>
+    <string name="assistant_chip_dinner">Dinner ideas for day %1$d</string>
+    <string name="assistant_chip_budget">Am I within budget?</string>
+    <string name="assistant_input_hint">Ask anything about %1$s</string>
+    <string name="assistant_send">Send</string>
+    <string name="assistant_typing">The assistant is typing</string>
+    <string name="assistant_disclaimer">AI generated · check details before booking</string>
+    <string name="assistant_plan_label">SUGGESTED PLAN</string>
+    <!-- "Day 2 · Fri 13 Nov" -->
+    <string name="assistant_plan_day">Day\u00A0%1$d · %2$s</string>
+    <string name="assistant_plan_add">Add to Day\u00A0%1$d</string>
+    <string name="assistant_plan_added">Added</string>
+    <string name="assistant_plan_outside">%1$s is not one of your trip days, so this plan can\'t be added.</string>
+    <string name="assistant_plan_cost">~%1$s</string>
+    <string name="assistant_plan_no_time">Any time</string>
+    <string name="assistant_error_no_connection">No internet connection. Check your connection and try again.</string>
+    <string name="assistant_error_rate_limit">The assistant has reached its request limit for now. Try again later.</string>
+    <string name="assistant_error_busy">The AI model is very busy right now. Try again in a few moments.</string>
+    <string name="assistant_error_app_check">This app could not be verified, so the assistant can\'t answer right now.</string>
+    <string name="assistant_error_unreadable">The assistant\'s answer could not be read.</string>
+    <string name="assistant_error_unknown">Something went wrong while asking the assistant.</string>
+    <string name="assistant_try_again">Try again</string>
 
     <!-- Common -->
     <string name="action_back">Back</string>

@@ -10,6 +10,8 @@ class PlanYourTripApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // Before any Firebase AI request: App Check is enforced for Firebase AI Logic.
+        installAppCheck()
         container = AppContainer(this)
     }
 }

@@ -14,8 +14,8 @@ import com.example.planyourtrip.data.currency.ExchangeRateEntity
  * AutoMigration) and commit the new schema JSON generated under app/schemas.
  */
 @Database(
-    entities = [TripEntity::class, ExpenseEntity::class, ExchangeRateEntity::class],
-    version = 4,
+    entities = [TripEntity::class, ExpenseEntity::class, ExchangeRateEntity::class, ActivityEntity::class],
+    version = 6,
     exportSchema = true,
     autoMigrations = [
         // v2: trips.owner_id. Trips from v1 get "" and are not shown to any account.
@@ -24,6 +24,11 @@ import com.example.planyourtrip.data.currency.ExchangeRateEntity
         AutoMigration(from = 2, to = 3),
         // v4: trips.currency_code (null = not chosen) and the exchange_rates cache. Existing data is kept.
         AutoMigration(from = 3, to = 4),
+        // v5: the activities table (daily itinerary). Existing trips, expenses and rates are kept.
+        AutoMigration(from = 4, to = 5),
+        // v6: expenses.original_amount / original_currency / exchange_rate / rate_date (all null = entered in
+        // shekels, which is what every existing expense becomes). Nothing else changes.
+        AutoMigration(from = 5, to = 6),
     ],
 )
 @TypeConverters(Converters::class)
@@ -33,6 +38,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun expenseDao(): ExpenseDao
 
     abstract fun exchangeRateDao(): ExchangeRateDao
+
+    abstract fun activityDao(): ActivityDao
 
     companion object {
         fun create(context: Context): AppDatabase =

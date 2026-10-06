@@ -2,6 +2,7 @@ package com.example.planyourtrip.ui.tripdetails
 
 import com.example.planyourtrip.data.trip.Expense
 import com.example.planyourtrip.data.trip.Trip
+import com.example.planyourtrip.data.trip.TripActivity
 import com.example.planyourtrip.ui.common.TripStatus
 import java.math.BigDecimal
 import java.time.LocalDate
@@ -25,8 +26,46 @@ sealed interface TripDetailsUiState {
         val categoryTotals: List<CategoryTotal>,
         /** Newest first. */
         val expenses: List<Expense>,
+        /** Plan tab, Daily plan card and the Overview day section. */
+        val itinerary: ItineraryState,
     ) : TripDetailsUiState
 }
+
+/** Everything the itinerary UI needs, built by the pure [itineraryState]. */
+data class ItineraryState(
+    /** Every trip day, first to last (one day chip each). */
+    val days: List<LocalDate>,
+    /** False while the trip has no activities at all (Daily plan empty state, Overview day section hidden). */
+    val hasActivities: Boolean,
+    val progress: PlanProgress,
+    /** The day selected on the Plan tab. */
+    val plan: PlanDayState,
+    /** The day shown in the Overview day section. */
+    val overviewDay: OverviewDayState,
+    /** Activities whose date is outside the (edited) trip dates, shown at the end of the Plan tab. */
+    val outside: List<TripActivity>,
+)
+
+data class PlanDayState(
+    val day: LocalDate,
+    /** 1-based ("Day 1"). */
+    val dayNumber: Int,
+    /** Timeline order: by start time, activities without a time last. */
+    val activities: List<TripActivity>,
+    /** "~₪210 planned"; null when no activity of the day has a cost. */
+    val costAgorot: Long?,
+)
+
+data class OverviewDayState(
+    val day: LocalDate,
+    val title: DayTitle,
+    /** At most [OVERVIEW_DAY_MAX_ACTIVITIES], in timeline order. */
+    val activities: List<TripActivity>,
+    /** "+N more"; 0 hides it. */
+    val moreCount: Int,
+    val hasPrevious: Boolean,
+    val hasNext: Boolean,
+)
 
 /** Error codes of the budget dialog, mapped to string resources in the UI. */
 enum class BudgetFieldError { EMPTY, INVALID }

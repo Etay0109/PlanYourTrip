@@ -1,14 +1,17 @@
 package com.example.planyourtrip.ui.tripdetails
 
+import com.example.planyourtrip.FakeActivityRepository
 import com.example.planyourtrip.FakeAuthRepository
 import com.example.planyourtrip.FakeCurrencyRepository
 import com.example.planyourtrip.FakeExpenseRepository
 import com.example.planyourtrip.FakeTripRepository
 import com.example.planyourtrip.data.auth.AuthUser
 import com.example.planyourtrip.data.currency.ExchangeRate
+import com.example.planyourtrip.data.trip.ActivityType
 import com.example.planyourtrip.data.trip.Expense
 import com.example.planyourtrip.data.trip.ExpenseCategory
 import com.example.planyourtrip.data.trip.Trip
+import com.example.planyourtrip.data.trip.TripActivity
 import com.example.planyourtrip.data.trip.TripColor
 import com.example.planyourtrip.ui.common.TripStatus
 import kotlinx.coroutines.Dispatchers
@@ -22,6 +25,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -30,6 +34,7 @@ import java.math.BigDecimal
 import java.time.Clock
 import java.time.Duration
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZoneOffset
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -44,6 +49,7 @@ class TripDetailsViewModelTest {
     private lateinit var trips: FakeTripRepository
     private lateinit var expenses: FakeExpenseRepository
     private lateinit var currencies: FakeCurrencyRepository
+    private lateinit var activities: FakeActivityRepository
 
     @Before
     fun setUp() {
@@ -51,12 +57,13 @@ class TripDetailsViewModelTest {
         trips = FakeTripRepository(listOf("u1" to rome))
         expenses = FakeExpenseRepository(trips)
         currencies = FakeCurrencyRepository(now = clock::instant)
+        activities = FakeActivityRepository(trips)
     }
 
     @After
     fun tearDown() = Dispatchers.resetMain()
 
-    private fun vm(tripId: Long = 1) = TripDetailsViewModel(tripId, trips, expenses, auth, currencies, clock, dispatcher)
+    private fun vm(tripId: Long = 1) = TripDetailsViewModel(tripId, trips, expenses, activities, auth, currencies, clock, dispatcher)
 
     private suspend fun TripDetailsViewModel.loaded() =
         uiState.filterIsInstance<TripDetailsUiState.Loaded>().first()
@@ -299,5 +306,100 @@ class TripDetailsViewModelTest {
         vm.onOverviewShown()
         vm.onOverviewShown()
         assertTrue(currencies.refreshCalls.isEmpty())
+    }
+
+    // ---------- Itinerary ----------
+
+    private fun nov(day: Int) = LocalDate.of(2026, 11, day)
+
+    private fun activity(id: Long, date: LocalDate, time: LocalTime? = null, tripId: Long = 1) =
+        TripActivity(id, tripId, date, time, "Activity $id", ActivityType.ACTIVITY)
+
+    @Test
+    fun noActivities_itineraryIsEmpty_andStartsOnTheFirstDay() = runTest(dispatcher) {
+        val itinerary = vm().loaded().itinerary
+        assertFalse(itinerary.hasActivities)
+        assertEquals(6, itinerary.days.size)
+        assertEquals(nov(12), itinerary.plan.day)
+        assertEquals(DayTitle.FirstDay, itinerary.overviewDay.title)
+    }
+
+    @Test
+    fun activities_areShownByDay_withProgress() = runTest(dispatcher) {
+        activities.activities.value = listOf(
+            activity(1, nov(12), LocalTime.of(13, 0)),
+            activity(2, nov(12)),
+            activity(3, nov(12), LocalTime.of(9, 0)),
+            activity(4, nov(14)),
+            activity(5, nov(20)), // outside the trip
+        )
+        val itinerary = vm().loaded().itinerary
+        assertTrue(itinerary.hasActivities)
+        assertEquals(listOf(3L, 1L, 2L), itinerary.plan.activities.map { it.id })
+        assertEquals(2, itinerary.progress.plannedDays)
+        assertEquals(listOf(5L), itinerary.outside.map { it.id })
+    }
+
+    @Test
+    fun duringTheTrip_todayIsSelected() = runTest(dispatcher) {
+        trips.trips.value = listOf("u1" to rome.copy(startDate = today.minusDays(1), endDate = today.plusDays(3)))
+        val itinerary = vm().loaded().itinerary
+        assertEquals(today, itinerary.plan.day)
+        assertEquals(today, itinerary.overviewDay.day)
+        assertEquals(DayTitle.Today, itinerary.overviewDay.title)
+    }
+
+    @Test
+    fun overviewArrows_moveBetweenDays_andStopAtTheEnds() = runTest(dispatcher) {
+        val vm = vm()
+        vm.uiState.launchIn(backgroundScope)
+
+        vm.onOverviewPreviousDay() // already on the first day
+        assertEquals(nov(12), vm.loaded().itinerary.overviewDay.day)
+
+        vm.onOverviewNextDay()
+        vm.onOverviewNextDay()
+        val shown = vm.loaded().itinerary.overviewDay
+        assertEquals(nov(14), shown.day)
+        assertEquals(DayTitle.DayNumber(3), shown.title)
+
+        repeat(10) { vm.onOverviewNextDay() }
+        assertEquals(nov(17), vm.loaded().itinerary.overviewDay.day)
+        assertFalse(vm.loaded().itinerary.overviewDay.hasNext)
+        // The Plan tab keeps its own day.
+        assertEquals(nov(12), vm.loaded().itinerary.plan.day)
+    }
+
+    @Test
+    fun seeFullPlan_opensThePlanOnTheOverviewDay() = runTest(dispatcher) {
+        val vm = vm()
+        vm.uiState.launchIn(backgroundScope)
+        vm.onOverviewNextDay()
+        vm.onSeeFullPlan()
+        assertEquals(nov(13), vm.loaded().itinerary.plan.day)
+    }
+
+    @Test
+    fun planDay_fallsBackToTheDefault_whenTheDatesNoLongerContainIt() = runTest(dispatcher) {
+        activities.activities.value = listOf(activity(1, nov(16)))
+        val vm = vm()
+        vm.uiState.launchIn(backgroundScope)
+        vm.onPlanDaySelected(nov(16))
+        assertEquals(nov(16), vm.loaded().itinerary.plan.day)
+
+        // The trip is shortened in the trip form: the activity is kept, but listed outside the dates.
+        trips.trips.value = listOf("u1" to rome.copy(endDate = nov(14)))
+        val itinerary = vm.loaded().itinerary
+        assertEquals(nov(12), itinerary.plan.day)
+        assertEquals(listOf(1L), itinerary.outside.map { it.id })
+        assertEquals(listOf(1L), activities.activities.value.map { it.id })
+    }
+
+    @Test
+    fun someoneElsesActivities_areNeverShown() = runTest(dispatcher) {
+        val other = Trip(2, "Paris", nov(12), nov(17), TripColor.MINT)
+        trips.trips.value = listOf("u1" to rome, "other" to other)
+        activities.activities.value = listOf(activity(1, nov(12), tripId = 2))
+        assertFalse(vm().loaded().itinerary.hasActivities)
     }
 }

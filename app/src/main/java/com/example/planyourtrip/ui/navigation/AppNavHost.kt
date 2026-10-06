@@ -12,6 +12,9 @@ import androidx.navigation.toRoute
 import com.example.planyourtrip.ui.auth.AuthScreen
 import com.example.planyourtrip.ui.home.HomeScreen
 import com.example.planyourtrip.ui.tripdetails.TripDetailsScreen
+import com.example.planyourtrip.ui.tripdetails.activity.ActivityFormScreen
+import com.example.planyourtrip.ui.tripdetails.assistant.AssistantScreen
+import com.example.planyourtrip.ui.tripdetails.assistant.AssistantViewModel
 import com.example.planyourtrip.ui.tripdetails.expense.ExpenseFormScreen
 import com.example.planyourtrip.ui.tripform.TripFormScreen
 
@@ -19,7 +22,8 @@ import com.example.planyourtrip.ui.tripform.TripFormScreen
  * Start: Home when a session is saved, otherwise Login.
  * Login → Home (Login removed from the back stack, so Back on Home exits the app)
  * Home → TripForm() (new trip; pops back to Home after saving)
- * Home → TripDetails(tripId) → TripForm(tripId) (edit trip) / ExpenseForm(tripId, expenseId?) — each pops back
+ * Home → TripDetails(tripId) → TripForm(tripId) (edit trip) / ExpenseForm(tripId, expenseId?) /
+ *   ActivityForm(tripId, activityId?, dateEpochDay?) / TripAssistant(tripId) — each pops back
  * Signed out (from the avatar menu or by the backend) → Login, with the whole back stack cleared.
  */
 @Composable
@@ -72,10 +76,34 @@ fun AppNavHost(session: SessionViewModel = viewModel(factory = SessionViewModel.
                 onExpenseClick = { expenseId ->
                     navController.navigate(ExpenseForm(tripId, expenseId)) { launchSingleTop = true }
                 },
+                onAddActivity = { day ->
+                    navController.navigate(ActivityForm(tripId, dateEpochDay = day.toEpochDay())) {
+                        launchSingleTop = true
+                    }
+                },
+                onActivityClick = { activityId ->
+                    navController.navigate(ActivityForm(tripId, activityId)) { launchSingleTop = true }
+                },
+                onOpenAssistant = { navController.navigate(TripAssistant(tripId)) { launchSingleTop = true } },
+            )
+        }
+        composable<TripAssistant> { entry ->
+            // Scoped to the trip screen's entry: the conversation survives closing and reopening the assistant,
+            // and ends when the trip screen is popped.
+            val tripEntry = remember(entry) { navController.getBackStackEntry<TripDetails>() }
+            AssistantScreen(
+                onBack = { navController.popBackStack() },
+                viewModel = viewModel(tripEntry, factory = AssistantViewModel.Factory),
             )
         }
         composable<ExpenseForm> {
             ExpenseFormScreen(
+                onBack = { navController.popBackStack() },
+                onDone = { navController.popBackStack() },
+            )
+        }
+        composable<ActivityForm> {
+            ActivityFormScreen(
                 onBack = { navController.popBackStack() },
                 onDone = { navController.popBackStack() },
             )
