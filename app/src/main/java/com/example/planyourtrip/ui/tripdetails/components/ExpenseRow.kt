@@ -19,10 +19,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.data.trip.Expense
 import com.example.planyourtrip.ui.common.TripFormatting
+import com.example.planyourtrip.ui.common.labelRes
 import com.example.planyourtrip.ui.common.shekels
 import com.example.planyourtrip.ui.theme.ExtendedTheme
 import com.example.planyourtrip.ui.tripdetails.expense.ExpenseCurrency
-import com.example.planyourtrip.ui.tripdetails.labelRes
 
 /**
  * One expense: round category icon, name, date and the category label; on the right the shekel amount in bold

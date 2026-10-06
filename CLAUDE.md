@@ -5,7 +5,8 @@ Navigation Compose graph. Firebase Authentication (email/password); trips, budge
 stored locally with Room, per account, and backed up to Cloud Firestore (Room stays the only source for the screens,
 see "Cloud sync"). Exchange rates come from the free Frankfurter API and are cached in Room.
 An AI trip assistant (Gemini through Firebase AI Logic, protected by Firebase App Check) chats about the trip and can
-add suggested day plans to the itinerary.
+add suggested day plans to the itinerary. "Share trip" creates a PDF summary (Android `PdfDocument`) and opens the
+share sheet.
 Package: `com.example.planyourtrip`. minSdk 26, targetSdk 36.
 
 ## Commands
@@ -28,7 +29,7 @@ app/src/main/java/com/example/planyourtrip/
                                # CreationExtras.appContainer() helper
   AppContainer.kt              # manual DI: AuthRepository, AppDatabase, TripRepository, ExpenseRepository,
                                # ActivityRepository, CurrencyRepository, AssistantRepository, Clock,
-                               # SyncManager (+ syncController), app-wide CoroutineScope
+                               # SyncManager (+ syncController), TripPdfExporter, app-wide CoroutineScope
   data/auth/                   # AuthRepository (interface), AuthUser, AuthError/AuthException,
                                # FirebaseAuthRepository (the only Firebase Auth code)
   data/trip/                   # Trip, TripColor, TripEntity, TripDao, TripRepository + RoomTripRepository,
@@ -59,8 +60,8 @@ app/src/main/java/com/example/planyourtrip/
                                # TripDetailsUiState (+ TripTab, BudgetDialogState, CurrencyCardState, ItineraryState,
                                # PlanDayState, OverviewDayState),
                                # BudgetCalculations (pure), CurrencyConversion (pure: converter math + typing reducer),
-                               # Itinerary (pure: days, ordering, planned days, default day, titles, daily cost),
-                               # ExpenseCategoryUi / ActivityTypeUi (icon/label), components/ (TripHeader, BudgetCard,
+                               # Itinerary (pure: planned days, default day, titles, daily cost),
+                               # components/ (TripHeader, BudgetCard,
                                # CurrencyCard, CategoryChartCard, ExpenseRow, BudgetDialog, FeatureCard,
                                # IconChip/CategoryIcon, ActivityTimeline (TimelineRow, ActivityCard,
                                # CompactActivityCard, TagPill), ItineraryComponents (ItineraryActions, ItineraryHeader,
@@ -77,12 +78,21 @@ app/src/main/java/com/example/planyourtrip/
                                #   TripFormatting (dates, cached formatters), TripTexts (datesWithLength,
                                #   statusLabel), TripStatus (tripStatus()), Money (agorot format/parse, percent,
                                #   shekels()), PickerDates (DatePicker UTC conversion), ErrorText (errorSupportingText),
-                               #   CurrencyPicker (CurrencyPickerState, filterCurrencies, currencyName)
+                               #   CurrencyPicker (CurrencyPickerState, filterCurrencies, currencyName),
+                               #   TripDays (pure: tripDays, dayNumber, isWithinTrip, sortActivities, activitiesOn),
+                               #   CategoryTotals (pure: categoryTotals + CategoryTotal),
+                               #   ExpenseCategoryUi / ActivityTypeUi (iconRes()/labelRes())
+  ui/common/share/             # "Share trip" PDF: TripPdfContent (pure: model, buildTripPdfContent, pdfFileName),
+                               #   PdfPagination (pure: paginate), TripPdfExporter (interface, SharedPdf),
+                               #   AndroidTripPdfExporter (the only PdfDocument/FileProvider code), ShareTripViewModel,
+                               #   ShareTripUiState, ShareTripDialog (+ ShareTripHost: dialog + share sheet)
   ui/common/components/        # PrimaryButton (optional leadingIcon), BackTopAppBar (optional actions), BrandMark,
                                #   DateField (read-only field + DatePickerDialog), HeroWaves (gradient decoration),
-                               #   TripComponents (LetterSquare, Pill, TripDatesRow, ChevronIcon),
+                               #   TripComponents (LetterSquare, Pill, TripDatesRow),
+                               #   TripMoreMenu (+ TripMoreButton: the trip's three-dots menu, "Share trip"),
                                #   CurrencyPickerSheet (searchable currency list, trip form + trip screen)
-  ui/theme/                    # Color, ExtendedColors, Shape, Type (Inter + named styles), Dimens, Theme
+  ui/theme/                    # Color, ExtendedColors, Shape, Type (Inter + named styles), Dimens, Theme,
+                               # PdfColors (ARGB ints for the shared PDF, built from Color/ExtendedColors)
 app/src/debug/.../AppCheckSetup.kt    # installAppCheck(): App Check debug provider
 app/src/release/.../AppCheckSetup.kt  # installAppCheck(): Play Integrity provider
 app/schemas/                   # exported Room schemas — commit them
@@ -91,6 +101,7 @@ design/trip_overview.png       # visual reference for the trip screen (Overview 
 design/trip_plan.png           # visual reference for the Plan tab (see "Plan tab" for the deliberate differences)
 third_party/inter/OFL.txt      # Inter font license
 firestore.rules                # Firestore security rules (paste into the console)
+app/src/main/res/xml/file_paths.xml  # FileProvider paths: only cache/shared_pdfs/
 ```
 
 ## Architecture decisions
@@ -106,6 +117,9 @@ firestore.rules                # Firestore security rules (paste into the consol
 - **Time and dispatchers are injected.** `HomeViewModel` and `TripDetailsViewModel` take a `java.time.Clock` (tests
   fix "today") and a `computeDispatcher` (default `Dispatchers.Default`; tests pass their test dispatcher so no work
   outlives a test). `ExpenseFormViewModel` takes the `Clock` for the default expense date and the rate's 12-hour check.
+- **The PDF stays behind an interface too.** Only `ui/common/share/AndroidTripPdfExporter.kt` uses `PdfDocument`,
+  `StaticLayout` and `FileProvider`; `ShareTripViewModel` sees `TripPdfExporter`, tests use `FakeTripPdfExporter`.
+  Screens only add `ShareTripHost(shareViewModel)` and call `onShareTrip(tripId)`.
 - **Firebase stays behind interfaces.** Only `data/auth/FirebaseAuthRepository.kt`,
   `data/assistant/FirebaseAssistantRepository.kt`, `data/sync/FirestoreCloudStore.kt`, the two `AppCheckSetup.kt` files
   and `AppContainer.kt` import Firebase. ViewModels see `AuthRepository`/`AuthUser`/`AuthError`,
@@ -196,9 +210,9 @@ A row exists only while the delete waits to upload (local tombstone).
   `Money.parseAgorot` (digits, one `.` or `,`, ≤ 2 decimals, ≤ ₪1,000,000,000); display goes through
   `Money.formatAgorot` / `shekels()` ("₪2,550", "₪12.50"). Doubles are used only for displayed percentages.
 - `ExpenseCategory` = `FLIGHTS, HOTELS, FOOD, SHOPPING, TRANSPORT, ATTRACTIONS, OTHER`, same naming rules as `TripColor`.
-  Icons/labels live in `ui/tripdetails/ExpenseCategoryUi.kt`, colors in `ExtendedColors.categories`.
+  Icons/labels live in `ui/common/ExpenseCategoryUi.kt`, colors in `ExtendedColors.categories`.
 - `ActivityType` = `ACTIVITY, DINING, TRANSPORT, LODGING, OTHER`, same naming rules. Icons/labels in
-  `ui/tripdetails/ActivityTypeUi.kt`, colors in `ExtendedColors.activityTypes` (one hue per type, see Design rules).
+  `ui/common/ActivityTypeUi.kt`, colors in `ExtendedColors.activityTypes` (one hue per type, see Design rules).
   The domain model is `TripActivity` (not `Activity`, which would clash with `android.app.Activity`); the form
   saves an `ActivityInput`, which repositories `normalized()` (trim, blank optionals → null).
 
@@ -348,6 +362,14 @@ TripDetails ──(sparkle FAB)────────▶ TripAssistant(tripId)
   state never flashes.
 - The header greeting and initials come from the signed-in user's `greetingName()`: the display name, or the part
   of the email before "@" when there is no name.
+- **Trip card menu:** the cards have **no chevron**. Every card (Next trip, Upcoming, Past) ends with a three-dots
+  `TripMoreButton` ("Share trip", see "Share trip (PDF)") at the right edge, vertically centered, no background:
+  `onHeroMuted` on the Next trip card, the `chevron` gray on the list cards. The countdown box / badge sits to its
+  left; the Next trip card's left side stays label, destination, dates. The button is a 48dp touch target with a
+  20dp icon (`Dimens.CardMenuIconSize`); the card rows end with `Dimens.CardMenuEndPadding` (2dp) so the icon is
+  `CardMenuIconInset` (16dp) from the card edge on all three cards, and the button's 14dp inset is the gap to the
+  countdown. The button consumes its taps (never opens the trip); the menu is right-aligned to the button and
+  shifted by the end padding, so it lines up with the card's edge.
 - **Avatar menu:** tapping the avatar opens a `DropdownMenu` with the user's name and email, the sync status (small
   cloud icon + "All changes saved" / "Syncing…" / "Offline – changes will sync later", from
   `HomeUiState.Content.syncStatus`) and "Sign out". Sign out goes through `SyncController.signOut`; when changes
@@ -361,7 +383,9 @@ Reference: `design/trip_overview.png` (there is no separate Budget design; the B
 - **Header** (`TripHeader`, on every tab, scrolls with the list): hero gradient + `HeroWaves`, only bottom corners
   rounded (`extraLarge`), drawn behind the status bar (`contentWindowInsets = WindowInsets(0)` +
   `statusBarsPadding()`); back circle, status pill ("In 38 days" / "Now", **hidden after the trip ended**), edit
-  circle (→ `TripForm(tripId)`), destination (`headlineLarge`, ≤ 3 lines), dates with length.
+  circle (→ `TripForm(tripId)`), three-dots circle (`TripMoreMenu` → "Share trip"), destination (`headlineLarge`,
+  ≤ 3 lines), dates with length. The header is on every tab, so the menu is too. Below 300dp content width or
+  above font scale 1.2 the status pill moves to its own line under the buttons.
 - **Overview:** `BudgetCard` (tap → Budget tab; "Set budget" button opens the budget dialog), then `CurrencyCard`,
   then Places ("No places yet" → Map tab) and Daily plan (→ Plan tab) side by side, then the day section
   (`DayPreviewCard`, see "Plan tab"). Not built yet on purpose: the map preview in Places.
@@ -415,7 +439,7 @@ never looks like a second type label.
   trip) the first day. The selected days live in `TripDetailsViewModel` (`planDay`, `overviewDay`, null = default);
   a selection that is no longer inside the trip dates (dates edited) falls back to the default
   (`validDayOrDefault`). The tab itself stays Compose state.
-- **Ordering** (`sortActivities`): by date, then start time with **untimed activities last**, then id.
+- **Ordering** (`sortActivities`, `ui/common/TripDays.kt`): by date, then start time with **untimed activities last**, then id.
 - **Plan tab** (below the usual `TripHeader`): "Itinerary" + "12–17 Nov 2026 · Rome, Italy"; `DayChipsRow`
   ("Day 1 · Thu 12 Nov", selected = filled teal + check icon, opens scrolled to the selected chip);
   `DaySummaryCard` ("DAILY RHYTHM", "N activities", "~₪210 planned" = `dailyCostAgorot`, hidden when no activity
@@ -550,7 +574,41 @@ distances, weather, plan photo, microphone or like/dislike buttons; **no orange*
 - "About ₪X per day for N days": before the trip N = trip length; during it N = days left **including today**;
   after the trip the line is hidden. Also hidden when nothing is left (≤ 0). X = left / N, rounded **down** to whole
   shekels (exact agorot below ₪1).
-- `categoryTotals` = per-category sums > 0, largest first (ties by enum order), percent of total spending.
+- `categoryTotals` (`ui/common/CategoryTotals.kt`, shared with the PDF) = per-category sums > 0, largest first (ties by enum order), percent of total spending.
+
+## Share trip (PDF) (`ui/common/share`)
+- **Entry points:** the three-dots menu of every Home trip card and of the trip header → `ShareTripViewModel.onShareTrip
+  (tripId)`. Each screen has its own `ShareTripViewModel` (default owner) and renders `ShareTripHost`.
+- **Dialog** (`ShareDialogState` in the ViewModel): "Include costs" switch (on by default; the whole row toggles),
+  Cancel and "Create PDF" (`PrimaryButton` with its spinner while `isCreating`; switch, Cancel and dismiss are
+  ignored then, and `isCreating` is set synchronously so a double tap creates one PDF). A failure keeps the dialog
+  open with "Couldn't create the PDF." and the button reads "Try again". On success the dialog closes and
+  `pendingShare` is set; `ShareTripHost` starts `ACTION_SEND` in a chooser (`EXTRA_STREAM` + `ClipData` +
+  `FLAG_GRANT_READ_URI_PERMISSION`) and calls `onShareLaunched()`.
+- **Data:** the ViewModel reads the trip, its expenses (only when costs are included) and activities once with
+  `.first()` for the current uid; another account's trip or no user → failure, nothing exported.
+- **Content** (`buildTripPdfContent`, pure, `TripPdfContent`): header (destination, dates, inclusive length); cost
+  section only when costs are included **and** there are expenses: total spent, budget and `BudgetDifference`
+  (Under / Over / OnBudget) only when there is a budget, `categoryTotals` (largest first, only > 0, amount +
+  percent); then one `PdfDay` per trip day ("Day 1 · Thu 12 Nov") with `activitiesOn` order (untimed last) and
+  time, title, type, location, note (blank → null). An empty day says "Nothing planned". When no activity falls
+  inside the trip, `days = null` and the PDF has one line instead of the section. The model has **no** email,
+  expense list, activity costs/booked flag or activities outside the dates, so they can't leak.
+- **File name** (`pdfFileName`): "Rome-Italy-12-17-Nov-2026.pdf" — destination (≤ 60 chars) + `dateRange` in
+  English, every run of non-letter/non-digit characters → "-" (Unicode letters, so Hebrew stays; combining marks
+  only after a letter, so emoji variation selectors go), nothing left → "Trip".
+- **Drawing** (`AndroidTripPdfExporter`, `Dispatchers.IO`): A4 595×842 pt, 48 pt margins, footer band. The body is
+  a list of measured blocks; `paginate` (pure) never splits a block, keeps a `keepWithNext` block (section title,
+  day heading, "By category") on the page of the block after it, and gives a block taller than a page a page of its
+  own where it is clipped (only possible with a giant note). Footer on every page: "Created with Plan Your Trip" +
+  "Page N of M". Text is `StaticLayout` with `TextDirectionHeuristics.FIRSTSTRONG_LTR` + `ALIGN_NORMAL` (Hebrew and
+  Arabic paragraphs lay out right to left, bidi for mixed text). Inter from `res/font`; API 29+ uses
+  `Typeface.CustomFallbackBuilder(...).setSystemFallback("sans-serif")`, older versions get the system fallback
+  automatically, so characters Inter lacks still render. Colors come from `PdfColors` (hero gradient header,
+  activity type hues, error red for over budget).
+- **Files:** `cacheDir/shared_pdfs/` is emptied before each new PDF; shared through
+  `androidx.core.content.FileProvider` (authority `${applicationId}.fileprovider`, `res/xml/file_paths.xml`, not
+  exported). Failures are logged (`adb logcat -s TripPdf`) and rethrown to the ViewModel.
 
 ## Design rules
 Reference: `design/home_screen.png`. Match it closely when adding or changing screens.
@@ -599,12 +657,14 @@ Reference: `design/home_screen.png`. Match it closely when adding or changing sc
     calmer style through a local `MaterialTheme` override). Never write `fontSize`/`letterSpacing` in screens.
 - **Sizes** (`ui/theme/Dimens.kt`): `ScreenPadding` 20dp screen side padding, `AvatarSize` 56dp avatar and letter
   squares, `ButtonHeight` 52dp primary buttons, `IconChipSize` 44dp round icon chips, `CategoryIconSize` 40dp
-  category squares. Add a value there instead of repeating a number in several files.
+  category squares, `TouchTarget` 48dp, `CardMenuIconSize` / `CardMenuIconInset` / `CardMenuEndPadding` (home card
+  three-dots button). Add a value there instead of repeating a number in several files.
 - **Spacing:** 16dp between cards, 16–24dp inside cards. The home list has an extra 104dp bottom padding so the FAB
   never covers the last card.
 - **Reuse the shared components** before writing new UI: `PrimaryButton` (pill button with optional loading
   spinner, optional leading icon), `BackTopAppBar` (optional actions), `BrandMark` (gradient circle with the plane),
-  `DateField` (optional `minDate`/`maxDate`), `HeroWaves`, `LetterSquare`, `Pill`, `TripDatesRow`, `ChevronIcon`.
+  `DateField` (optional `minDate`/`maxDate`), `HeroWaves`, `LetterSquare`, `Pill`, `TripDatesRow`,
+  `TripMoreMenu`/`TripMoreButton`.
   Trip-area cards that need a gray fill (note box, day summary, compact activity cards, progress box, unselected
   day chips) use `surfaceContainerHighest`. The upcoming and past cards share one private `TripListCard` skeleton.
 - **Long text never gets cut off.** Dates have no `maxLines` and wrap; destinations wrap to at most 2–3 lines
@@ -695,11 +755,16 @@ Reference: `design/home_screen.png`. Match it closely when adding or changing sc
   untimed activities, activities outside the dates),
   `CurrencyConversion` (incl. digit-by-digit typing tests), activity type and category color contrast (`TintedColorsTest`), `ExpenseCurrency` (no-decimal currency, no rate, editing with/without changing the amount, switching currency), the expense date limit (`ExpenseFormTest`: default after the trip ended, date after the trip on save, editing an expense already dated after the trip), `CurrencyPicker`, `FrankfurterJson`, `isStale`, the assistant (`AssistantJsonTest`: malformed answer, unknown type,
   bad times, costs, invalid date; `AssistantPromptTest`; `AssistantContextTest`: context, chips, history;
-  `SuggestionsTest`: only some checked, day outside the trip), the sync (`SyncMergeTest`: edited on two devices,
+  `SuggestionsTest`: only some checked, day outside the trip), the shared PDF (`TripPdfContentTest`: costs on/off, no
+budget, over/under/on budget, no expenses, no activities, only activities outside the dates, a day with nothing
+planned, untimed activities; `PdfFileNameTest`: special characters, emoji, Hebrew, fallback, long names;
+`PdfPaginationTest`; `ShareTripViewModelTest`: double tap, failure + try again, costs off, another account's trip),
+the sync (`SyncMergeTest`: edited on two devices,
 deleted on one and edited on another, first upload, children of a deleted trip; `SyncDocumentsTest`: field formats,
 tombstones, fallbacks; `SyncManagerTest`: second account on the same device, offline in the middle of a sync,
 reconnect, quick sync, edits during an upload, sign-out paths), `firstName`/`initials`/`greetingName`, `TripColor`, and every
-  ViewModel (with `FakeTripRepository`, `FakeExpenseRepository`, `FakeActivityRepository`, `FakeCurrencyRepository`, `FakeAssistantRepository` (scripted responses, recorded requests, `gate`), `FakeSyncController`, `FakeCloudStore`,
+  ViewModel (with `FakeTripRepository`, `FakeExpenseRepository`, `FakeActivityRepository`, `FakeCurrencyRepository`, `FakeAssistantRepository` (scripted responses, recorded requests, `gate`), `FakeTripPdfExporter` (`exports`,
+  `fail`, `gate`), `FakeSyncController`, `FakeCloudStore`,
   `FakeSyncLocalStore`, `FakeNetworkMonitor` and `FakeAuthRepository` in
   `app/src/test`; set `nextSignInError`, `FakeCurrencyRepository.offline` etc. to simulate backend failures).
   `TripDaoTest` in `app/src/androidTest` covers Room (owner scoping, updates, currency, rate cache, expenses,

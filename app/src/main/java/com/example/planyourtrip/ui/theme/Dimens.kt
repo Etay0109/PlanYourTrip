@@ -18,4 +18,19 @@ object Dimens {
 
     /** Rounded category icon squares in the expense list and the chart legend. */
     val CategoryIconSize = 40.dp
+
+    /** Minimum touch target of icon buttons (Material). */
+    val TouchTarget = 48.dp
+
+    /** Three-dots icon at the right edge of the home trip cards, drawn inside a [TouchTarget] button. */
+    val CardMenuIconSize = 20.dp
+
+    /** Distance from the card's right edge to the three-dots icon, the same on every home card. */
+    val CardMenuIconInset = 16.dp
+
+    /**
+     * End padding of a home card's row so the icon, centered in its 48dp button, sits [CardMenuIconInset] from the
+     * edge: 16 − (48 − 20) / 2 = 2dp.
+     */
+    val CardMenuEndPadding = CardMenuIconInset - (TouchTarget - CardMenuIconSize) / 2
 }

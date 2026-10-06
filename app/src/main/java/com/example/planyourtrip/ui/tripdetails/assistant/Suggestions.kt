@@ -2,7 +2,7 @@ package com.example.planyourtrip.ui.tripdetails.assistant
 
 import com.example.planyourtrip.data.assistant.SuggestedPlan
 import com.example.planyourtrip.data.trip.ActivityInput
-import com.example.planyourtrip.ui.tripdetails.isWithinTrip
+import com.example.planyourtrip.ui.common.isWithinTrip
 import java.time.LocalDate
 
 // Pure conversion of a suggested plan into itinerary activities (unit-tested in SuggestionsTest).

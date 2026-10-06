@@ -36,11 +36,11 @@ import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.R
 import com.example.planyourtrip.data.trip.TripActivity
 import com.example.planyourtrip.ui.common.TripFormatting
+import com.example.planyourtrip.ui.common.iconRes
+import com.example.planyourtrip.ui.common.labelRes
 import com.example.planyourtrip.ui.theme.TintedColor
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
-import com.example.planyourtrip.ui.tripdetails.iconRes
-import com.example.planyourtrip.ui.tripdetails.labelRes
 
 /** Width of the timeline rail (dot + vertical line) left of the activity cards. */
 private val RailWidth = 32.dp

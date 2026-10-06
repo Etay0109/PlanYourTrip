@@ -26,12 +26,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.R
-import com.example.planyourtrip.ui.common.components.ChevronIcon
 import com.example.planyourtrip.ui.common.components.HeroWaves
 import com.example.planyourtrip.ui.common.components.TripDatesRow
+import com.example.planyourtrip.ui.common.components.TripMoreButton
 import com.example.planyourtrip.ui.common.datesWithLength
 import com.example.planyourtrip.ui.home.ActiveTrip
 import com.example.planyourtrip.ui.common.TripStatus
+import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
 import com.example.planyourtrip.ui.theme.HeroLabelStyle
 
@@ -40,6 +41,7 @@ import com.example.planyourtrip.ui.theme.HeroLabelStyle
 fun NextTripCard(
     next: ActiveTrip,
     onClick: () -> Unit,
+    onShare: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = ExtendedTheme.colors
@@ -53,7 +55,7 @@ fun NextTripCard(
     ) {
         HeroWaves(Modifier.matchParentSize())
         Row(
-            modifier = Modifier.padding(start = 24.dp, end = 12.dp, top = 24.dp, bottom = 24.dp),
+            modifier = Modifier.padding(start = 24.dp, end = Dimens.CardMenuEndPadding, top = 24.dp, bottom = 24.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
@@ -87,7 +89,8 @@ fun NextTripCard(
             }
             Spacer(Modifier.width(12.dp))
             CountdownBox(next.status)
-            ChevronIcon(tint = colors.onHeroMuted, modifier = Modifier.padding(start = 4.dp))
+            // The button's own inset gives the gap to the countdown box.
+            TripMoreButton(next.trip.destination, onShare, tint = colors.onHeroMuted)
         }
     }
 }

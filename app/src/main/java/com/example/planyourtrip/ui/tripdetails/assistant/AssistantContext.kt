@@ -5,13 +5,13 @@ import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.data.trip.TripActivity
 import com.example.planyourtrip.ui.common.Money
 import com.example.planyourtrip.ui.common.TripFormatting
-import com.example.planyourtrip.ui.tripdetails.activitiesOn
-import com.example.planyourtrip.ui.tripdetails.dayNumber
+import com.example.planyourtrip.ui.common.activitiesOn
+import com.example.planyourtrip.ui.common.dayNumber
+import com.example.planyourtrip.ui.common.isWithinTrip
+import com.example.planyourtrip.ui.common.tripDays
 import com.example.planyourtrip.ui.tripdetails.defaultDay
-import com.example.planyourtrip.ui.tripdetails.isWithinTrip
 import com.example.planyourtrip.ui.tripdetails.outsideTripDates
 import com.example.planyourtrip.ui.tripdetails.plannedDays
-import com.example.planyourtrip.ui.tripdetails.tripDays
 import java.time.LocalDate
 import java.time.format.TextStyle
 import java.time.temporal.ChronoUnit

@@ -86,13 +86,3 @@ fun TripDatesRow(
         Text(text = text, style = style, color = color)
     }
 }
-
-@Composable
-fun ChevronIcon(tint: Color, modifier: Modifier = Modifier) {
-    Icon(
-        painter = painterResource(R.drawable.ic_chevron_right),
-        contentDescription = null,
-        tint = tint,
-        modifier = modifier.size(24.dp),
-    )
-}

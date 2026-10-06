@@ -25,12 +25,12 @@ import com.example.planyourtrip.R
 import com.example.planyourtrip.data.assistant.SuggestedActivity
 import com.example.planyourtrip.ui.common.TripFormatting
 import com.example.planyourtrip.ui.common.components.PrimaryButton
+import com.example.planyourtrip.ui.common.labelRes
 import com.example.planyourtrip.ui.common.shekels
 import com.example.planyourtrip.ui.theme.ExtendedTheme
 import com.example.planyourtrip.ui.theme.HeroLabelStyle
 import com.example.planyourtrip.ui.tripdetails.components.TagPill
 import com.example.planyourtrip.ui.tripdetails.components.TimelineRow
-import com.example.planyourtrip.ui.tripdetails.labelRes
 
 /**
  * "SUGGESTED PLAN" card under an assistant answer: day and date, title, a timeline of the suggestions (each

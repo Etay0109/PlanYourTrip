@@ -281,6 +281,29 @@
     <string name="assistant_error_unknown">Something went wrong while asking the assistant.</string>
     <string name="assistant_try_again">Try again</string>
 
+    <!-- Share trip (PDF) -->
+    <string name="share_trip">Share trip</string>
+    <string name="share_more_options">More options for %1$s</string>
+    <string name="share_include_costs">Include costs</string>
+    <string name="share_include_costs_hint">Total spent, budget and spending by category</string>
+    <string name="share_create_pdf">Create PDF</string>
+    <string name="share_failed">Couldn\'t create the PDF.</string>
+    <string name="share_try_again">Try again</string>
+    <string name="pdf_trip_cost">Trip cost</string>
+    <string name="pdf_total_spent">Total spent</string>
+    <string name="pdf_budget">Budget</string>
+    <string name="pdf_under_budget">%1$s under budget</string>
+    <string name="pdf_over_budget">%1$s over budget</string>
+    <string name="pdf_on_budget">Exactly on budget</string>
+    <string name="pdf_by_category">By category</string>
+    <string name="pdf_day_by_day">Day by day</string>
+    <!-- "Day 1 · Thu 12 Nov" -->
+    <string name="pdf_day_title">Day\u00A0%1$d · %2$s</string>
+    <string name="pdf_nothing_planned">Nothing planned</string>
+    <string name="pdf_no_activities">No activities have been planned for this trip yet.</string>
+    <string name="pdf_footer">Created with Plan Your Trip</string>
+    <string name="pdf_page">Page %1$d of %2$d</string>
+
     <!-- Common -->
     <string name="action_back">Back</string>
     <string name="action_ok">OK</string>

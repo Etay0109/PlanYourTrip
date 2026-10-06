@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Files other apps may read through the FileProvider: only the shared trip PDFs in the cache. -->
+<paths>
+    <cache-path name="shared_pdfs" path="shared_pdfs/" />
+</paths>

@@ -3,6 +3,7 @@ package com.example.planyourtrip.ui.tripdetails
 import com.example.planyourtrip.data.trip.Expense
 import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.data.trip.TripActivity
+import com.example.planyourtrip.ui.common.CategoryTotal
 import com.example.planyourtrip.ui.common.TripStatus
 import java.math.BigDecimal
 import java.time.LocalDate

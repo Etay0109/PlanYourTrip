@@ -2,6 +2,9 @@ package com.example.planyourtrip.ui.tripdetails
 
 import com.example.planyourtrip.data.trip.ActivityType
 import com.example.planyourtrip.data.trip.TripActivity
+import com.example.planyourtrip.ui.common.activitiesOn
+import com.example.planyourtrip.ui.common.dayNumber
+import com.example.planyourtrip.ui.common.tripDays
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

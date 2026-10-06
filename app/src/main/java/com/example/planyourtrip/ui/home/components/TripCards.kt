@@ -26,13 +26,14 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.ui.common.TripFormatting
-import com.example.planyourtrip.ui.common.components.ChevronIcon
 import com.example.planyourtrip.ui.common.components.LetterSquare
 import com.example.planyourtrip.ui.common.components.Pill
 import com.example.planyourtrip.ui.common.components.TripDatesRow
+import com.example.planyourtrip.ui.common.components.TripMoreButton
 import com.example.planyourtrip.ui.common.datesWithLength
 import com.example.planyourtrip.ui.common.statusLabel
 import com.example.planyourtrip.ui.home.ActiveTrip
+import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
 
 /**
@@ -43,6 +44,7 @@ import com.example.planyourtrip.ui.theme.ExtendedTheme
 fun UpcomingTripCard(
     item: ActiveTrip,
     onClick: () -> Unit,
+    onShare: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = ExtendedTheme.colors
@@ -61,13 +63,14 @@ fun UpcomingTripCard(
             titleColor = MaterialTheme.colorScheme.onSurface,
             datesColor = MaterialTheme.colorScheme.onSurfaceVariant,
             onClick = onClick,
+            onShare = onShare,
             belowDates = {
                 if (!badgeInline) {
                     Spacer(Modifier.height(8.dp))
                     Pill(badge, colors.badgeContainer, colors.onBadge)
                 }
             },
-            beforeChevron = {
+            beforeMenu = {
                 if (badgeInline) {
                     Spacer(Modifier.width(12.dp))
                     Pill(badge, colors.badgeContainer, colors.onBadge)
@@ -82,6 +85,7 @@ fun UpcomingTripCard(
 fun PastTripCard(
     trip: Trip,
     onClick: () -> Unit,
+    onShare: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = ExtendedTheme.colors
@@ -96,13 +100,14 @@ fun PastTripCard(
         titleColor = colors.onPastCard,
         datesColor = colors.onPastCardMuted,
         onClick = onClick,
+        onShare = onShare,
         modifier = modifier,
     )
 }
 
 /**
- * Shared skeleton of the list cards: letter square, destination, dates and a chevron.
- * [belowDates] and [beforeChevron] hold optional extras such as the countdown badge.
+ * Shared skeleton of the list cards: letter square, destination, dates and the three-dots menu at the right edge.
+ * [belowDates] and [beforeMenu] hold optional extras such as the countdown badge.
  */
 @Composable
 private fun TripListCard(
@@ -115,11 +120,12 @@ private fun TripListCard(
     titleColor: Color,
     datesColor: Color,
     onClick: () -> Unit,
+    onShare: () -> Unit,
     modifier: Modifier = Modifier,
     border: BorderStroke? = null,
     shadowElevation: Dp = 0.dp,
     belowDates: @Composable ColumnScope.() -> Unit = {},
-    beforeChevron: @Composable RowScope.() -> Unit = {},
+    beforeMenu: @Composable RowScope.() -> Unit = {},
 ) {
     Surface(
         onClick = onClick,
@@ -130,7 +136,7 @@ private fun TripListCard(
         modifier = modifier.fillMaxWidth(),
     ) {
         Row(
-            modifier = Modifier.padding(start = 16.dp, end = 12.dp, top = 16.dp, bottom = 16.dp),
+            modifier = Modifier.padding(start = 16.dp, end = Dimens.CardMenuEndPadding, top = 16.dp, bottom = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             LetterSquare(destination, letterContainer, letterContent)
@@ -151,8 +157,9 @@ private fun TripListCard(
                 )
                 belowDates()
             }
-            beforeChevron()
-            ChevronIcon(tint = ExtendedTheme.colors.chevron, modifier = Modifier.padding(start = 4.dp))
+            beforeMenu()
+            // The button's own inset gives the gap to the badge or the text.
+            TripMoreButton(destination, onShare, tint = ExtendedTheme.colors.chevron)
         }
     }
 }

@@ -1,8 +1,12 @@
 package com.example.planyourtrip.ui.tripdetails
 
 import com.example.planyourtrip.data.trip.TripActivity
+import com.example.planyourtrip.ui.common.activitiesOn
+import com.example.planyourtrip.ui.common.dayNumber
+import com.example.planyourtrip.ui.common.isWithinTrip
+import com.example.planyourtrip.ui.common.sortActivities
+import com.example.planyourtrip.ui.common.tripDays
 import java.time.LocalDate
-import java.time.temporal.ChronoUnit
 
 // Pure itinerary rules (no Android, unit-tested in ItineraryTest).
 
@@ -11,28 +15,6 @@ const val MAX_PROGRESS_SEGMENTS = 14
 
 /** The Overview day section shows this many activities, then "+N more". */
 const val OVERVIEW_DAY_MAX_ACTIVITIES = 3
-
-/** Every day of the trip, first to last (inclusive: a one-day trip has one day). */
-fun tripDays(start: LocalDate, end: LocalDate): List<LocalDate> =
-    generateSequence(start) { it.plusDays(1) }.takeWhile { !it.isAfter(end) }.toList()
-
-/** 1-based number of [day] in a trip starting on [start] ("Day 1" is the start date). */
-fun dayNumber(day: LocalDate, start: LocalDate): Int = ChronoUnit.DAYS.between(start, day).toInt() + 1
-
-fun isWithinTrip(date: LocalDate, start: LocalDate, end: LocalDate): Boolean =
-    !date.isBefore(start) && !date.isAfter(end)
-
-/** By date, then start time with activities without a time last, then by id (creation order). */
-fun sortActivities(activities: List<TripActivity>): List<TripActivity> =
-    activities.sortedWith(
-        compareBy<TripActivity> { it.date }
-            .thenBy(nullsLast()) { it.startTime }
-            .thenBy { it.id }
-    )
-
-/** The activities of [day], in timeline order. */
-fun activitiesOn(day: LocalDate, activities: List<TripActivity>): List<TripActivity> =
-    sortActivities(activities.filter { it.date == day })
 
 /** Activities whose date is no longer inside the trip (after the dates were edited), in timeline order. */
 fun outsideTripDates(activities: List<TripActivity>, start: LocalDate, end: LocalDate): List<TripActivity> =

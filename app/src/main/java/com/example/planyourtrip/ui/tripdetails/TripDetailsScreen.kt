@@ -2,7 +2,9 @@ package com.example.planyourtrip.ui.tripdetails
 
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -53,10 +55,15 @@ import com.example.planyourtrip.data.trip.ActivityType
 import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.data.trip.TripActivity
 import com.example.planyourtrip.data.trip.TripColor
+import com.example.planyourtrip.ui.common.categoryTotals
 import com.example.planyourtrip.ui.common.components.BackTopAppBar
 import com.example.planyourtrip.ui.common.components.BrandMark
 import com.example.planyourtrip.ui.common.components.CurrencyPickerSheet
 import com.example.planyourtrip.ui.common.components.PrimaryButton
+import com.example.planyourtrip.ui.common.iconRes
+import com.example.planyourtrip.ui.common.labelRes
+import com.example.planyourtrip.ui.common.share.ShareTripHost
+import com.example.planyourtrip.ui.common.share.ShareTripViewModel
 import com.example.planyourtrip.ui.common.tripStatus
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.PlanYourTripTheme
@@ -91,6 +98,7 @@ fun TripDetailsScreen(
     onActivityClick: (Long) -> Unit,
     onOpenAssistant: () -> Unit,
     viewModel: TripDetailsViewModel = viewModel(factory = TripDetailsViewModel.Factory),
+    shareViewModel: ShareTripViewModel = viewModel(factory = ShareTripViewModel.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val budgetDialog by viewModel.budgetDialog.collectAsStateWithLifecycle()
@@ -134,6 +142,7 @@ fun TripDetailsScreen(
         onTabSelected = { selectedTab = it },
         onBack = onBack,
         onEditTrip = onEditTrip,
+        onShareTrip = shareViewModel::onShareTrip,
         onEditBudget = viewModel::onEditBudget,
         onBudgetInputChange = viewModel::onBudgetInputChange,
         onSaveBudget = viewModel::onSaveBudget,
@@ -152,6 +161,7 @@ fun TripDetailsScreen(
             onDismiss = viewModel::onDismissCurrencyPicker,
         )
     }
+    ShareTripHost(shareViewModel)
 }
 
 @Composable
@@ -172,10 +182,12 @@ fun TripDetailsContent(
     onAddExpense: () -> Unit,
     onExpenseClick: (Long) -> Unit,
     onOpenAssistant: () -> Unit,
+    onShareTrip: (Long) -> Unit = {},
 ) {
     when (state) {
         // Nothing is drawn until Room answers, so no placeholder flashes.
-        TripDetailsUiState.Loading -> Scaffold(containerColor = MaterialTheme.colorScheme.background) {}
+        TripDetailsUiState.Loading ->
+            Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
         TripDetailsUiState.NotFound -> NotFound(onBack)
         is TripDetailsUiState.Loaded -> Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
@@ -194,7 +206,13 @@ fun TripDetailsContent(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     item(key = "header") {
-                        TripHeader(state.trip, state.status, onBack = onBack, onEdit = onEditTrip)
+                        TripHeader(
+                            state.trip,
+                            state.status,
+                            onBack = onBack,
+                            onEdit = onEditTrip,
+                            onShare = { onShareTrip(state.trip.id) },
+                        )
                     }
                     when (selectedTab) {
                         TripTab.OVERVIEW ->

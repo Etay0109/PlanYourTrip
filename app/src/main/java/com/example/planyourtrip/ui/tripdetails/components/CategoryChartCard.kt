@@ -27,11 +27,11 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.R
+import com.example.planyourtrip.ui.common.CategoryTotal
 import com.example.planyourtrip.ui.common.Money
+import com.example.planyourtrip.ui.common.labelRes
 import com.example.planyourtrip.ui.common.shekels
 import com.example.planyourtrip.ui.theme.ExtendedTheme
-import com.example.planyourtrip.ui.tripdetails.CategoryTotal
-import com.example.planyourtrip.ui.tripdetails.labelRes
 
 /** "By category" card: donut chart of spending per category and a legend. Only categories with spending. */
 @Composable

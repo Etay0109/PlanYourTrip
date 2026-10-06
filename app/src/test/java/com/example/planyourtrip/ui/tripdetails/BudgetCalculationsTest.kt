@@ -6,6 +6,7 @@ import com.example.planyourtrip.data.trip.ExpenseCategory.ATTRACTIONS
 import com.example.planyourtrip.data.trip.ExpenseCategory.FLIGHTS
 import com.example.planyourtrip.data.trip.ExpenseCategory.FOOD
 import com.example.planyourtrip.data.trip.ExpenseCategory.HOTELS
+import com.example.planyourtrip.ui.common.categoryTotals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

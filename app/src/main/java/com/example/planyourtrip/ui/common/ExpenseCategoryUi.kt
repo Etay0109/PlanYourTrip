@@ -1,4 +1,4 @@
-package com.example.planyourtrip.ui.tripdetails
+package com.example.planyourtrip.ui.common
 
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes

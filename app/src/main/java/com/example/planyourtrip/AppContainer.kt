@@ -20,6 +20,8 @@ import com.example.planyourtrip.data.trip.RoomActivityRepository
 import com.example.planyourtrip.data.trip.RoomExpenseRepository
 import com.example.planyourtrip.data.trip.RoomTripRepository
 import com.example.planyourtrip.data.trip.TripRepository
+import com.example.planyourtrip.ui.common.share.AndroidTripPdfExporter
+import com.example.planyourtrip.ui.common.share.TripPdfExporter
 import com.google.firebase.Firebase
 import com.google.firebase.ai.ai
 import com.google.firebase.ai.type.GenerativeBackend
@@ -73,4 +75,7 @@ class AppContainer(context: Context) {
     val assistantRepository: AssistantRepository by lazy {
         FirebaseAssistantRepository(Firebase.ai(backend = GenerativeBackend.googleAI()))
     }
+
+    /** Draws the shared trip PDF (PdfDocument) and hands it out through the FileProvider. */
+    val tripPdfExporter: TripPdfExporter by lazy { AndroidTripPdfExporter(context) }
 }

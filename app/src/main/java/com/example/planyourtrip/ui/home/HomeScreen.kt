@@ -54,6 +54,8 @@ import com.example.planyourtrip.data.trip.TripColor
 import com.example.planyourtrip.ui.common.components.BrandMark
 import com.example.planyourtrip.ui.common.components.Pill
 import com.example.planyourtrip.ui.common.components.PrimaryButton
+import com.example.planyourtrip.ui.common.share.ShareTripHost
+import com.example.planyourtrip.ui.common.share.ShareTripViewModel
 import com.example.planyourtrip.ui.home.components.NextTripCard
 import com.example.planyourtrip.ui.home.components.PastTripCard
 import com.example.planyourtrip.ui.home.components.UpcomingTripCard
@@ -67,12 +69,15 @@ fun HomeScreen(
     onAddTrip: () -> Unit,
     onTripClick: (Long) -> Unit,
     viewModel: HomeViewModel = viewModel(factory = HomeViewModel.Factory),
+    shareViewModel: ShareTripViewModel = viewModel(factory = ShareTripViewModel.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    ShareTripHost(shareViewModel)
     HomeContent(
         state = state,
         onAddTrip = onAddTrip,
         onTripClick = onTripClick,
+        onShareTrip = shareViewModel::onShareTrip,
         onSignOut = viewModel::onSignOut,
         onConfirmSignOut = viewModel::onConfirmSignOut,
         onDismissSignOutWarning = viewModel::onDismissSignOutWarning,
@@ -85,6 +90,7 @@ fun HomeContent(
     onAddTrip: () -> Unit,
     onTripClick: (Long) -> Unit,
     onSignOut: () -> Unit,
+    onShareTrip: (Long) -> Unit,
     onConfirmSignOut: () -> Unit = {},
     onDismissSignOutWarning: () -> Unit = {},
 ) {
@@ -133,6 +139,7 @@ fun HomeContent(
                     NextTripCard(
                         next = next,
                         onClick = { onTripClick(next.trip.id) },
+                        onShare = { onShareTrip(next.trip.id) },
                         modifier = Modifier.padding(top = 8.dp),
                     )
                 }
@@ -154,7 +161,11 @@ fun HomeContent(
                     }
                 }
                 items(sections.upcoming, key = { "upcoming-${it.trip.id}" }) { item ->
-                    UpcomingTripCard(item = item, onClick = { onTripClick(item.trip.id) })
+                    UpcomingTripCard(
+                        item = item,
+                        onClick = { onTripClick(item.trip.id) },
+                        onShare = { onShareTrip(item.trip.id) },
+                    )
                 }
             }
 
@@ -174,7 +185,11 @@ fun HomeContent(
                     }
                 }
                 items(sections.past, key = { "past-${it.id}" }) { trip ->
-                    PastTripCard(trip = trip, onClick = { onTripClick(trip.id) })
+                    PastTripCard(
+                        trip = trip,
+                        onClick = { onTripClick(trip.id) },
+                        onShare = { onShareTrip(trip.id) },
+                    )
                 }
             }
         }
@@ -362,7 +377,7 @@ private fun previewState(trips: List<Trip>) = HomeUiState.Content(
 @Composable
 private fun HomePreview() {
     PlanYourTripTheme(darkTheme = false) {
-        HomeContent(previewState(previewTrips), onAddTrip = {}, onTripClick = {}, onSignOut = {})
+        HomeContent(previewState(previewTrips), onAddTrip = {}, onTripClick = {}, onSignOut = {}, onShareTrip = {})
     }
 }
 
@@ -372,11 +387,19 @@ private fun HomeNarrowPreview() {
     PlanYourTripTheme(darkTheme = false) {
         HomeContent(
             previewState(
-                previewTrips + Trip(
-                    5, "Reykjavík, Iceland", LocalDate.of(2027, 12, 28), LocalDate.of(2028, 1, 3), TripColor.LAVENDER
+                previewTrips + listOf(
+                    Trip(
+                        5, "Reykjavík, Iceland", LocalDate.of(2027, 12, 28), LocalDate.of(2028, 1, 3),
+                        TripColor.LAVENDER,
+                    ),
+                    // Long name and long dates next to the three-dots button: nothing may be cut off.
+                    Trip(
+                        6, "San Carlos de Bariloche, Argentina", LocalDate.of(2026, 3, 28),
+                        LocalDate.of(2026, 4, 3), TripColor.ROSE,
+                    ),
                 )
             ),
-            onAddTrip = {}, onTripClick = {}, onSignOut = {},
+            onAddTrip = {}, onTripClick = {}, onSignOut = {}, onShareTrip = {},
         )
     }
 }
@@ -385,7 +408,7 @@ private fun HomeNarrowPreview() {
 @Composable
 private fun HomeDarkPreview() {
     PlanYourTripTheme(darkTheme = true) {
-        HomeContent(previewState(previewTrips), onAddTrip = {}, onTripClick = {}, onSignOut = {})
+        HomeContent(previewState(previewTrips), onAddTrip = {}, onTripClick = {}, onSignOut = {}, onShareTrip = {})
     }
 }
 
@@ -393,6 +416,6 @@ private fun HomeDarkPreview() {
 @Composable
 private fun HomeEmptyPreview() {
     PlanYourTripTheme(darkTheme = false) {
-        HomeContent(previewState(emptyList()), onAddTrip = {}, onTripClick = {}, onSignOut = {})
+        HomeContent(previewState(emptyList()), onAddTrip = {}, onTripClick = {}, onSignOut = {}, onShareTrip = {})
     }
 }

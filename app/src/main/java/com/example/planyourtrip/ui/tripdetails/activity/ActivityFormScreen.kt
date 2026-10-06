@@ -60,11 +60,11 @@ import com.example.planyourtrip.ui.common.components.BackTopAppBar
 import com.example.planyourtrip.ui.common.components.DateField
 import com.example.planyourtrip.ui.common.components.PrimaryButton
 import com.example.planyourtrip.ui.common.errorSupportingText
+import com.example.planyourtrip.ui.common.iconRes
+import com.example.planyourtrip.ui.common.labelRes
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
 import com.example.planyourtrip.ui.theme.PlanYourTripTheme
-import com.example.planyourtrip.ui.tripdetails.iconRes
-import com.example.planyourtrip.ui.tripdetails.labelRes
 import java.time.LocalDate
 import java.time.LocalTime
 

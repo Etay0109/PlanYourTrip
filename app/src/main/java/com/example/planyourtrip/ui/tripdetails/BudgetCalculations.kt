@@ -1,7 +1,6 @@
 package com.example.planyourtrip.ui.tripdetails
 
 import com.example.planyourtrip.data.trip.Expense
-import com.example.planyourtrip.data.trip.ExpenseCategory
 import com.example.planyourtrip.ui.common.TripFormatting
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -28,13 +27,6 @@ data class BudgetSummary(
     val isOverBudget: Boolean,
     /** Null after the trip, or when nothing is left to spend. */
     val perDay: PerDay?,
-)
-
-data class CategoryTotal(
-    val category: ExpenseCategory,
-    val amountAgorot: Long,
-    /** Share of all spending, e.g. 40.0. */
-    val percent: Double,
 )
 
 /** Null when the trip has no budget yet. */
@@ -76,17 +68,4 @@ fun remainingBudgetDays(start: LocalDate, end: LocalDate, today: LocalDate): Int
     today.isAfter(end) -> null
     today.isBefore(start) -> TripFormatting.lengthInDays(start, end)
     else -> ChronoUnit.DAYS.between(today, end).toInt() + 1
-}
-
-/** Spending per category, largest first; categories without spending are left out. */
-fun categoryTotals(expenses: List<Expense>): List<CategoryTotal> {
-    val total = expenses.sumOf { it.amountAgorot }
-    if (total <= 0) return emptyList()
-    return expenses
-        .groupBy { it.category }
-        .map { (category, items) -> category to items.sumOf { it.amountAgorot } }
-        .filter { (_, amount) -> amount > 0 }
-        // Ties keep the enum order, so the chart never reshuffles between recompositions.
-        .sortedWith(compareByDescending<Pair<ExpenseCategory, Long>> { it.second }.thenBy { it.first.ordinal })
-        .map { (category, amount) -> CategoryTotal(category, amount, amount * 100.0 / total) }
 }

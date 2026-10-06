@@ -18,6 +18,7 @@ import com.example.planyourtrip.data.trip.ExpenseRepository
 import com.example.planyourtrip.data.trip.TripRepository
 import com.example.planyourtrip.ui.common.CurrencyPickerState
 import com.example.planyourtrip.ui.common.Money
+import com.example.planyourtrip.ui.common.categoryTotals
 import com.example.planyourtrip.ui.common.tripStatus
 import com.example.planyourtrip.ui.navigation.TripDetails
 import kotlinx.coroutines.CoroutineDispatcher

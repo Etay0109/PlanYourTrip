@@ -13,9 +13,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.data.trip.ExpenseCategory
+import com.example.planyourtrip.ui.common.iconRes
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
-import com.example.planyourtrip.ui.tripdetails.iconRes
 
 /** Round gray chip with a teal icon (wallet, bookmark, plan) on the trip cards. */
 @Composable
