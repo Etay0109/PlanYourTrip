@@ -1,10 +1,20 @@
 package com.example.planyourtrip.data.trip
 
+import com.example.planyourtrip.data.sync.LocalChangeListener
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.time.Clock
 import java.time.LocalDate
 
-class RoomTripRepository(private val dao: TripDao) : TripRepository {
+/**
+ * Room is the only source for the screens. Every change is stamped with [clock] and marked pending, then
+ * [changes] tells the sync layer to upload it.
+ */
+class RoomTripRepository(
+    private val dao: TripDao,
+    private val clock: Clock = Clock.systemUTC(),
+    private val changes: LocalChangeListener = LocalChangeListener.None,
+) : TripRepository {
 
     override fun observeTrips(ownerId: String): Flow<List<Trip>> =
         dao.observeAll(ownerId).map { list -> list.map { it.toTrip() } }
@@ -29,8 +39,9 @@ class RoomTripRepository(private val dao: TripDao) : TripRepository {
                 endDate = endDate,
                 color = color,
                 currencyCode = currencyCode,
+                updatedAt = clock.millis(),
             )
-        )
+        ).also { changes.onLocalChange() }
     }
 
     override suspend fun updateTrip(
@@ -40,11 +51,18 @@ class RoomTripRepository(private val dao: TripDao) : TripRepository {
         startDate: LocalDate,
         endDate: LocalDate,
         currencyCode: String?,
-    ) = dao.update(id, ownerId, destination.trim(), startDate, endDate, currencyCode)
+    ) {
+        dao.update(id, ownerId, destination.trim(), startDate, endDate, currencyCode, clock.millis())
+        changes.onLocalChange()
+    }
 
-    override suspend fun setBudget(id: Long, ownerId: String, budgetAgorot: Long?) =
-        dao.setBudget(id, ownerId, budgetAgorot)
+    override suspend fun setBudget(id: Long, ownerId: String, budgetAgorot: Long?) {
+        dao.setBudget(id, ownerId, budgetAgorot, clock.millis())
+        changes.onLocalChange()
+    }
 
-    override suspend fun setCurrency(id: Long, ownerId: String, currencyCode: String?) =
-        dao.setCurrency(id, ownerId, currencyCode)
+    override suspend fun setCurrency(id: Long, ownerId: String, currencyCode: String?) {
+        dao.setCurrency(id, ownerId, currencyCode, clock.millis())
+        changes.onLocalChange()
+    }
 }

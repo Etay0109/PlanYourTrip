@@ -1,0 +1,95 @@
+rules_version = '2';
+
+// Plan Your Trip: each signed-in user can read and write only their own documents under users/{uid}/trips/…;
+// everything else is denied. Field names match app/src/main/java/com/example/planyourtrip/data/sync/SyncDocuments.kt.
+// Live documents always contain every key (null when empty); a deleted item is a tombstone {deleted: true, updatedAt}.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    function isDate(v) {
+      return v is string && v.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    }
+
+    function isDecimal(v) {
+      return v is string && v.matches('^[0-9]+([.][0-9]+)?$');
+    }
+
+    function optString(v) {
+      return v == null || v is string;
+    }
+
+    function optPositiveInt(v) {
+      return v == null || (v is int && v > 0);
+    }
+
+    function isTombstone(d) {
+      return d.keys().hasOnly(['deleted', 'updatedAt'])
+        && d.deleted == true
+        && d.updatedAt is int;
+    }
+
+    function validTrip(d) {
+      return d.keys().hasOnly(['destination', 'startDate', 'endDate', 'budgetAgorot', 'currencyCode', 'color',
+                               'updatedAt', 'deleted'])
+        && d.destination is string && d.destination.size() > 0
+        && isDate(d.startDate) && isDate(d.endDate) && d.endDate >= d.startDate
+        && optPositiveInt(d.budgetAgorot)
+        && optString(d.currencyCode)
+        && d.color is string
+        && d.updatedAt is int
+        && d.deleted == false;
+    }
+
+    function validExpense(d) {
+      return d.keys().hasOnly(['name', 'amountAgorot', 'category', 'date', 'originalAmount', 'originalCurrency',
+                               'exchangeRate', 'rateDate', 'updatedAt', 'deleted'])
+        && d.name is string && d.name.size() > 0
+        && d.amountAgorot is int && d.amountAgorot > 0
+        && d.category is string
+        && isDate(d.date)
+        && (d.originalAmount == null || isDecimal(d.originalAmount))
+        && optString(d.originalCurrency)
+        && (d.exchangeRate == null || isDecimal(d.exchangeRate))
+        && (d.rateDate == null || isDate(d.rateDate))
+        && d.updatedAt is int
+        && d.deleted == false;
+    }
+
+    function validActivity(d) {
+      return d.keys().hasOnly(['date', 'startTime', 'title', 'note', 'type', 'location', 'estimatedCostAgorot',
+                               'booked', 'updatedAt', 'deleted'])
+        && isDate(d.date)
+        && (d.startTime == null || (d.startTime is string && d.startTime.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$')))
+        && d.title is string && d.title.size() > 0
+        && optString(d.note)
+        && d.type is string
+        && optString(d.location)
+        && optPositiveInt(d.estimatedCostAgorot)
+        && d.booked is bool
+        && d.updatedAt is int
+        && d.deleted == false;
+    }
+
+    match /users/{uid}/trips/{tripId} {
+      allow read, delete: if isOwner(uid);
+      allow create, update: if isOwner(uid)
+        && (isTombstone(request.resource.data) || validTrip(request.resource.data));
+
+      match /expenses/{expenseId} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid)
+          && (isTombstone(request.resource.data) || validExpense(request.resource.data));
+      }
+
+      match /activities/{activityId} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid)
+          && (isTombstone(request.resource.data) || validActivity(request.resource.data));
+      }
+    }
+  }
+}

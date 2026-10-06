@@ -1,6 +1,7 @@
 package com.example.planyourtrip.data.trip
 
 import androidx.room.TypeConverter
+import com.example.planyourtrip.data.sync.SyncKind
 import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDate
@@ -56,4 +57,10 @@ class Converters {
     @TypeConverter
     fun nameToActivityType(name: String): ActivityType =
         ActivityType.entries.firstOrNull { it.name == name } ?: ActivityType.OTHER
+
+    @TypeConverter
+    fun syncKindToName(kind: SyncKind): String = kind.name
+
+    @TypeConverter
+    fun nameToSyncKind(name: String): SyncKind = SyncKind.valueOf(name)
 }

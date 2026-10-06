@@ -1,8 +1,10 @@
 package com.example.planyourtrip.ui.home
 
 import com.example.planyourtrip.FakeAuthRepository
+import com.example.planyourtrip.FakeSyncController
 import com.example.planyourtrip.FakeTripRepository
 import com.example.planyourtrip.data.auth.AuthUser
+import com.example.planyourtrip.data.sync.SyncStatus
 import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.data.trip.TripColor
 import com.example.planyourtrip.ui.common.TripStatus
@@ -16,6 +18,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -43,7 +46,7 @@ class HomeViewModelTest {
 
     @Test
     fun emptyRepository_givesEmptyContentWithUserInfo() = runTest(dispatcher) {
-        val vm = HomeViewModel(FakeTripRepository(), FakeAuthRepository(etay), clock, dispatcher)
+        val vm = homeViewModel(FakeTripRepository(), FakeAuthRepository(etay))
 
         val content = vm.content()
 
@@ -57,7 +60,7 @@ class HomeViewModelTest {
     @Test
     fun noDisplayName_usesEmailPrefix() = runTest(dispatcher) {
         val user = AuthUser(uid = "u2", displayName = null, email = "dana.levi@example.com")
-        val content = HomeViewModel(FakeTripRepository(), FakeAuthRepository(user), clock, dispatcher).content()
+        val content = homeViewModel(FakeTripRepository(), FakeAuthRepository(user)).content()
 
         assertEquals("dana.levi", content.userName)
         assertEquals("dana.levi", content.firstName)
@@ -70,7 +73,7 @@ class HomeViewModelTest {
         val prague = Trip(2, "Prague", LocalDate.of(2026, 8, 10), LocalDate.of(2026, 8, 14), TripColor.MINT)
         val someoneElses = Trip(3, "Oslo", LocalDate.of(2026, 10, 20), LocalDate.of(2026, 10, 22), TripColor.ROSE)
         val trips = FakeTripRepository(listOf("u1" to prague, "u1" to rome, "other" to someoneElses))
-        val vm = HomeViewModel(trips, FakeAuthRepository(etay), clock, dispatcher)
+        val vm = homeViewModel(trips, FakeAuthRepository(etay))
 
         val sections = vm.content().sections
 
@@ -83,7 +86,7 @@ class HomeViewModelTest {
     fun switchingAccount_showsTheNewAccountsTrips() = runTest(dispatcher) {
         val rome = Trip(1, "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17), TripColor.SKY)
         val auth = FakeAuthRepository(etay)
-        val vm = HomeViewModel(FakeTripRepository(listOf("u1" to rome)), auth, clock, dispatcher)
+        val vm = homeViewModel(FakeTripRepository(listOf("u1" to rome)), auth)
         assertEquals(rome, vm.content().sections.next?.trip)
 
         auth.currentUser.value = AuthUser(uid = "u2", displayName = "Dana", email = null)
@@ -94,13 +97,61 @@ class HomeViewModelTest {
     }
 
     @Test
-    fun signOut_callsRepository() = runTest(dispatcher) {
+    fun signOut_goesThroughTheSync() = runTest(dispatcher) {
         val auth = FakeAuthRepository(etay)
-        val vm = HomeViewModel(FakeTripRepository(), auth, clock, dispatcher)
+        val sync = FakeSyncController(auth)
+        val vm = homeViewModel(FakeTripRepository(), auth, sync)
 
         vm.onSignOut()
 
+        assertEquals(listOf(false), sync.signOutCalls)
         assertEquals(listOf("signOut"), auth.calls)
         assertNull(auth.currentUser.value)
     }
+
+    @Test
+    fun syncStatus_isShownInTheState() = runTest(dispatcher) {
+        val auth = FakeAuthRepository(etay)
+        val sync = FakeSyncController(auth)
+        val vm = homeViewModel(FakeTripRepository(), auth, sync)
+        assertEquals(SyncStatus.SAVED, vm.content().syncStatus)
+
+        sync.status.value = SyncStatus.OFFLINE
+
+        assertEquals(SyncStatus.OFFLINE, vm.content().syncStatus)
+    }
+
+    @Test
+    fun signOut_withPendingChangesOffline_showsTheWarning_andCancelKeepsTheUserSignedIn() = runTest(dispatcher) {
+        val auth = FakeAuthRepository(etay)
+        val sync = FakeSyncController(auth).apply { pendingOffline = true }
+        val vm = homeViewModel(FakeTripRepository(), auth, sync)
+
+        vm.onSignOut()
+        assertTrue(vm.content().showSignOutWarning)
+        assertEquals(etay, auth.currentUser.value)
+
+        vm.onDismissSignOutWarning()
+        assertFalse(vm.content().showSignOutWarning)
+        assertEquals(etay, auth.currentUser.value)
+    }
+
+    @Test
+    fun signOutAnyway_forcesTheSignOut() = runTest(dispatcher) {
+        val auth = FakeAuthRepository(etay)
+        val sync = FakeSyncController(auth).apply { pendingOffline = true }
+        val vm = homeViewModel(FakeTripRepository(), auth, sync)
+        vm.onSignOut()
+
+        vm.onConfirmSignOut()
+
+        assertEquals(listOf(false, true), sync.signOutCalls)
+        assertNull(auth.currentUser.value)
+    }
+
+    private fun homeViewModel(
+        trips: FakeTripRepository,
+        auth: FakeAuthRepository,
+        sync: FakeSyncController = FakeSyncController(auth),
+    ) = HomeViewModel(trips, auth, sync, clock, dispatcher)
 }

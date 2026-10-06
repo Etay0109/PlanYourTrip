@@ -2,7 +2,8 @@
 
 Trip-planning app. Kotlin + Jetpack Compose + Material 3, single Activity (`MainActivity`) hosting a
 Navigation Compose graph. Firebase Authentication (email/password); trips, budgets, expenses and itinerary activities are
-stored locally with Room, per account. Exchange rates come from the free Frankfurter API and are cached in Room.
+stored locally with Room, per account, and backed up to Cloud Firestore (Room stays the only source for the screens,
+see "Cloud sync"). Exchange rates come from the free Frankfurter API and are cached in Room.
 An AI trip assistant (Gemini through Firebase AI Logic, protected by Firebase App Check) chats about the trip and can
 add suggested day plans to the itinerary.
 Package: `com.example.planyourtrip`. minSdk 26, targetSdk 36.
@@ -12,6 +13,8 @@ Package: `com.example.planyourtrip`. minSdk 26, targetSdk 36.
 - Unit tests: `./gradlew testDebugUnitTest`
 - Instrumented tests (needs an emulator): `./gradlew connectedDebugAndroidTest`
 - Release build: `./gradlew assembleRelease` (unsigned APK; must compile too, see the Compose BoM note in Conventions)
+- Firestore security rules: `firestore.rules` (repo root). Not deployed by the build: paste the file into Firebase
+  console → Firestore Database → Rules → Publish after every change.
 - Firebase config: `app/google-services.json` (project `planyourtrip-79724`, package `com.example.planyourtrip`).
   The Google services plugin only reads it from `app/`.
 - Gradle 8.13 fails on the system JDK 24 ("Type T not present"). From the terminal, use Android Studio's JDK:
@@ -21,16 +24,18 @@ Package: `com.example.planyourtrip`. minSdk 26, targetSdk 36.
 ```
 app/src/main/java/com/example/planyourtrip/
   MainActivity.kt              # PlanYourTripTheme { AppNavHost() }
-  PlanYourTripApplication.kt   # installAppCheck(), then creates the AppContainer; CreationExtras.appContainer() helper
+  PlanYourTripApplication.kt   # installAppCheck(), creates the AppContainer, syncManager.start();
+                               # CreationExtras.appContainer() helper
   AppContainer.kt              # manual DI: AuthRepository, AppDatabase, TripRepository, ExpenseRepository,
-                               # ActivityRepository, CurrencyRepository, AssistantRepository, Clock
+                               # ActivityRepository, CurrencyRepository, AssistantRepository, Clock,
+                               # SyncManager (+ syncController), app-wide CoroutineScope
   data/auth/                   # AuthRepository (interface), AuthUser, AuthError/AuthException,
                                # FirebaseAuthRepository (the only Firebase Auth code)
   data/trip/                   # Trip, TripColor, TripEntity, TripDao, TripRepository + RoomTripRepository,
                                # Expense, ExpenseCategory, ExpenseEntity, ExpenseDao,
                                # ExpenseRepository + RoomExpenseRepository, ActivityType, TripActivity (+ ActivityInput),
                                # ActivityEntity, ActivityDao, ActivityRepository + RoomActivityRepository,
-                               # Converters, AppDatabase
+                               # Converters, AppDatabase, Migrations (MIGRATION_6_7)
   data/currency/               # Currency, ExchangeRate, ILS, ExchangeRateEntity/Dao (rate cache),
                                # CurrencyRepository (+ isStale, RATE_MAX_AGE) + RoomCurrencyRepository,
                                # RatesApi + FrankfurterRatesApi (the only HTTP code), FrankfurterJson (pure parsers)
@@ -38,6 +43,12 @@ app/src/main/java/com/example/planyourtrip/
                                # AssistantError), FirebaseAssistantRepository (the only Firebase AI code + JSON schema),
                                # AssistantPrompt (pure: AssistantModel, assistantInstructions, classifyServerMessage),
                                # AssistantJson (pure: parseReply → AssistantReply / SuggestedPlan / SuggestedActivity)
+  data/sync/                   # cloud sync: SyncModels (pure: SyncKind, SyncItem, ItemData, LocalItem, SyncStatus),
+                               # SyncMerge (pure: planMerge → MergePlan), SyncDocuments (pure: Firestore fields),
+                               # CloudStore (interface) + FirestoreCloudStore (the only Firestore code),
+                               # SyncLocalStore (interface) + RoomSyncLocalStore + SyncDao, DeletionEntity (+ ChildRef),
+                               # NetworkMonitor + AndroidNetworkMonitor, SyncController (+ SignOutResult,
+                               # LocalChangeListener), SyncManager
   data/user/                   # CurrentUser (AuthUser.greetingName()), UserNames (firstName()/initials())
   ui/navigation/               # Routes.kt (type-safe routes), AppNavHost.kt, SessionViewModel
   ui/auth/                     # AuthScreen, AuthViewModel, AuthUiState, AuthValidator
@@ -79,6 +90,7 @@ design/home_screen.png         # visual reference for the home screen and the ap
 design/trip_overview.png       # visual reference for the trip screen (Overview tab)
 design/trip_plan.png           # visual reference for the Plan tab (see "Plan tab" for the deliberate differences)
 third_party/inter/OFL.txt      # Inter font license
+firestore.rules                # Firestore security rules (paste into the console)
 ```
 
 ## Architecture decisions
@@ -95,9 +107,10 @@ third_party/inter/OFL.txt      # Inter font license
   fix "today") and a `computeDispatcher` (default `Dispatchers.Default`; tests pass their test dispatcher so no work
   outlives a test). `ExpenseFormViewModel` takes the `Clock` for the default expense date and the rate's 12-hour check.
 - **Firebase stays behind interfaces.** Only `data/auth/FirebaseAuthRepository.kt`,
-  `data/assistant/FirebaseAssistantRepository.kt`, the two `AppCheckSetup.kt` files and `AppContainer.kt` import
-  Firebase. ViewModels see `AuthRepository`/`AuthUser`/`AuthError` and `AssistantRepository`/`AssistantError`; tests
-  use `FakeAuthRepository` and `FakeAssistantRepository`.
+  `data/assistant/FirebaseAssistantRepository.kt`, `data/sync/FirestoreCloudStore.kt`, the two `AppCheckSetup.kt` files
+  and `AppContainer.kt` import Firebase. ViewModels see `AuthRepository`/`AuthUser`/`AuthError`,
+  `AssistantRepository`/`AssistantError` and `SyncController`/`SyncStatus`; tests use `FakeAuthRepository`,
+  `FakeAssistantRepository`, `FakeSyncController`, `FakeCloudStore` and `FakeSyncLocalStore`.
 - **ViewModels have no Android `Context`.** Validation returns enum codes (`FieldError`, `TripFieldError`,
   `ExpenseFieldError`, `BudgetFieldError`); the UI maps them to string resources.
 - **Package rules.** Each feature package (`auth`, `home`, `tripform`, `tripdetails`) owns its screen, ViewModel,
@@ -112,7 +125,7 @@ third_party/inter/OFL.txt      # Inter font license
   saving sets `isSaving` synchronously, so double taps save once.
 
 ## Data model (Room)
-Database `plan_your_trip.db`, `AppDatabase` version 6, four tables:
+Database `plan_your_trip.db`, `AppDatabase` version 7, five tables:
 
 | `trips` column | Type | Notes |
 |---|---|---|
@@ -124,6 +137,9 @@ Database `plan_your_trip.db`, `AppDatabase` version 6, four tables:
 | `color` | TEXT | `TripColor` enum **name** |
 | `budget_agorot` | INTEGER, nullable | total budget in agorot; `null` = no budget (a new trip has none) |
 | `currency_code` | TEXT, nullable | ISO 4217 code of the destination currency ("EUR"); `null` = not chosen yet |
+| `uuid` | TEXT, unique | stable id, the same in Room and Firestore (the document id); see sync columns below |
+| `updated_at` | INTEGER | epoch millis of the last change on any device |
+| `pending_sync` | INTEGER | Boolean, 1 = changed here and not uploaded yet |
 
 | `expenses` column | Type | Notes |
 |---|---|---|
@@ -140,6 +156,21 @@ Database `plan_your_trip.db`, `AppDatabase` version 6, four tables:
 
 The four `original_*`/`exchange_rate`/`rate_date` columns are all set or all null (null = entered in shekels);
 they map to `Expense.original: ForeignAmount?`.
+
+**Sync columns:** `trips`, `expenses` and `activities` all have `uuid` (TEXT NOT NULL, unique index, a random UUID
+made at insert), `updated_at` (INTEGER, epoch millis, set from the injected `Clock` on every insert/update) and
+`pending_sync` (INTEGER, default 1). The Long `id` stays the local primary key (routes, ViewModels and repository
+interfaces use it); it differs between devices and is never synced.
+
+| `deletions` column | Type | Notes |
+|---|---|---|
+| `uuid` | TEXT PK | the deleted item's uuid |
+| `owner_id` | TEXT, indexed | the account that deleted it |
+| `kind` | TEXT | `SyncKind` name: `TRIP`, `EXPENSE`, `ACTIVITY` |
+| `trip_uuid` | TEXT, nullable | the trip of an expense/activity (the cloud path needs it); null for a trip |
+| `deleted_at` | INTEGER | epoch millis of the delete |
+
+A row exists only while the delete waits to upload (local tombstone).
 
 | `activities` column | Type | Notes |
 |---|---|---|
@@ -190,11 +221,87 @@ they map to `Expense.original: ForeignAmount?`.
   existing trips are kept. v3 → v4 is an `AutoMigration` that adds `trips.currency_code` (null) and creates
   `exchange_rates`; existing trips and expenses are kept. v4 → v5 is an `AutoMigration` that creates `activities`;
   all existing data is kept. v5 → v6 is an `AutoMigration` that adds the four nullable foreign-amount columns to
-  `expenses`, so every existing expense stays a shekel expense. Room turns on `PRAGMA foreign_keys` itself (the cascade is covered in `TripDaoTest`).
+  `expenses`, so every existing expense stays a shekel expense. v6 → v7 is the **manual** `MIGRATION_6_7`
+(`Migrations.kt`, SQL copied from `7.json`): adds the three sync columns, gives every existing row its own
+`UUID.randomUUID()` (SQLite can't), sets `updated_at` to the migration time and `pending_sync = 1` (so the first sync
+uploads everything), then creates the unique indexes and `deletions` (`MigrationTest` in androidTest). Room turns on `PRAGMA foreign_keys` itself (the cascade is covered in `TripDaoTest`).
 - **Never seed sample trips into the database.** Sample data belongs only in previews and tests.
 - **Changing the schema:** bump `version`, add a `Migration` or `AutoMigration`, build, and commit the new JSON in
   `app/schemas/`. Do not use `fallbackToDestructiveMigration` — users would lose their trips.
-- There is no "delete trip" UI yet; when added, the FK cascade removes the expenses and activities.
+- There is no "delete trip" UI yet; when added, the FK cascade removes the expenses and activities, and the
+  repository must record a `TRIP` row in `deletions` (the sync layer already handles trip tombstones).
+
+## Cloud sync (`data/sync`)
+**Room is the only source for the screens**; the app works offline exactly as before. Firestore is a per-account
+backup that also carries changes between devices. The exchange-rate cache and the assistant chat are never synced.
+
+### Firestore layout (field names in `SyncDocuments`, must match `firestore.rules`)
+```
+users/{uid}/trips/{tripUuid}                   destination, startDate, endDate, budgetAgorot, currencyCode, color
+users/{uid}/trips/{tripUuid}/expenses/{uuid}   name, amountAgorot, category, date,
+                                               originalAmount, originalCurrency, exchangeRate, rateDate
+users/{uid}/trips/{tripUuid}/activities/{uuid} date, startTime, title, note, type, location, estimatedCostAgorot, booked
+every live document also has                   updatedAt (epoch millis, int), deleted: false
+```
+- Money is whole agorot (int), dates ISO strings ("2026-11-12"), `startTime` "HH:mm", rates and foreign amounts exact
+  decimal strings (`toPlainString()`), enums by name (unknown → same fallback as Room). Every key is written, null
+  when empty. A document that can't be read is skipped and logged, never fatal.
+- **Deletes are tombstones:** the document is replaced (no merge) by `{deleted: true, updatedAt}`, so the data is
+  gone but other devices learn about the delete and a delete-vs-edit conflict is decided by time. A trip tombstone
+  also turns its expenses and activities into tombstones.
+
+### Write path
+- `RoomTripRepository` / `RoomExpenseRepository` / `RoomActivityRepository` take the `Clock` and a
+  `LocalChangeListener` (the `SyncManager`). Every insert/update sets `updated_at = clock.millis()` and
+  `pending_sync = 1`; deletes go through the DAOs' `@Transaction deleteAndRecord` (insert a `deletions` row, then
+  delete). Then they call `onLocalChange()`.
+
+### SyncManager (app-scoped, `Dispatchers.IO`)
+- **Full sync** (download everything with `fetchAll`, `planMerge`, apply in one Room transaction, upload, mark
+  synced): when the user becomes non-null (sign-in **and** app start, `collectLatest` on the uid, so switching accounts
+  cancels it) and whenever `NetworkMonitor.isOnline` goes back to true.
+- **Quick sync** ~1 s after a local change (conflated channel): only the pending items and their own cloud
+  documents (`fetch`), the same `planMerge`, so a newer edit from another device is never overwritten.
+- One sync at a time (`Mutex`); every query uses the current uid only. No network → no cloud call, status OFFLINE.
+  No realtime listener: other devices see changes at their next sign-in, app start or reconnect.
+- Uploads go in chunks of 100 items; each chunk is marked synced (`markSynced`: `pending_sync = 0` / drop the
+  tombstone **only if `updated_at` is unchanged**, so an edit made during the upload stays pending). A failure
+  anywhere throws `CloudUnavailableException` and leaves the rest pending for the next sync (no duplicates: uuids).
+- Firestore uses a **memory cache only** (Room is the one copy on the device, so sign-out really removes the data);
+  reads use `Source.SERVER`; each cloud call times out after 20 s.
+
+### Merge rules (`planMerge`, pure, `SyncMergeTest`)
+| local | cloud | result |
+|---|---|---|
+| live, pending | missing | upload (created here / first upload of existing data) |
+| live, not pending | missing | delete here (removed from the cloud) |
+| missing | live | save here (trips before their children) |
+| live | live | newer `updatedAt` wins, tie → cloud |
+| live | tombstone | newer of edit and delete wins, tie → delete |
+| tombstone | live | newer of delete and edit wins, tie → the cloud's edit (the item comes back) |
+| tombstone | missing / tombstone | drop the local tombstone |
+
+Children of a trip that ends up deleted are deleted here and never saved or uploaded. `RoomSyncLocalStore.apply`
+re-checks `updated_at` so a cloud version never replaces a newer local change made while the sync ran.
+Timestamps are device clocks (no server time), so a device with a very wrong clock can win conflicts it shouldn't.
+
+### Status and sign out
+- `SyncController.status`: `SYNCING` while a sync runs (or changes are pending, online and the last attempt didn't
+  fail), `SAVED` when nothing is pending, else `OFFLINE`. Shown in the Home avatar menu.
+- `signOut(force = false)`: uploads pending changes first; if nothing is left pending it signs out and then deletes
+  the account's rows and tombstones from the device (`NonCancellable`, under the sync lock). If changes can't be
+  uploaded it returns `NEEDS_CONFIRMATION` and Home shows the warning dialog. `signOut(force = true)` ("Sign out
+  anyway") signs out and **keeps** the data on the device, hidden by owner scoping; it uploads at that account's
+  next sign-in here. A second account on the same device only ever syncs its own rows.
+- Testing: `FakeCloudStore` (`offline`, `failAfterWrites`, `onWrite`), `FakeSyncLocalStore` (same guards as Room),
+  `FakeNetworkMonitor`. **Never test against the real Firestore.** `SyncManagerTest` runs the manager in
+  `backgroundScope` and advances virtual time (`advanceUntilIdle` stops when only background work is left).
+
+### Security rules (`firestore.rules`)
+Only `users/{uid}/trips/{tripId}` and its `expenses`/`activities` subcollections are matched; a signed-in user may
+read/delete their own documents and create/update them only with valid fields (`hasOnly` key lists, ISO dates, end ≥
+start, amount > 0, budget/cost null or > 0, decimal strings for rates, "HH:mm" times, `updatedAt` int) or as a
+tombstone. Everything else is denied. Change the rules together with `SyncDocuments`.
 
 ## Navigation
 Type-safe Navigation Compose routes (`@Serializable`) in `ui/navigation/Routes.kt`:
@@ -241,7 +348,10 @@ TripDetails ──(sparkle FAB)────────▶ TripAssistant(tripId)
   state never flashes.
 - The header greeting and initials come from the signed-in user's `greetingName()`: the display name, or the part
   of the email before "@" when there is no name.
-- **Avatar menu:** tapping the avatar opens a `DropdownMenu` with the user's name and email and "Sign out".
+- **Avatar menu:** tapping the avatar opens a `DropdownMenu` with the user's name and email, the sync status (small
+  cloud icon + "All changes saved" / "Syncing…" / "Offline – changes will sync later", from
+  `HomeUiState.Content.syncStatus`) and "Sign out". Sign out goes through `SyncController.signOut`; when changes
+  can't be uploaded, an `AlertDialog` warns ("Sign out anyway" / Cancel, `showSignOutWarning`).
 
 ## Trip screen (`ui/tripdetails`)
 Reference: `design/trip_overview.png` (there is no separate Budget design; the Budget tab reuses the Overview style).
@@ -571,7 +681,7 @@ Reference: `design/home_screen.png`. Match it closely when adding or changing sc
 - All date formatting goes through `TripFormatting` (never build a `DateTimeFormatter` in a composable).
 - Dependencies go through the version catalog `gradle/libs.versions.toml`. Room 2.7.2, KSP 2.0.21-1.0.28,
   Navigation 2.9.0, serialization 1.7.3, **Compose BoM 2025.09.01** (Compose 1.9.2, Material 3 1.4.0) and
-  **Firebase BoM 34.12.0** were chosen to match Kotlin 2.0.21; check
+  **Firebase BoM 34.12.0** (incl. `firebase-firestore` 26.2.0, built with Kotlin 2.0.21) were chosen to match Kotlin 2.0.21; check
   Kotlin/KSP compatibility before upgrading them. Keep the Compose BoM at least as new as the Compose version that
   Navigation/Activity and debug-only `ui-tooling` pull in (1.9.2 now): an older BoM leaves release on older Compose
   artifacts than debug, so code like `FlowRow(itemVerticalAlignment)` compiles in debug and fails in release. Check
@@ -585,8 +695,12 @@ Reference: `design/home_screen.png`. Match it closely when adding or changing sc
   untimed activities, activities outside the dates),
   `CurrencyConversion` (incl. digit-by-digit typing tests), activity type and category color contrast (`TintedColorsTest`), `ExpenseCurrency` (no-decimal currency, no rate, editing with/without changing the amount, switching currency), `CurrencyPicker`, `FrankfurterJson`, `isStale`, the assistant (`AssistantJsonTest`: malformed answer, unknown type,
   bad times, costs, invalid date; `AssistantPromptTest`; `AssistantContextTest`: context, chips, history;
-  `SuggestionsTest`: only some checked, day outside the trip), `firstName`/`initials`/`greetingName`, `TripColor`, and every
-  ViewModel (with `FakeTripRepository`, `FakeExpenseRepository`, `FakeActivityRepository`, `FakeCurrencyRepository`, `FakeAssistantRepository` (scripted responses, recorded requests, `gate`) and `FakeAuthRepository` in
+  `SuggestionsTest`: only some checked, day outside the trip), the sync (`SyncMergeTest`: edited on two devices,
+deleted on one and edited on another, first upload, children of a deleted trip; `SyncDocumentsTest`: field formats,
+tombstones, fallbacks; `SyncManagerTest`: second account on the same device, offline in the middle of a sync,
+reconnect, quick sync, edits during an upload, sign-out paths), `firstName`/`initials`/`greetingName`, `TripColor`, and every
+  ViewModel (with `FakeTripRepository`, `FakeExpenseRepository`, `FakeActivityRepository`, `FakeCurrencyRepository`, `FakeAssistantRepository` (scripted responses, recorded requests, `gate`), `FakeSyncController`, `FakeCloudStore`,
+  `FakeSyncLocalStore`, `FakeNetworkMonitor` and `FakeAuthRepository` in
   `app/src/test`; set `nextSignInError`, `FakeCurrencyRepository.offline` etc. to simulate backend failures).
   `TripDaoTest` in `app/src/androidTest` covers Room (owner scoping, updates, currency, rate cache, expenses,
-  activities, cascades).
+  activities, cascades, sync columns, recorded deletes); `MigrationTest` covers v6 → v7.

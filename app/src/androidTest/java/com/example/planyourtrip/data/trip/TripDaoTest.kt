@@ -4,6 +4,8 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.planyourtrip.data.currency.ExchangeRateEntity
+import com.example.planyourtrip.data.sync.RoomSyncLocalStore
+import com.example.planyourtrip.data.sync.SyncKind
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -223,5 +225,28 @@ class TripDaoTest {
         // A shekel expense has no original.
         val ils = expenses.addExpense(rome, "u1", "Taxi", 9_000, ExpenseCategory.TRANSPORT, LocalDate.of(2026, 11, 12))!!
         assertNull(expenses.observeExpense(ils, "u1").first()!!.original)
+    }
+
+    @Test
+    fun changes_arePendingUntilSynced_andDeletesAreRecordedForTheCloud() = runTest {
+        val sync = RoomSyncLocalStore(db)
+        val trip = repository.addTrip("u1", "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17))
+        val expense = expenses.addExpense(trip, "u1", "Dinner", 12_050, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13))!!
+        assertEquals(2, sync.pendingCount("u1").first())
+        assertEquals(0, sync.pendingCount("u2").first())
+
+        val items = sync.snapshot("u1", pendingOnly = true)
+        items.forEach { sync.markSynced("u1", it.item) }
+        assertEquals(0, sync.pendingCount("u1").first())
+        assertTrue(items.map { it.item.uuid }.none { it.isBlank() })
+
+        expenses.deleteExpense(expense, "u1")
+        val tombstone = sync.snapshot("u1", pendingOnly = true).single().item
+        assertTrue(tombstone.isDeleted)
+        assertEquals(items.first { it.item.kind == SyncKind.TRIP }.item.uuid, tombstone.tripUuid)
+
+        sync.deleteAllFor("u1")
+        assertTrue(repository.observeTrips("u1").first().isEmpty())
+        assertEquals(0, sync.pendingCount("u1").first())
     }
 }

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -26,6 +27,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.planyourtrip.R
+import com.example.planyourtrip.data.sync.SyncStatus
 import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.data.trip.TripColor
 import com.example.planyourtrip.ui.common.components.BrandMark
@@ -71,6 +74,8 @@ fun HomeScreen(
         onAddTrip = onAddTrip,
         onTripClick = onTripClick,
         onSignOut = viewModel::onSignOut,
+        onConfirmSignOut = viewModel::onConfirmSignOut,
+        onDismissSignOutWarning = viewModel::onDismissSignOutWarning,
     )
 }
 
@@ -80,7 +85,12 @@ fun HomeContent(
     onAddTrip: () -> Unit,
     onTripClick: (Long) -> Unit,
     onSignOut: () -> Unit,
+    onConfirmSignOut: () -> Unit = {},
+    onDismissSignOutWarning: () -> Unit = {},
 ) {
+    if ((state as? HomeUiState.Content)?.showSignOutWarning == true) {
+        SignOutWarningDialog(onConfirm = onConfirmSignOut, onDismiss = onDismissSignOutWarning)
+    }
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
@@ -191,7 +201,7 @@ private fun HomeHeader(content: HomeUiState.Content, onSignOut: () -> Unit) {
     }
 }
 
-/** Initials avatar that opens a menu with the user's name, email and "Sign out". */
+/** Initials avatar that opens a menu with the user's name, email, the sync status and "Sign out". */
 @Composable
 private fun AccountAvatar(content: HomeUiState.Content, onSignOut: () -> Unit) {
     var menuOpen by rememberSaveable { mutableStateOf(false) }
@@ -224,6 +234,7 @@ private fun AccountAvatar(content: HomeUiState.Content, onSignOut: () -> Unit) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                SyncStatusRow(content.syncStatus, modifier = Modifier.padding(top = 8.dp))
             }
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
             DropdownMenuItem(
@@ -236,6 +247,46 @@ private fun AccountAvatar(content: HomeUiState.Content, onSignOut: () -> Unit) {
             )
         }
     }
+}
+
+/** "All changes saved" / "Syncing…" / "Offline – changes will sync later" with a small cloud icon. */
+@Composable
+private fun SyncStatusRow(status: SyncStatus, modifier: Modifier = Modifier) {
+    val (icon, text) = when (status) {
+        SyncStatus.SAVED -> R.drawable.ic_cloud_done to R.string.home_sync_saved
+        SyncStatus.SYNCING -> R.drawable.ic_sync to R.string.home_sync_syncing
+        SyncStatus.OFFLINE -> R.drawable.ic_cloud_off to R.string.home_sync_offline
+    }
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            painter = painterResource(icon),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(16.dp),
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = stringResource(text),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** Shown when changes still wait to upload and there is no connection. */
+@Composable
+private fun SignOutWarningDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.home_sign_out_warning_title)) },
+        text = { Text(stringResource(R.string.home_sign_out_warning_body)) },
+        confirmButton = {
+            TextButton(onClick = onConfirm) { Text(stringResource(R.string.home_sign_out_anyway)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        },
+    )
 }
 
 @Composable

@@ -7,6 +7,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import java.time.LocalDate
 import java.time.LocalTime
+import java.util.UUID
 
 /** A planned activity of a trip. Deleting the trip deletes its activities (foreign key CASCADE). */
 @Entity(
@@ -19,7 +20,7 @@ import java.time.LocalTime
             onDelete = ForeignKey.CASCADE,
         ),
     ],
-    indices = [Index("trip_id")],
+    indices = [Index("trip_id"), Index(value = ["uuid"], unique = true)],
 )
 data class ActivityEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -36,6 +37,12 @@ data class ActivityEntity(
     /** Whole agorot; null = no estimate. */
     @ColumnInfo(name = "estimated_cost_agorot") val estimatedCostAgorot: Long?,
     val booked: Boolean,
+    /** Stable id shared by every device and Firestore (the document id); the Long [id] is local only. */
+    @ColumnInfo(defaultValue = "") val uuid: String = UUID.randomUUID().toString(),
+    /** Epoch millis of the last change on any device; the newer change wins when syncing. */
+    @ColumnInfo(name = "updated_at", defaultValue = "0") val updatedAt: Long = 0,
+    /** True while this version still has to be uploaded to the cloud. */
+    @ColumnInfo(name = "pending_sync", defaultValue = "1") val pendingSync: Boolean = true,
 )
 
 fun ActivityEntity.toTripActivity() = TripActivity(

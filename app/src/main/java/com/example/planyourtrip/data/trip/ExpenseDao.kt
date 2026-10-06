@@ -2,7 +2,12 @@ package com.example.planyourtrip.data.trip
 
 import androidx.room.Dao
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
+import com.example.planyourtrip.data.sync.ChildRef
+import com.example.planyourtrip.data.sync.DeletionEntity
+import com.example.planyourtrip.data.sync.SyncKind
 import kotlinx.coroutines.flow.Flow
 import java.math.BigDecimal
 import java.time.LocalDate
@@ -31,7 +36,7 @@ interface ExpenseDao {
     @Query(
         "UPDATE expenses SET name = :name, amount_agorot = :amountAgorot, category = :category, date = :date, " +
             "original_amount = :originalAmount, original_currency = :originalCurrency, " +
-            "exchange_rate = :exchangeRate, rate_date = :rateDate " +
+            "exchange_rate = :exchangeRate, rate_date = :rateDate, updated_at = :updatedAt, pending_sync = 1 " +
             "WHERE id = :id AND trip_id IN (SELECT id FROM trips WHERE owner_id = :ownerId)"
     )
     suspend fun update(
@@ -45,8 +50,26 @@ interface ExpenseDao {
         originalCurrency: String?,
         exchangeRate: BigDecimal?,
         rateDate: LocalDate?,
+        updatedAt: Long,
     )
 
     @Query("DELETE FROM expenses WHERE id = :id AND trip_id IN (SELECT id FROM trips WHERE owner_id = :ownerId)")
     suspend fun delete(id: Long, ownerId: String)
+
+    @Query(
+        "SELECT e.uuid AS uuid, t.uuid AS trip_uuid FROM expenses e JOIN trips t ON t.id = e.trip_id " +
+            "WHERE e.id = :id AND t.owner_id = :ownerId"
+    )
+    suspend fun ref(id: Long, ownerId: String): ChildRef?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertDeletion(deletion: DeletionEntity)
+
+    /** Deletes the expense and records the delete, so it reaches the cloud and the account's other devices. */
+    @Transaction
+    suspend fun deleteAndRecord(id: Long, ownerId: String, deletedAt: Long) {
+        val ref = ref(id, ownerId) ?: return
+        insertDeletion(DeletionEntity(ref.uuid, ownerId, SyncKind.EXPENSE, ref.tripUuid, deletedAt))
+        delete(id, ownerId)
+    }
 }

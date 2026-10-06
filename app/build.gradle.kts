@@ -70,6 +70,8 @@ dependencies {
     implementation(libs.firebase.auth)
     // Gemini through Firebase AI Logic (trip assistant); no API key in the app.
     implementation(libs.firebase.ai)
+    // Cloud backup of trips, expenses and activities (data/sync/FirestoreCloudStore).
+    implementation(libs.firebase.firestore)
     // App Check is enforced for Firebase AI Logic: debug provider in debug builds, Play Integrity in release.
     implementation(libs.firebase.appcheck)
     debugImplementation(libs.firebase.appcheck.debug)
@@ -82,5 +84,7 @@ dependencies {
     // Provides AndroidJUnitRunner (testInstrumentationRunner above).
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.kotlinx.coroutines.test)
+    // MigrationTestHelper (Room schema migrations).
+    androidTestImplementation(libs.androidx.room.testing)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

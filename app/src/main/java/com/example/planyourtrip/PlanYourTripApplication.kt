@@ -13,6 +13,8 @@ class PlanYourTripApplication : Application() {
         // Before any Firebase AI request: App Check is enforced for Firebase AI Logic.
         installAppCheck()
         container = AppContainer(this)
+        // Downloads and merges the signed-in account's data now and after every sign in; uploads local changes.
+        container.syncManager.start()
     }
 }
 

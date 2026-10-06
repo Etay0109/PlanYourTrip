@@ -38,6 +38,12 @@
     <string name="home_title">My Trips</string>
     <string name="home_profile">Account menu, %1$s</string>
     <string name="home_sign_out">Sign out</string>
+    <string name="home_sync_saved">All changes saved</string>
+    <string name="home_sync_syncing">Syncing…</string>
+    <string name="home_sync_offline">Offline – changes will sync later</string>
+    <string name="home_sign_out_warning_title">Changes not uploaded yet</string>
+    <string name="home_sign_out_warning_body">Some changes haven\'t been uploaded yet and there\'s no connection. If you sign out now, they stay on this device and upload the next time you sign in here.</string>
+    <string name="home_sign_out_anyway">Sign out anyway</string>
     <string name="home_next_trip">NEXT TRIP</string>
     <string name="home_upcoming">Upcoming</string>
     <string name="home_past_trips">Past trips</string>

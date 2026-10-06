@@ -7,6 +7,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import java.math.BigDecimal
 import java.time.LocalDate
+import java.util.UUID
 
 /** An expense of a trip. Deleting the trip deletes its expenses (foreign key CASCADE). */
 @Entity(
@@ -19,7 +20,7 @@ import java.time.LocalDate
             onDelete = ForeignKey.CASCADE,
         ),
     ],
-    indices = [Index("trip_id")],
+    indices = [Index("trip_id"), Index(value = ["uuid"], unique = true)],
 )
 data class ExpenseEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -37,6 +38,12 @@ data class ExpenseEntity(
     /** Shekels per 1 unit, exact text (see [Converters]). */
     @ColumnInfo(name = "exchange_rate") val exchangeRate: BigDecimal? = null,
     @ColumnInfo(name = "rate_date") val rateDate: LocalDate? = null,
+    /** Stable id shared by every device and Firestore (the document id); the Long [id] is local only. */
+    @ColumnInfo(defaultValue = "") val uuid: String = UUID.randomUUID().toString(),
+    /** Epoch millis of the last change on any device; the newer change wins when syncing. */
+    @ColumnInfo(name = "updated_at", defaultValue = "0") val updatedAt: Long = 0,
+    /** True while this version still has to be uploaded to the cloud. */
+    @ColumnInfo(name = "pending_sync", defaultValue = "1") val pendingSync: Boolean = true,
 )
 
 fun ExpenseEntity.toExpense() = Expense(
