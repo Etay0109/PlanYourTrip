@@ -1,16 +1,20 @@
 package com.example.planyourtrip.data.sync
 
 import com.example.planyourtrip.data.sync.SyncTestData.activity
+import com.example.planyourtrip.data.sync.SyncTestData.checklistItem
 import com.example.planyourtrip.data.sync.SyncTestData.deletedAt
 import com.example.planyourtrip.data.sync.SyncTestData.expense
 import com.example.planyourtrip.data.sync.SyncTestData.trip
 import com.example.planyourtrip.data.trip.ActivityInput
 import com.example.planyourtrip.data.trip.ActivityType
+import com.example.planyourtrip.data.trip.ChecklistKind
 import com.example.planyourtrip.data.trip.ExpenseCategory
 import com.example.planyourtrip.data.trip.ForeignAmount
 import com.example.planyourtrip.data.trip.TripColor
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.math.BigDecimal
 import java.time.LocalDate
@@ -95,6 +99,51 @@ class SyncDocumentsTest {
     }
 
     @Test
+    fun checklistItem_storesListTextCheckedDueDateAndCreatedAt_andRoundTrips() {
+        val item = checklistItem("c1", "t1", updatedAt = 5, text = "Online check-in", checked = true)
+        val doc = SyncDocuments.toDocument(item)
+
+        assertEquals(
+            setOf("list", "text", "checked", "dueDate", "createdAt", "updatedAt", "deleted"),
+            doc.keys,
+        )
+        assertEquals("BEFORE_TRIP", doc["list"])
+        assertEquals("Online check-in", doc["text"])
+        assertEquals(true, doc["checked"])
+        assertEquals("2026-11-01", doc["dueDate"])
+        assertEquals(42L, doc["createdAt"])
+        assertEquals(item, roundTrip(item))
+    }
+
+    @Test
+    fun checklistItem_withoutDueDate_writesNull() {
+        val item = checklistItem("c1", "t1", updatedAt = 5, dueDate = null)
+        val doc = SyncDocuments.toDocument(item)
+
+        assertTrue(doc.containsKey("dueDate"))
+        assertNull(doc["dueDate"])
+        assertEquals(item, roundTrip(item))
+    }
+
+    @Test
+    fun checklistTombstone_roundTrips() {
+        val deleted = checklistItem("c1", "t1", 5).deletedAt(9)
+        assertEquals(mapOf("deleted" to true, "updatedAt" to 9L), SyncDocuments.toDocument(deleted))
+        assertEquals(deleted, roundTrip(deleted))
+    }
+
+    @Test
+    fun unknownChecklistList_fallsBackToBeforeTheTrip_andBrokenOnesAreSkipped() {
+        val doc = SyncDocuments.toDocument(checklistItem("c1", "t1", 1)) + mapOf("list" to "SHOPPING")
+        val read = SyncDocuments.fromDocument(SyncKind.CHECKLIST, "c1", "t1", doc)?.data as ItemData.ChecklistData
+        assertEquals(ChecklistKind.BEFORE_TRIP, read.list)
+
+        assertNull(SyncDocuments.fromDocument(SyncKind.CHECKLIST, "c1", "t1", doc - "text"))
+        assertNull(SyncDocuments.fromDocument(SyncKind.CHECKLIST, "c1", "t1", doc - "createdAt"))
+        assertNull(SyncDocuments.fromDocument(SyncKind.CHECKLIST, "c1", "t1", doc + mapOf("dueDate" to "1 Nov")))
+    }
+
+    @Test
     fun unknownEnumNames_fallBack() {
         val trip = SyncDocuments.toDocument(trip("t1", 1)) + mapOf("color" to "NEON")
         val expense = SyncDocuments.toDocument(expense("e1", "t1", 1)) + mapOf("category" to "SPA")
@@ -113,5 +162,27 @@ class SyncDocumentsTest {
         assertNull(SyncDocuments.fromDocument(SyncKind.TRIP, "t1", null, valid + mapOf("startDate" to "12/11/2026")))
         assertNull(SyncDocuments.fromDocument(SyncKind.TRIP, "t1", null, valid - "updatedAt"))
         assertNull(SyncDocuments.fromDocument(SyncKind.TRIP, "t1", null, emptyMap()))
+    }
+
+    @Test
+    fun activity_writesNoPlaceFields_andAnOlderDocumentWithPlaceFieldsStillReads() {
+        val item = activity("a1", "t1", updatedAt = 9)
+        val doc = SyncDocuments.toDocument(item)
+
+        assertFalse(doc.containsKey("placeId"))
+        assertFalse(doc.containsKey("placeLookup"))
+        // Written while places were synced (before the Map tab was removed): the extra keys are ignored.
+        val older = doc + mapOf("placeId" to "p1", "placeLookup" to "colosseum, rome")
+        assertEquals(item, SyncDocuments.fromDocument(SyncKind.ACTIVITY, "a1", "t1", older))
+    }
+
+    @Test
+    fun shoppingActivity_roundTrips() {
+        val shopping = activity("a2", "t1", updatedAt = 11).let {
+            val data = it.data as ItemData.ActivityData
+            it.copy(data = data.copy(input = data.input.copy(type = ActivityType.SHOPPING, location = "Porta Portese")))
+        }
+        assertEquals("SHOPPING", SyncDocuments.toDocument(shopping)["type"])
+        assertEquals(shopping, roundTrip(shopping))
     }
 }

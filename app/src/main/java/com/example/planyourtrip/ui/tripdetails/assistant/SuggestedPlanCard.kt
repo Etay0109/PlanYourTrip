@@ -121,7 +121,7 @@ fun SuggestedPlanCard(
     }
 }
 
-/** Time, cost, title, type label and note, with a checkbox on the right; the whole row toggles. */
+/** Time, cost, title, type label, venue and note, with a checkbox on the right; the whole row toggles. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SuggestionRow(
@@ -169,6 +169,13 @@ private fun SuggestionRow(
                         stringResource(R.string.assistant_plan_cost, shekels(cost)),
                         MaterialTheme.colorScheme.surfaceContainerHighest,
                         MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+                suggestion.place?.let { place ->
+                    Text(
+                        text = place,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }

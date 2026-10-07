@@ -1,8 +1,6 @@
 package com.example.planyourtrip.ui.tripdetails.activity
 
 import androidx.annotation.StringRes
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -21,7 +19,6 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -32,8 +29,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TimePicker
-import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -55,10 +50,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.planyourtrip.R
 import com.example.planyourtrip.data.trip.ActivityType
-import com.example.planyourtrip.ui.common.TripFormatting
 import com.example.planyourtrip.ui.common.components.BackTopAppBar
 import com.example.planyourtrip.ui.common.components.DateField
 import com.example.planyourtrip.ui.common.components.PrimaryButton
+import com.example.planyourtrip.ui.common.components.TimeField
 import com.example.planyourtrip.ui.common.errorSupportingText
 import com.example.planyourtrip.ui.common.iconRes
 import com.example.planyourtrip.ui.common.labelRes
@@ -115,7 +110,11 @@ class ActivityFormActions(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ActivityFormContent(state: ActivityFormUiState, actions: ActivityFormActions, onBack: () -> Unit) {
+fun ActivityFormContent(
+    state: ActivityFormUiState,
+    actions: ActivityFormActions,
+    onBack: () -> Unit,
+) {
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
@@ -282,68 +281,6 @@ fun ActivityFormContent(state: ActivityFormUiState, actions: ActivityFormActions
             },
             dismissButton = {
                 TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.action_cancel)) }
-            },
-        )
-    }
-}
-
-/** Read-only "Start time" field: tapping opens a 24-hour Material 3 time picker; × clears the time. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun TimeField(time: LocalTime?, onTimeChange: (LocalTime?) -> Unit) {
-    var showPicker by rememberSaveable { mutableStateOf(false) }
-    val interactionSource = remember { MutableInteractionSource() }
-    LaunchedEffect(interactionSource) {
-        interactionSource.interactions.collect {
-            if (it is PressInteraction.Release) showPicker = true
-        }
-    }
-
-    OutlinedTextField(
-        value = time?.let { TripFormatting.time(it) }.orEmpty(),
-        onValueChange = {},
-        readOnly = true,
-        label = { Text(stringResource(R.string.activity_time)) },
-        placeholder = { Text(stringResource(R.string.activity_time_placeholder)) },
-        trailingIcon = {
-            if (time != null) {
-                IconButton(onClick = { onTimeChange(null) }) {
-                    Icon(
-                        painterResource(R.drawable.ic_close),
-                        contentDescription = stringResource(R.string.activity_time_clear),
-                    )
-                }
-            } else {
-                Icon(painterResource(R.drawable.ic_schedule), contentDescription = null)
-            }
-        },
-        singleLine = true,
-        interactionSource = interactionSource,
-        shape = MaterialTheme.shapes.small,
-        modifier = Modifier.fillMaxWidth(),
-    )
-
-    if (showPicker) {
-        // Material 3 1.3 has no TimePickerDialog yet, so the picker sits in an AlertDialog.
-        val pickerState = rememberTimePickerState(
-            initialHour = time?.hour ?: 9,
-            initialMinute = time?.minute ?: 0,
-            is24Hour = true,
-        )
-        AlertDialog(
-            onDismissRequest = { showPicker = false },
-            title = { Text(stringResource(R.string.activity_time_dialog_title)) },
-            text = { TimePicker(state = pickerState) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        onTimeChange(LocalTime.of(pickerState.hour, pickerState.minute))
-                        showPicker = false
-                    },
-                ) { Text(stringResource(R.string.action_ok)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showPicker = false }) { Text(stringResource(R.string.action_cancel)) }
             },
         )
     }

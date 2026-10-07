@@ -21,6 +21,10 @@ interface TripDao {
     @Query("SELECT EXISTS(SELECT 1 FROM trips WHERE id = :id AND owner_id = :ownerId)")
     suspend fun exists(id: Long, ownerId: String): Boolean
 
+    /** The trip's uuid (the link between a trip and its documents), or null when it isn't the owner's. */
+    @Query("SELECT uuid FROM trips WHERE id = :id AND owner_id = :ownerId")
+    suspend fun uuidOf(id: Long, ownerId: String): String?
+
     @Insert
     suspend fun insert(trip: TripEntity): Long
 

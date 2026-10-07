@@ -53,9 +53,9 @@ class AssistantViewModelTest {
     private val planDay2 = AssistantResponse.Answer(
         """
         {"reply":"Here is day 2.","plan":{"date":"2026-11-13","title":"Vatican day","activities":[
-          {"time":"09:30","title":"Vatican Museums","type":"ACTIVITY","note":"Book ahead","costShekels":90},
+          {"time":"09:30","title":"Vatican Museums","type":"ACTIVITY","note":"Book ahead","place":"Vatican Museums","costShekels":90},
           {"time":"13:30","title":"Lunch at Borgo Pio","type":"DINING","note":"Cacio e pepe"},
-          {"time":"16:00","title":"Castel Sant'Angelo","type":"ACTIVITY","note":"Sunset"}
+          {"time":"16:00","title":"Castel Sant'Angelo","type":"ACTIVITY","note":"Sunset","place":"Castel Sant'Angelo"}
         ]}}
         """.trimIndent(),
     )
@@ -259,6 +259,8 @@ class AssistantViewModelTest {
         assertEquals(9_000L, added[0].estimatedCostAgorot)
         assertEquals(LocalTime.of(9, 30), added[0].startTime)
         assertFalse(added.any { it.booked })
+        // The venues the assistant named become the location text (nothing is looked up).
+        assertEquals(listOf("Vatican Museums", "Castel Sant'Angelo"), added.map { it.location })
         val after = (vm.uiState.value.messages[1] as ChatMessage.Assistant).plan!!
         assertEquals(AddStatus.ADDED, after.status)
         assertFalse(after.canAdd)

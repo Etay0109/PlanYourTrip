@@ -36,3 +36,41 @@ val MIGRATION_6_7 = object : Migration(6, 7) {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_deletions_owner_id` ON `deletions` (`owner_id`)")
     }
 }
+
+/**
+ * v11: the Map tab and saved places are gone. First each activity linked to a place whose location text is empty
+ * gets the place's name as its location (marked pending with the migration time, so the text reaches the cloud and
+ * the account's other devices); activities that already have a location are not touched. Then `activities` is
+ * rebuilt without `place_id` / `place_lookup` (SQLite can't drop a foreign key column), `places` is dropped and
+ * place deletes still waiting to upload are dropped too (the sync removes every place document from the cloud).
+ * Every trip, expense and activity is kept. The SQL matches app/schemas/…/11.json.
+ */
+val MIGRATION_10_11 = object : Migration(10, 11) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+            "UPDATE activities SET " +
+                "location = (SELECT p.name FROM places p WHERE p.id = activities.place_id), " +
+                "updated_at = ?, pending_sync = 1 " +
+                "WHERE (location IS NULL OR TRIM(location) = '') " +
+                "AND EXISTS (SELECT 1 FROM places p WHERE p.id = activities.place_id AND TRIM(p.name) != '')",
+            arrayOf<Any>(System.currentTimeMillis()),
+        )
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `_new_activities` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`trip_id` INTEGER NOT NULL, `date` INTEGER NOT NULL, `start_time` INTEGER, `title` TEXT NOT NULL, " +
+                "`note` TEXT, `type` TEXT NOT NULL, `location` TEXT, `estimated_cost_agorot` INTEGER, " +
+                "`booked` INTEGER NOT NULL, `uuid` TEXT NOT NULL DEFAULT '', `updated_at` INTEGER NOT NULL DEFAULT 0, " +
+                "`pending_sync` INTEGER NOT NULL DEFAULT 1, FOREIGN KEY(`trip_id`) REFERENCES `trips`(`id`) " +
+                "ON UPDATE NO ACTION ON DELETE CASCADE )"
+        )
+        val columns = "`id`, `trip_id`, `date`, `start_time`, `title`, `note`, `type`, `location`, " +
+            "`estimated_cost_agorot`, `booked`, `uuid`, `updated_at`, `pending_sync`"
+        db.execSQL("INSERT INTO `_new_activities` ($columns) SELECT $columns FROM `activities`")
+        db.execSQL("DROP TABLE `activities`")
+        db.execSQL("ALTER TABLE `_new_activities` RENAME TO `activities`")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_activities_trip_id` ON `activities` (`trip_id`)")
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_activities_uuid` ON `activities` (`uuid`)")
+        db.execSQL("DROP TABLE IF EXISTS `places`")
+        db.execSQL("DELETE FROM `deletions` WHERE `kind` = 'PLACE'")
+    }
+}

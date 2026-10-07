@@ -15,6 +15,7 @@ data class ActivityFormUiState(
     val date: LocalDate? = null,
     /** Null = no start time. */
     val startTime: LocalTime? = null,
+    /** Free text ("Piazza del Colosseo, 1"), optional for every type; "Open in Maps" on the Plan card searches it. */
     val location: String = "",
     /** Estimated cost in shekels as typed, e.g. "25.50"; empty = no estimate. Parsed to agorot on save. */
     val cost: String = "",

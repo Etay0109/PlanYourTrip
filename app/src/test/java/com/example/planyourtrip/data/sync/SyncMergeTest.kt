@@ -1,6 +1,7 @@
 package com.example.planyourtrip.data.sync
 
 import com.example.planyourtrip.data.sync.SyncTestData.activity
+import com.example.planyourtrip.data.sync.SyncTestData.checklistItem
 import com.example.planyourtrip.data.sync.SyncTestData.deletedAt
 import com.example.planyourtrip.data.sync.SyncTestData.expense
 import com.example.planyourtrip.data.sync.SyncTestData.pending
@@ -185,6 +186,29 @@ class SyncMergeTest {
     }
 
     @Test
+    fun checklistItemsOfATripDeletedElsewhere_areDeleted_andNeverUploaded() {
+        val passport = checklistItem("c1", "t1", updatedAt = 100)
+        val packed = checklistItem("c2", "t1", updatedAt = 250, checked = true) // toggled here after the delete
+
+        val plan = planMerge(
+            local = listOf(synced(rome), synced(passport), pending(packed)),
+            cloud = listOf(rome.deletedAt(200), passport.deletedAt(200)),
+        )
+
+        assertEquals(setOf(rome, passport, packed), plan.deleteLocally.toSet())
+        assertTrue(plan.upload.isEmpty())
+    }
+
+    @Test
+    fun checklistItem_toggledOnTwoDevices_theNewerChangeWins() {
+        val here = checklistItem("c1", "t1", updatedAt = 300, checked = true)
+        val there = checklistItem("c1", "t1", updatedAt = 200, checked = false)
+
+        assertEquals(listOf(here), planMerge(listOf(pending(here)), listOf(there)).upload)
+        assertEquals(listOf(here), planMerge(listOf(synced(there)), listOf(here)).saveLocally)
+    }
+
+    @Test
     fun quickSync_withOnlyAPendingChild_doesNotTouchItsTrip() {
         // The trip is not part of a quick sync; its child is uploaded normally.
         val dinner = expense("e1", "t1", updatedAt = 300)
@@ -193,5 +217,20 @@ class SyncMergeTest {
 
         assertEquals(listOf(dinner), plan.upload)
         assertTrue(plan.deleteLocally.isEmpty())
+    }
+
+    @Test
+    fun newDevice_savesTripsFirst_thenTheirExpensesAndActivities() {
+        val visit = activity("a1", "t1", updatedAt = 100)
+        val dinner = expense("e1", "t1", updatedAt = 100)
+
+        val passport = checklistItem("c1", "t1", updatedAt = 100)
+
+        val plan = planMerge(local = emptyList(), cloud = listOf(passport, visit, dinner, rome))
+
+        assertEquals(
+            listOf(SyncKind.TRIP, SyncKind.EXPENSE, SyncKind.ACTIVITY, SyncKind.CHECKLIST),
+            plan.saveLocally.map { it.kind },
+        )
     }
 }

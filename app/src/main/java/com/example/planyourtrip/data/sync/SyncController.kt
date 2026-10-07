@@ -18,6 +18,18 @@ interface SyncController {
 
 enum class SignOutResult { SIGNED_OUT, NEEDS_CONFIRMATION }
 
+/**
+ * Called after every successful full sync, when this device holds every trip of the account: the documents (kept
+ * on this device only) of trips that are gone are removed.
+ */
+fun interface TripCleanup {
+    suspend fun afterFullSync(ownerId: String)
+
+    companion object {
+        val None = TripCleanup {}
+    }
+}
+
 /** Called by the Room repositories after every local create, edit and delete. */
 fun interface LocalChangeListener {
     fun onLocalChange()

@@ -33,4 +33,13 @@ object Dimens {
      * edge: 16 − (48 − 20) / 2 = 2dp.
      */
     val CardMenuEndPadding = CardMenuIconInset - (TouchTarget - CardMenuIconSize) / 2
+
+    /** The Overview map card's picture: at least this tall, taller when the Daily plan card next to it is. */
+    val MapPreviewMinHeight = 88.dp
+
+    /** Width of the Prep tab's document cards (and the dashed "Add document" card). */
+    val DocumentCardWidth = 200.dp
+
+    /** The round check of a Prep checklist row. */
+    val ChecklistCheckSize = 26.dp
 }

@@ -2,6 +2,7 @@ package com.example.planyourtrip
 
 import com.example.planyourtrip.data.trip.ActivityInput
 import com.example.planyourtrip.data.trip.ActivityRepository
+import com.example.planyourtrip.data.trip.DeletedActivity
 import com.example.planyourtrip.data.trip.TripActivity
 import com.example.planyourtrip.data.trip.normalized
 import kotlinx.coroutines.flow.Flow
@@ -37,12 +38,25 @@ class FakeActivityRepository(
         return id
     }
 
-    override suspend fun updateActivity(id: Long, ownerId: String, input: ActivityInput) = activities.update { list ->
-        list.map { if (it.id == id && owns(ownerId, it.tripId)) input.toActivity(id, it.tripId) else it }
+    override suspend fun updateActivity(id: Long, ownerId: String, input: ActivityInput) {
+        activities.update { list ->
+            list.map { if (it.id == id && owns(ownerId, it.tripId)) input.toActivity(id, it.tripId) else it }
+        }
     }
 
-    override suspend fun deleteActivity(id: Long, ownerId: String) =
-        activities.update { list -> list.filterNot { it.id == id && owns(ownerId, it.tripId) } }
+    override suspend fun deleteActivity(id: Long, ownerId: String): DeletedActivity? {
+        val activity = activities.value.find { it.id == id && owns(ownerId, it.tripId) } ?: return null
+        activities.update { list -> list - activity }
+        return DeletedActivity(activity)
+    }
+
+    override suspend fun restoreActivity(deleted: DeletedActivity, ownerId: String): Long? {
+        val tripId = deleted.activity.tripId
+        if (!owns(ownerId, tripId)) return null
+        val id = (activities.value.maxOfOrNull { it.id } ?: 0) + 1
+        activities.update { it + deleted.activity.copy(id = id) }
+        return id
+    }
 
     private fun ActivityInput.toActivity(id: Long, tripId: Long): TripActivity = normalized().let {
         TripActivity(

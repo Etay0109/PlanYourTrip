@@ -5,6 +5,8 @@ import com.example.planyourtrip.FakeAuthRepository
 import com.example.planyourtrip.FakeTripRepository
 import com.example.planyourtrip.data.auth.AuthUser
 import com.example.planyourtrip.data.trip.ActivityType
+import com.example.planyourtrip.data.trip.DeletedActivity
+import com.example.planyourtrip.data.trip.DeletedActivityStore
 import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.data.trip.TripActivity
 import com.example.planyourtrip.data.trip.TripColor
@@ -56,8 +58,10 @@ class ActivityFormTest {
     @After
     fun tearDown() = Dispatchers.resetMain()
 
+    private val deleted = DeletedActivityStore()
+
     private fun vm(activityId: Long? = null, initialDate: LocalDate? = null, tripId: Long = 1) =
-        ActivityFormViewModel(tripId, activityId, initialDate, repo, trips, auth, clock)
+        ActivityFormViewModel(tripId, activityId, initialDate, repo, trips, auth, clock, deleted)
 
     @Test
     fun validator_rules() {
@@ -142,6 +146,7 @@ class ActivityFormTest {
         val vm = vm()
         advanceUntilIdle()
         vm.onTitleChange("Walk")
+        vm.onTypeChange(ActivityType.OTHER)
         vm.onSave()
         advanceUntilIdle()
         val saved = repo.activities.value.last()
@@ -196,13 +201,14 @@ class ActivityFormTest {
     }
 
     @Test
-    fun delete_removesTheActivity() = runTest(dispatcher) {
+    fun delete_removesTheActivity_andOffersUndo() = runTest(dispatcher) {
         val vm = vm(activityId = 5)
         advanceUntilIdle()
         vm.onDelete()
         advanceUntilIdle()
         assertTrue(repo.activities.value.isEmpty())
         assertTrue(vm.uiState.value.done)
+        assertEquals(DeletedActivity(colosseum), deleted.last.value)
     }
 
     @Test
@@ -215,5 +221,30 @@ class ActivityFormTest {
         vm.onSave()
         advanceUntilIdle()
         assertEquals(listOf(colosseum), repo.activities.value)
+    }
+
+    @Test
+    fun everyType_savesWithoutALocation_andTheLocationIsTrimmedFreeText() = runTest(dispatcher) {
+        ActivityType.entries.forEach { type ->
+            val vm = vm()
+            advanceUntilIdle()
+            vm.onTitleChange(type.name)
+            vm.onTypeChange(type)
+            vm.onSave()
+            advanceUntilIdle()
+            assertTrue(vm.uiState.value.done)
+        }
+        val added = repo.activities.value.drop(1)
+        assertEquals(ActivityType.entries.toList(), added.map { it.type })
+        assertTrue(added.all { it.location == null })
+
+        val vm = vm()
+        advanceUntilIdle()
+        vm.onTitleChange("Dinner")
+        vm.onTypeChange(ActivityType.DINING)
+        vm.onLocationChange(" Da Enzo al 29, Trastevere ")
+        vm.onSave()
+        advanceUntilIdle()
+        assertEquals("Da Enzo al 29, Trastevere", repo.activities.value.last().location)
     }
 }

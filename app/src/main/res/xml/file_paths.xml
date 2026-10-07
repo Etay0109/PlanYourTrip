@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Files other apps may read through the FileProvider: only the shared trip PDFs in the cache. -->
+<!-- Files other apps may read through the FileProvider (only with a per-intent read grant): the shared trip PDFs in
+     the cache and the trip documents in private storage. -->
 <paths>
     <cache-path name="shared_pdfs" path="shared_pdfs/" />
+    <files-path name="documents" path="documents/" />
 </paths>

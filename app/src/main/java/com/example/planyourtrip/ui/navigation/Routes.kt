@@ -14,7 +14,7 @@ data object Home
 @Serializable
 data class TripForm(val tripId: Long? = null)
 
-/** The trip area: header + Overview / Budget / Map / Plan tabs. */
+/** The trip area: header + Overview / Budget / Prep / Plan tabs. */
 @Serializable
 data class TripDetails(val tripId: Long)
 

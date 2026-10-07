@@ -13,11 +13,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -95,8 +97,9 @@ fun TimelineRow(
 }
 
 /**
- * Plan tab card: time, title, round type icon, note box, then type label, "Booked" and location. When
- * [showDate] is set (activities outside the trip dates), the date is shown before the time.
+ * Plan tab card: time, title, round type icon, note box, type label and "Booked", then the location with an
+ * "Open in Maps" button ([onOpenInMaps], shown only when the activity has a location). When [showDate] is set
+ * (activities outside the trip dates), the date is shown before the time.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -105,6 +108,8 @@ fun ActivityCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     showDate: Boolean = false,
+    /** Opens the activity's location in Google Maps; null = no button. */
+    onOpenInMaps: (() -> Unit)? = null,
 ) {
     val typeColor = ExtendedTheme.colors.activityType(activity.type)
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
@@ -161,12 +166,32 @@ fun ActivityCard(
                         leadingIcon = R.drawable.ic_check,
                     )
                 }
-                activity.location?.let { location ->
+            }
+            activity.location?.takeIf { it.isNotBlank() }?.let { location ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = location,
                         style = MaterialTheme.typography.bodySmall,
                         color = muted,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(top = 8.dp, bottom = if (onOpenInMaps == null) 0.dp else 8.dp),
                     )
+                    if (onOpenInMaps != null) {
+                        // Shifted so the icon is centered under the round type icon above (48dp touch target).
+                        IconButton(
+                            onClick = onOpenInMaps,
+                            modifier = Modifier
+                                .padding(start = 4.dp)
+                                .offset(x = (Dimens.TouchTarget - Dimens.CategoryIconSize) / 2),
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_map),
+                                contentDescription = stringResource(R.string.itinerary_open_in_maps),
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
                 }
             }
         }

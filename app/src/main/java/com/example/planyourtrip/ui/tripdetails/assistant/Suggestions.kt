@@ -25,7 +25,8 @@ fun suggestionInputs(
             title = suggestion.title,
             type = suggestion.type,
             note = suggestion.note,
-            location = null,
+            // The venue the assistant named, saved as the location text (never looked up).
+            location = suggestion.place,
             estimatedCostAgorot = suggestion.estimatedCostAgorot,
             booked = false,
         )

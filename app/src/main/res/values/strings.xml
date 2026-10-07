@@ -40,7 +40,7 @@
     <string name="home_sync_syncing">Syncing…</string>
     <string name="home_sync_offline">Offline – changes will sync later</string>
     <string name="home_sign_out_warning_title">Changes not uploaded yet</string>
-    <string name="home_sign_out_warning_body">Some changes haven\'t been uploaded yet and there\'s no connection. If you sign out now, they stay on this device and upload the next time you sign in here.</string>
+    <string name="home_sign_out_warning_body">Some changes haven\'t been uploaded yet and there\'s no connection. If you sign out now, they stay on this device and upload the next time you sign in here. Your trip documents stay on this device either way and come back when you sign in again.</string>
     <string name="home_sign_out_anyway">Sign out anyway</string>
     <string name="home_next_trip">NEXT TRIP</string>
     <string name="home_upcoming">Upcoming</string>
@@ -95,14 +95,13 @@
     <!-- Trip screen -->
     <string name="trip_tab_overview">Overview</string>
     <string name="trip_tab_budget">Budget</string>
-    <string name="trip_tab_map">Map</string>
+    <string name="trip_tab_prep">Prep</string>
     <string name="trip_tab_plan">Plan</string>
     <string name="trip_edit">Edit trip</string>
     <string name="trip_not_found">This trip is no longer available.</string>
-    <string name="trip_coming_soon_title">Coming soon</string>
-    <string name="trip_coming_soon_map">Save places and see them on a map.</string>
-    <string name="trip_places">Places</string>
-    <string name="trip_places_empty">No places yet</string>
+    <string name="trip_map">Map</string>
+    <string name="trip_map_open_google">Open in Google Maps</string>
+    <string name="trip_no_maps_app">No maps app found</string>
     <string name="trip_daily_plan">Daily plan</string>
     <string name="trip_plan_empty">No plan yet</string>
     <string name="plan_days_planned">%1$d of %2$d days planned</string>
@@ -123,6 +122,7 @@
         <item quantity="other">%d activities</item>
     </plurals>
     <string name="itinerary_cost_planned">~%1$s planned</string>
+    <string name="itinerary_open_in_maps">Open in Maps</string>
     <string name="itinerary_booked">Booked</string>
     <string name="itinerary_add_activity">Add activity</string>
     <string name="itinerary_day_empty_title">Nothing planned for this day</string>
@@ -141,11 +141,12 @@
     <string name="itinerary_see_full_plan">See full plan</string>
 
     <!-- Activity types -->
-    <string name="activity_type_activity">Activity</string>
+    <string name="activity_type_activity">Attraction</string>
     <string name="activity_type_dining">Dining</string>
     <string name="activity_type_transport">Transport</string>
     <string name="activity_type_lodging">Lodging</string>
     <string name="activity_type_other">Other</string>
+    <string name="activity_type_shopping">Shopping</string>
 
     <!-- Activity form -->
     <string name="activity_new_title">New activity</string>
@@ -304,8 +305,92 @@
     <string name="pdf_footer">Created with Plan Your Trip</string>
     <string name="pdf_page">Page %1$d of %2$d</string>
 
+    <string name="activity_deleted">Activity deleted</string>
+
+    <!-- Prep tab -->
+    <string name="prep_title">Trip prep</string>
+    <!-- "19–24 Oct 2026 · Rome, Italy": the dates first, so a Hebrew destination never reorders the line -->
+    <string name="prep_subtitle">%1$s · %2$s</string>
+    <!-- "12 of 20 done" -->
+    <string name="prep_progress_done">%1$d of %2$d done</string>
+    <string name="prep_progress_percent">%1$d%%</string>
+    <plurals name="prep_left_before_trip">
+        <item quantity="one">%1$d thing left before your trip</item>
+        <item quantity="other">%1$d things left before your trip</item>
+    </plurals>
+    <plurals name="prep_left">
+        <item quantity="one">%1$d thing left</item>
+        <item quantity="other">%1$d things left</item>
+    </plurals>
+    <string name="prep_all_done">All done – you\'re ready to go!</string>
+    <string name="prep_empty_title">Nothing on your lists yet</string>
+    <string name="prep_empty_body">Add your first item to the checklist below to start getting ready.</string>
+    <string name="prep_documents">Documents</string>
+    <string name="prep_add">Add</string>
+    <string name="prep_add_document">Add document</string>
+    <string name="prep_documents_local_note">Stored on this device only</string>
+    <string name="prep_view_file">View file</string>
+    <string name="prep_badge_pdf">PDF</string>
+    <string name="prep_badge_photo">Photo</string>
+    <string name="prep_document_options">More options for %1$s</string>
+    <string name="prep_edit">Edit</string>
+    <string name="prep_document_new_title">New document</string>
+    <string name="prep_document_edit_title">Edit document</string>
+    <string name="prep_document_name">Name</string>
+    <string name="prep_document_name_empty">Enter a name</string>
+    <string name="prep_document_type">Type</string>
+    <string name="prep_document_detail">Detail line (optional)</string>
+    <string name="prep_document_detail_hint">TLV → FCO · 19 Oct</string>
+    <string name="prep_delete_document_title">Delete this document?</string>
+    <string name="prep_delete_document_body">\"%1$s\" and its file are removed from this device.</string>
+    <string name="prep_file_too_large">This file is larger than 20 MB. Choose a smaller file.</string>
+    <string name="prep_file_unsupported">Only PDF files and images can be added.</string>
+    <string name="prep_file_not_readable">Couldn\'t read this file. Try again or choose another one.</string>
+    <string name="prep_file_missing">This document\'s file is no longer on this device.</string>
+    <string name="prep_no_viewer">No app found to open this file</string>
+    <string name="document_type_flight">Flight</string>
+    <string name="document_type_lodging">Lodging</string>
+    <string name="document_type_insurance">Insurance</string>
+    <string name="document_type_ticket">Ticket</string>
+    <string name="document_type_other">Other</string>
+    <string name="prep_checklist">Checklist</string>
+    <string name="prep_list_before_trip">Before the trip</string>
+    <string name="prep_list_packing">Packing</string>
+    <!-- "Before the trip (5/8)" -->
+    <string name="prep_list_chip">%1$s (%2$d/%3$d)</string>
+    <string name="prep_add_item">Add item…</string>
+    <string name="prep_list_empty">This list is empty. Start with a few common items, or add your own below.</string>
+    <string name="prep_add_suggested">Add suggested items</string>
+    <string name="prep_item_done">Done</string>
+    <string name="prep_item_not_done">Not done</string>
+    <string name="prep_item_due">Due %1$s</string>
+    <string name="prep_item_overdue">Overdue, due %1$s</string>
+    <string name="prep_item_options">Show options</string>
+    <string name="prep_item_edit_text">Edit text</string>
+    <string name="prep_item_set_due">Set due date</string>
+    <string name="prep_item_change_due">Change due date</string>
+    <string name="prep_item_clear_due">Clear due date</string>
+    <string name="prep_item_text">Item</string>
+    <string name="prep_item_text_empty">Enter some text</string>
+    <string name="prep_item_deleted">Item deleted</string>
+    <string-array name="prep_suggested_before_trip">
+        <item>Check passport is valid</item>
+        <item>Buy travel insurance</item>
+        <item>Online check-in</item>
+        <item>Tell the bank about the trip</item>
+        <item>Exchange money</item>
+    </string-array>
+    <string-array name="prep_suggested_packing">
+        <item>Phone charger</item>
+        <item>Power adapter</item>
+        <item>Medicines</item>
+        <item>Toiletries</item>
+        <item>Sunglasses</item>
+    </string-array>
+
     <!-- Common -->
     <string name="action_back">Back</string>
     <string name="action_ok">OK</string>
     <string name="action_cancel">Cancel</string>
+    <string name="action_undo">Undo</string>
 </resources>

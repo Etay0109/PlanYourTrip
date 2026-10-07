@@ -72,38 +72,61 @@ fun DateField(
     )
 
     if (showPicker) {
-        val minMillis = minDate?.toPickerMillis()
-        val maxMillis = maxDate?.toPickerMillis()
-        val pickerState = rememberDatePickerState(
-            initialSelectedDateMillis = initialPickerDate?.toPickerMillis(),
-            selectableDates = object : SelectableDates {
-                override fun isSelectableDate(utcTimeMillis: Long) =
-                    (minMillis == null || utcTimeMillis >= minMillis) &&
-                        (maxMillis == null || utcTimeMillis <= maxMillis)
-
-                override fun isSelectableYear(year: Int) =
-                    (minDate == null || year >= minDate.year) && (maxDate == null || year <= maxDate.year)
-            },
+        DatePickerPopup(
+            initialDate = initialPickerDate,
+            onDatePicked = onDatePicked,
+            onDismiss = { showPicker = false },
+            minDate = minDate,
+            maxDate = maxDate,
         )
-        DatePickerDialog(
-            onDismissRequest = { showPicker = false },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        pickerState.selectedDateMillis?.let { onDatePicked(pickerMillisToLocalDate(it)) }
-                        showPicker = false
-                    },
-                    enabled = pickerState.selectedDateMillis != null,
-                ) { Text(stringResource(R.string.action_ok)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showPicker = false }) { Text(stringResource(R.string.action_cancel)) }
-            },
-        ) {
-            // The picker's "Selected date" headline uses headlineLarge; give it a calmer style.
-            MaterialTheme(typography = MaterialTheme.typography.copy(headlineLarge = DatePickerHeadlineStyle)) {
-                DatePicker(state = pickerState)
-            }
+    }
+}
+
+/**
+ * The Material 3 date picker in a dialog, without a field (also used by the Prep checklist's due dates). Days
+ * before [minDate] and after [maxDate] are disabled. Picker millis are UTC midnight, converted with
+ * `toPickerMillis()` / `pickerMillisToLocalDate()`.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DatePickerPopup(
+    initialDate: LocalDate?,
+    onDatePicked: (LocalDate) -> Unit,
+    onDismiss: () -> Unit,
+    minDate: LocalDate? = null,
+    maxDate: LocalDate? = null,
+) {
+    val minMillis = minDate?.toPickerMillis()
+    val maxMillis = maxDate?.toPickerMillis()
+    val pickerState = rememberDatePickerState(
+        initialSelectedDateMillis = initialDate?.toPickerMillis(),
+        selectableDates = object : SelectableDates {
+            override fun isSelectableDate(utcTimeMillis: Long) =
+                (minMillis == null || utcTimeMillis >= minMillis) &&
+                    (maxMillis == null || utcTimeMillis <= maxMillis)
+
+            override fun isSelectableYear(year: Int) =
+                (minDate == null || year >= minDate.year) && (maxDate == null || year <= maxDate.year)
+        },
+    )
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    pickerState.selectedDateMillis?.let { onDatePicked(pickerMillisToLocalDate(it)) }
+                    onDismiss()
+                },
+                enabled = pickerState.selectedDateMillis != null,
+            ) { Text(stringResource(R.string.action_ok)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+        },
+    ) {
+        // The picker's "Selected date" headline uses headlineLarge; give it a calmer style.
+        MaterialTheme(typography = MaterialTheme.typography.copy(headlineLarge = DatePickerHeadlineStyle)) {
+            DatePicker(state = pickerState)
         }
     }
 }

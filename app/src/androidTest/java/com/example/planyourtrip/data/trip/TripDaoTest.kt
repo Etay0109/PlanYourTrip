@@ -4,6 +4,11 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.planyourtrip.data.currency.ExchangeRateEntity
+import com.example.planyourtrip.data.document.DocumentFileStore
+import com.example.planyourtrip.data.document.DocumentInput
+import com.example.planyourtrip.data.document.DocumentType
+import com.example.planyourtrip.data.document.PickedFile
+import com.example.planyourtrip.data.document.RoomDocumentRepository
 import com.example.planyourtrip.data.sync.RoomSyncLocalStore
 import com.example.planyourtrip.data.sync.SyncKind
 import kotlinx.coroutines.flow.first
@@ -27,6 +32,24 @@ class TripDaoTest {
     private lateinit var repository: RoomTripRepository
     private lateinit var expenses: RoomExpenseRepository
     private lateinit var activities: RoomActivityRepository
+    private lateinit var checklist: RoomChecklistRepository
+    private lateinit var documents: RoomDocumentRepository
+
+    /** In-memory files: name → size. */
+    private val storedFiles = mutableMapOf<String, Long>()
+    private val files = object : DocumentFileStore {
+        override suspend fun inspect(uri: String) = PickedFile("x.pdf", "application/pdf", 10)
+        override suspend fun copyIn(uri: String, fileName: String, maxBytes: Long): Long = 10L.also {
+            storedFiles[fileName] = it
+        }
+        override suspend fun delete(fileName: String) {
+            storedFiles.remove(fileName)
+        }
+        override suspend fun contentUri(fileName: String) = if (fileName in storedFiles) "content://x/$fileName" else null
+        override suspend fun sweep(keep: Set<String>) {
+            storedFiles.keys.retainAll(keep)
+        }
+    }
 
     @Before
     fun setUp() {
@@ -37,6 +60,8 @@ class TripDaoTest {
         repository = RoomTripRepository(db.tripDao())
         expenses = RoomExpenseRepository(db.expenseDao(), db.tripDao())
         activities = RoomActivityRepository(db.activityDao(), db.tripDao())
+        checklist = RoomChecklistRepository(db.checklistDao(), db.tripDao())
+        documents = RoomDocumentRepository(db.documentDao(), db.tripDao(), files)
     }
 
     @After
@@ -248,5 +273,163 @@ class TripDaoTest {
         sync.deleteAllFor("u1")
         assertTrue(repository.observeTrips("u1").first().isEmpty())
         assertEquals(0, sync.pendingCount("u1").first())
+    }
+
+    @Test
+    fun restoringADeletedActivity_bringsItBack_asANewPendingItem() = runTest {
+        val sync = RoomSyncLocalStore(db)
+        val rome = repository.addTrip("u1", "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17))
+        val visit = activities.addActivity(rome, "u1", input("Coins", LocalDate.of(2026, 11, 13)).copy(location = "Trevi"))!!
+        val before = activities.observeActivity(visit, "u1").first()!!
+
+        val deleted = activities.deleteActivity(visit, "u1")!!
+        assertEquals(DeletedActivity(before), deleted)
+        assertNull(activities.observeActivity(visit, "u1").first())
+        assertNull(activities.restoreActivity(deleted, "other")) // never into another account's trip
+
+        val restoredId = activities.restoreActivity(deleted, "u1")!!
+        assertEquals(before.copy(id = restoredId), activities.observeActivity(restoredId, "u1").first())
+        // The old item's delete and the new item both wait to upload; no uuid is reused.
+        val pending = sync.snapshot("u1", pendingOnly = true).map { it.item }
+        assertEquals(1, pending.count { it.isDeleted })
+        assertEquals(1, pending.count { !it.isDeleted && it.kind == SyncKind.ACTIVITY })
+        assertEquals(pending.size, pending.map { it.uuid }.toSet().size)
+    }
+
+    // ---------- Prep tab: checklist items and documents ----------
+
+    @Test
+    fun checklist_scopedToOwner_inTheOrderAdded_andEditable() = runTest {
+        val rome = repository.addTrip("u1", "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17))
+        val passport = checklist.addItem(rome, "u1", ChecklistKind.BEFORE_TRIP, "  Passport ")!!
+        checklist.addItems(rome, "u1", ChecklistKind.PACKING, listOf("Charger", " ", "Adapter"))
+        val insurance = checklist.addItem(rome, "u1", ChecklistKind.BEFORE_TRIP, "Insurance")!!
+        assertNull(checklist.addItem(rome, "u2", ChecklistKind.PACKING, "Not mine")) // another account's trip
+        assertNull(checklist.addItem(rome, "u1", ChecklistKind.PACKING, "   "))
+
+        val items = checklist.observeItems(rome, "u1").first()
+        assertEquals(listOf("Passport", "Charger", "Adapter", "Insurance"), items.map { it.text })
+        assertTrue(checklist.observeItems(rome, "u2").first().isEmpty())
+
+        checklist.setChecked(passport, "u1", true)
+        checklist.updateText(insurance, "u1", " Travel insurance ")
+        checklist.setDueDate(insurance, "u1", LocalDate.of(2026, 11, 1))
+        val charger = items.first { it.text == "Charger" }.id
+        checklist.setDueDate(charger, "u1", LocalDate.of(2026, 11, 1)) // packing: ignored
+        checklist.setChecked(insurance, "u2", true) // another account: ignored
+
+        val after = checklist.observeItems(rome, "u1").first().associateBy { it.id }
+        assertTrue(after.getValue(passport).checked)
+        assertEquals("Travel insurance", after.getValue(insurance).text)
+        assertEquals(LocalDate.of(2026, 11, 1), after.getValue(insurance).dueDate)
+        assertEquals(false, after.getValue(insurance).checked)
+        assertNull(after.getValue(charger).dueDate)
+
+        checklist.setDueDate(insurance, "u1", null)
+        assertNull(checklist.observeItems(rome, "u1").first().first { it.id == insurance }.dueDate)
+    }
+
+    @Test
+    fun checklist_deleteIsRecorded_restoreComesBackAtItsPlace_asANewPendingItem() = runTest {
+        val sync = RoomSyncLocalStore(db)
+        val rome = repository.addTrip("u1", "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17))
+        val first = checklist.addItem(rome, "u1", ChecklistKind.BEFORE_TRIP, "Passport")!!
+        checklist.addItem(rome, "u1", ChecklistKind.BEFORE_TRIP, "Insurance")
+        sync.snapshot("u1", pendingOnly = true).forEach { sync.markSynced("u1", it.item) }
+
+        val deleted = checklist.deleteItem(first, "u1")!!
+        assertNull(checklist.deleteItem(first, "u1"))
+        val tombstone = sync.snapshot("u1", pendingOnly = true).single().item
+        assertTrue(tombstone.isDeleted)
+        assertEquals(SyncKind.CHECKLIST, tombstone.kind)
+
+        assertNull(checklist.restoreItem(deleted, "u2"))
+        val restored = checklist.restoreItem(deleted, "u1")!!
+        assertEquals(listOf("Passport", "Insurance"), checklist.observeItems(rome, "u1").first().map { it.text })
+        val pending = sync.snapshot("u1", pendingOnly = true).map { it.item }
+        assertEquals(1, pending.count { it.isDeleted })
+        assertEquals(1, pending.count { !it.isDeleted && it.kind == SyncKind.CHECKLIST })
+        assertEquals(pending.size, pending.map { it.uuid }.toSet().size)
+        assertTrue(restored != first)
+    }
+
+    @Test
+    fun checklist_isPendingUntilSynced_andGoesWithItsTrip() = runTest {
+        val sync = RoomSyncLocalStore(db)
+        val rome = repository.addTrip("u1", "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17))
+        checklist.addItem(rome, "u1", ChecklistKind.PACKING, "Charger")
+        assertEquals(2, sync.pendingCount("u1").first())
+        sync.snapshot("u1", pendingOnly = true).forEach { sync.markSynced("u1", it.item) }
+        assertEquals(0, sync.pendingCount("u1").first())
+
+        sync.deleteAllFor("u1")
+        assertEquals(0, db.query("SELECT * FROM checklist_items", null).use { it.count })
+    }
+
+    @Test
+    fun documents_scopedToOwner_surviveSignOut_andComeBackWithTheTrip() = runTest {
+        val sync = RoomSyncLocalStore(db)
+        val rome = repository.addTrip("u1", "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17))
+        val tripUuid = db.tripDao().uuidOf(rome, "u1")!!
+        val id = documents.addDocument(
+            rome, "u1", DocumentInput(" Tickets ", DocumentType.FLIGHT, " "), "content://picked", "application/pdf",
+        )!!
+        assertNull(documents.addDocument(rome, "u2", DocumentInput("x", DocumentType.OTHER, null), "u", "image/png"))
+
+        val stored = documents.observeDocuments(rome, "u1").first().single()
+        assertEquals("Tickets", stored.name)
+        assertNull(stored.detail)
+        assertTrue(stored.fileName.endsWith(".pdf"))
+        assertEquals(setOf(stored.fileName), storedFiles.keys)
+        assertTrue(documents.observeDocuments(rome, "u2").first().isEmpty())
+        assertNull(documents.fileToView(id, "u2"))
+        assertEquals("application/pdf", documents.fileToView(id, "u1")!!.mimeType)
+
+        // Sign out: the trips go, the document and its file stay.
+        sync.deleteAllFor("u1")
+        assertEquals(1, db.query("SELECT * FROM documents", null).use { it.count })
+        assertEquals(1, storedFiles.size)
+
+        // Signed in again: the trip comes back from the cloud with the same uuid → the document is there again.
+        db.tripDao().insert(
+            TripEntity(
+                ownerId = "u1", destination = "Rome", startDate = LocalDate.of(2026, 11, 12),
+                endDate = LocalDate.of(2026, 11, 17), color = TripColor.SKY, uuid = tripUuid, pendingSync = false,
+            )
+        )
+        val back = repository.observeTrips("u1").first().single().id
+        assertEquals("Tickets", documents.observeDocuments(back, "u1").first().single().name)
+    }
+
+    @Test
+    fun documents_ofTripsThatAreGone_areRemovedWithTheirFiles() = runTest {
+        val rome = repository.addTrip("u1", "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17))
+        val oslo = repository.addTrip("u1", "Oslo", LocalDate.of(2026, 12, 1), LocalDate.of(2026, 12, 3))
+        val bobs = repository.addTrip("u2", "Paris", LocalDate.of(2026, 12, 1), LocalDate.of(2026, 12, 3))
+        documents.addDocument(rome, "u1", DocumentInput("Hotel", DocumentType.LODGING, null), "c1", "image/jpeg")
+        documents.addDocument(oslo, "u1", DocumentInput("Flight", DocumentType.FLIGHT, null), "c2", "application/pdf")
+        documents.addDocument(bobs, "u2", DocumentInput("Ticket", DocumentType.TICKET, null), "c3", "application/pdf")
+
+        // Oslo was deleted on another device; the sync removed it here.
+        db.openHelper.writableDatabase.execSQL("DELETE FROM trips WHERE id = $oslo")
+        documents.removeOrphans("u1")
+
+        assertEquals(listOf("Hotel"), documents.observeDocuments(rome, "u1").first().map { it.name })
+        assertEquals(listOf("Ticket"), documents.observeDocuments(bobs, "u2").first().map { it.name })
+        assertEquals(2, storedFiles.size)
+
+        // A stray file (interrupted copy) is swept; the documents' files stay.
+        storedFiles["stray.pdf"] = 1
+        documents.sweepFiles()
+        assertEquals(2, storedFiles.size)
+
+        val hotel = documents.observeDocuments(rome, "u1").first().single()
+        documents.updateDocument(hotel.id, "u1", DocumentInput("Hotel Artemide", DocumentType.LODGING, "5 nights"))
+        documents.updateDocument(hotel.id, "u2", DocumentInput("Hacked", DocumentType.OTHER, null))
+        assertEquals("5 nights", documents.observeDocuments(rome, "u1").first().single().detail)
+        assertEquals("Hotel Artemide", documents.observeDocuments(rome, "u1").first().single().name)
+        documents.deleteDocument(hotel.id, "u1")
+        assertTrue(documents.observeDocuments(rome, "u1").first().isEmpty())
+        assertEquals(1, storedFiles.size)
     }
 }

@@ -4,6 +4,7 @@ import androidx.room.withTransaction
 import com.example.planyourtrip.data.trip.ActivityEntity
 import com.example.planyourtrip.data.trip.ActivityInput
 import com.example.planyourtrip.data.trip.AppDatabase
+import com.example.planyourtrip.data.trip.ChecklistItemEntity
 import com.example.planyourtrip.data.trip.ExpenseEntity
 import com.example.planyourtrip.data.trip.TripEntity
 import com.example.planyourtrip.data.trip.toExpense
@@ -16,6 +17,7 @@ class RoomSyncLocalStore(private val db: AppDatabase) : SyncLocalStore {
         dao.trips(ownerId, pendingOnly).map { LocalItem(it.toSyncItem(), it.pendingSync) } +
             dao.expenses(ownerId, pendingOnly).map { LocalItem(it.toSyncItem(), it.expense.pendingSync) } +
             dao.activities(ownerId, pendingOnly).map { LocalItem(it.toSyncItem(), it.activity.pendingSync) } +
+            dao.checklistItems(ownerId, pendingOnly).map { LocalItem(it.toSyncItem(), it.item.pendingSync) } +
             dao.deletions(ownerId).map { LocalItem(it.toSyncItem(), pending = true) }
     }
 
@@ -26,6 +28,7 @@ class RoomSyncLocalStore(private val db: AppDatabase) : SyncLocalStore {
                 SyncKind.TRIP -> dao.deleteTrip(item.uuid, ownerId, item.updatedAt)
                 SyncKind.EXPENSE -> dao.deleteExpense(item.uuid, ownerId, item.updatedAt)
                 SyncKind.ACTIVITY -> dao.deleteActivity(item.uuid, ownerId, item.updatedAt)
+                SyncKind.CHECKLIST -> dao.deleteChecklistItem(item.uuid, ownerId, item.updatedAt)
             }
         }
         plan.dropTombstones.forEach { dao.dropDeletion(it.uuid, ownerId, it.updatedAt) }
@@ -33,15 +36,19 @@ class RoomSyncLocalStore(private val db: AppDatabase) : SyncLocalStore {
 
     override suspend fun markSynced(ownerId: String, item: SyncItem) = when {
         item.isDeleted -> dao.dropDeletion(item.uuid, ownerId, item.updatedAt)
-        item.kind == SyncKind.TRIP -> dao.markTripSynced(item.uuid, ownerId, item.updatedAt)
-        item.kind == SyncKind.EXPENSE -> dao.markExpenseSynced(item.uuid, ownerId, item.updatedAt)
-        else -> dao.markActivitySynced(item.uuid, ownerId, item.updatedAt)
+        else -> when (item.kind) {
+            SyncKind.TRIP -> dao.markTripSynced(item.uuid, ownerId, item.updatedAt)
+            SyncKind.EXPENSE -> dao.markExpenseSynced(item.uuid, ownerId, item.updatedAt)
+            SyncKind.ACTIVITY -> dao.markActivitySynced(item.uuid, ownerId, item.updatedAt)
+            SyncKind.CHECKLIST -> dao.markChecklistItemSynced(item.uuid, ownerId, item.updatedAt)
+        }
     }
 
     override fun pendingCount(ownerId: String): Flow<Int> = dao.pendingCount(ownerId)
 
     override suspend fun deleteAllFor(ownerId: String) = db.withTransaction {
-        // Expenses and activities go with their trips (foreign key CASCADE).
+        // Expenses, activities and checklist items go with their trips (foreign key CASCADE). Documents are not
+        // synced and stay on the device (hidden by owner), so they are not deleted here.
         dao.deleteTripsOf(ownerId)
         dao.deleteDeletionsOf(ownerId)
     }
@@ -116,6 +123,24 @@ class RoomSyncLocalStore(private val db: AppDatabase) : SyncLocalStore {
                 )
                 if (existing == null) dao.insertActivity(activity) else dao.updateActivity(activity)
             }
+            is ItemData.ChecklistData -> {
+                val tripId = ownedTripId(ownerId, item) ?: return
+                val existing = dao.checklistItemByUuid(item.uuid)
+                if (existing != null && existing.updatedAt > item.updatedAt) return
+                val checklistItem = ChecklistItemEntity(
+                    id = existing?.id ?: 0,
+                    tripId = tripId,
+                    list = data.list,
+                    text = data.text,
+                    checked = data.checked,
+                    dueDate = data.dueDate,
+                    createdAt = data.createdAt,
+                    uuid = item.uuid,
+                    updatedAt = item.updatedAt,
+                    pendingSync = false,
+                )
+                if (existing == null) dao.insertChecklistItem(checklistItem) else dao.updateChecklistItem(checklistItem)
+            }
         }
     }
 
@@ -151,8 +176,16 @@ private fun ActivityRow.toSyncItem() = SyncItem(
     tripUuid = tripUuid,
     updatedAt = activity.updatedAt,
     data = ItemData.ActivityData(
-        with(activity) { ActivityInput(date, startTime, title, type, note, location, estimatedCostAgorot, booked) }
+        with(activity) { ActivityInput(date, startTime, title, type, note, location, estimatedCostAgorot, booked) },
     ),
+)
+
+private fun ChecklistRow.toSyncItem() = SyncItem(
+    kind = SyncKind.CHECKLIST,
+    uuid = item.uuid,
+    tripUuid = tripUuid,
+    updatedAt = item.updatedAt,
+    data = with(item) { ItemData.ChecklistData(list, text, checked, dueDate, createdAt) },
 )
 
 private fun DeletionEntity.toSyncItem() =

@@ -64,6 +64,7 @@ class TintedColorsTest {
             assertEquals(it.activityType(ActivityType.LODGING), it.category(ExpenseCategory.HOTELS))
             assertEquals(it.activityType(ActivityType.TRANSPORT), it.category(ExpenseCategory.TRANSPORT))
             assertEquals(it.activityType(ActivityType.OTHER), it.category(ExpenseCategory.OTHER))
+            assertEquals(it.activityType(ActivityType.SHOPPING), it.category(ExpenseCategory.SHOPPING))
         }
     }
 

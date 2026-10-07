@@ -1,5 +1,8 @@
 package com.example.planyourtrip.ui.tripdetails.components
 
+import androidx.compose.ui.res.stringResource
+import com.example.planyourtrip.ui.common.labelRes
+import com.example.planyourtrip.data.trip.ActivityType
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -50,6 +53,25 @@ fun CategoryIcon(category: ExpenseCategory, modifier: Modifier = Modifier) {
             contentDescription = null,
             tint = color.content,
             modifier = Modifier.size(22.dp),
+        )
+    }
+}
+
+/** Round activity type icon: the type's hue on its light tint (activity lists outside the timeline). */
+@Composable
+fun ActivityTypeIcon(type: ActivityType, modifier: Modifier = Modifier) {
+    val color = ExtendedTheme.colors.activityType(type)
+    Box(
+        modifier = modifier
+            .size(Dimens.CategoryIconSize)
+            .background(color.container, CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = painterResource(type.iconRes()),
+            contentDescription = stringResource(type.labelRes()),
+            tint = color.content,
+            modifier = Modifier.size(20.dp),
         )
     }
 }

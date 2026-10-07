@@ -14,6 +14,8 @@ import com.example.planyourtrip.data.currency.CurrencyRepository
 import com.example.planyourtrip.data.currency.ILS
 import com.example.planyourtrip.data.currency.isStale
 import com.example.planyourtrip.data.trip.ActivityRepository
+import com.example.planyourtrip.data.trip.DeletedActivity
+import com.example.planyourtrip.data.trip.DeletedActivityStore
 import com.example.planyourtrip.data.trip.ExpenseRepository
 import com.example.planyourtrip.data.trip.TripRepository
 import com.example.planyourtrip.ui.common.CurrencyPickerState
@@ -47,12 +49,14 @@ class TripDetailsViewModel(
     private val tripId: Long,
     private val tripRepository: TripRepository,
     expenseRepository: ExpenseRepository,
-    activityRepository: ActivityRepository,
+    private val activityRepository: ActivityRepository,
     private val authRepository: AuthRepository,
     private val currencyRepository: CurrencyRepository,
     private val clock: Clock,
     /** Where budget totals are computed; tests pass their test dispatcher. */
     computeDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    /** The last deleted activity (from the activity form): "Activity deleted" with "Undo". */
+    private val deletedActivities: DeletedActivityStore = DeletedActivityStore(),
 ) : ViewModel() {
 
     /** Day chosen on the Plan tab; null = the default day (first day, or today during the trip). */
@@ -74,20 +78,36 @@ class TripDetailsViewModel(
             ) { trip, expenses, activities, planSelection, overviewSelection ->
                 if (trip == null) return@combine TripDetailsUiState.NotFound
                 val today = LocalDate.now(clock)
+                val itinerary = itineraryState(
+                    trip.startDate, trip.endDate, activities, planSelection, overviewSelection, today,
+                )
                 TripDetailsUiState.Loaded(
                     trip = trip,
                     status = tripStatus(trip, today),
                     summary = budgetSummary(trip.budgetAgorot, expenses, trip.startDate, trip.endDate, today),
                     categoryTotals = categoryTotals(expenses),
                     expenses = expenses,
-                    itinerary = itineraryState(
-                        trip.startDate, trip.endDate, activities, planSelection, overviewSelection, today,
-                    ),
+                    itinerary = itinerary,
                 )
             }
         }
         .flowOn(computeDispatcher)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TripDetailsUiState.Loading)
+
+    /** An activity of this trip that was just deleted: the screen shows "Activity deleted" with "Undo". */
+    val deletedActivity: StateFlow<DeletedActivity?> = deletedActivities.last
+        .map { it?.takeIf { deleted -> deleted.activity.tripId == tripId } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** "Undo": the activity comes back. */
+    fun onUndoDelete(deleted: DeletedActivity) {
+        deletedActivities.clear(deleted)
+        val ownerId = authRepository.currentUser.value?.uid ?: return
+        viewModelScope.launch { activityRepository.restoreActivity(deleted, ownerId) }
+    }
+
+    /** The message went away without "Undo": the delete stays. */
+    fun onDeleteMessageDismissed(deleted: DeletedActivity) = deletedActivities.clear(deleted)
 
     private val _budgetDialog = MutableStateFlow<BudgetDialogState?>(null)
 
@@ -284,6 +304,7 @@ class TripDetailsViewModel(
                     authRepository = container.authRepository,
                     currencyRepository = container.currencyRepository,
                     clock = container.clock,
+                    deletedActivities = container.deletedActivities,
                 )
             }
         }

@@ -63,6 +63,8 @@ class ItineraryActions(
     /** Opens the activity form for a new activity on that day. */
     val onAddActivity: (LocalDate) -> Unit,
     val onActivityClick: (Long) -> Unit,
+    /** "Open in Maps" on a Plan activity card that has a location. */
+    val onOpenInMaps: (TripActivity) -> Unit = {},
 )
 
 /** "Itinerary" with the trip dates and destination under it. */
@@ -231,7 +233,11 @@ fun AddActivityButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
 
 /** The day's activities as a timeline (Plan tab). */
 @Composable
-fun PlanTimeline(activities: List<TripActivity>, onActivityClick: (Long) -> Unit, modifier: Modifier = Modifier) {
+fun PlanTimeline(
+    activities: List<TripActivity>,
+    actions: ItineraryActions,
+    modifier: Modifier = Modifier,
+) {
     Column(modifier) {
         activities.forEachIndexed { index, activity ->
             TimelineRow(
@@ -239,7 +245,11 @@ fun PlanTimeline(activities: List<TripActivity>, onActivityClick: (Long) -> Unit
                 isLast = index == activities.lastIndex,
                 dotColor = ExtendedTheme.colors.activityType(activity.type).content,
             ) {
-                ActivityCard(activity, onClick = { onActivityClick(activity.id) })
+                ActivityCard(
+                    activity,
+                    onClick = { actions.onActivityClick(activity.id) },
+                    onOpenInMaps = { actions.onOpenInMaps(activity) },
+                )
             }
         }
     }

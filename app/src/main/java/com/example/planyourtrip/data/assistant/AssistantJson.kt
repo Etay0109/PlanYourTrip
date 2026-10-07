@@ -28,6 +28,8 @@ data class SuggestedActivity(
     val type: ActivityType,
     val note: String?,
     val estimatedCostAgorot: Long?,
+    /** The one venue's name as on a map ("Colosseum"); null for transport, free time or an unknown venue. */
+    val place: String? = null,
 )
 
 /**
@@ -74,6 +76,7 @@ object AssistantJson {
             type = parseType(item.string("type")),
             note = item.string("note"),
             estimatedCostAgorot = item.number("costShekels")?.let(::shekelsToAgorot),
+            place = item.string("place"),
         )
     }
 

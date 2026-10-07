@@ -6,7 +6,7 @@ package com.example.planyourtrip.data.sync
  * permission) throws [CloudUnavailableException].
  */
 interface CloudStore {
-    /** Every trip, expense and activity of [uid], tombstones included. */
+    /** Every trip, expense, activity and checklist item of [uid], tombstones included. */
     suspend fun fetchAll(uid: String): List<SyncItem>
 
     /** The cloud versions of [items] (same kind, uuid and trip); items missing in the cloud are left out. */
@@ -14,9 +14,15 @@ interface CloudStore {
 
     /**
      * Writes [items] as they are: live items replace the document, deleted ones become tombstones. A trip
-     * tombstone also turns its expenses and activities into tombstones.
+     * tombstone also turns its expenses, activities and checklist items into tombstones.
      */
     suspend fun write(uid: String, items: List<SyncItem>)
+
+    /**
+     * Deletes every document (tombstones included) in the `places` subcollections of [uid]'s trips. Places were
+     * synced until the Map tab was removed; [SyncManager] calls this once per account (see [SyncFlags]).
+     */
+    suspend fun deleteLegacyPlaces(uid: String)
 }
 
 class CloudUnavailableException(cause: Throwable? = null) : Exception(cause)

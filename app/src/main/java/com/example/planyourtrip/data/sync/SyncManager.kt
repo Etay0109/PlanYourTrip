@@ -36,6 +36,9 @@ import kotlinx.coroutines.withTimeout
  *   starts signed in, and when the connection returns.
  * - **Quick sync** after each local change ([onLocalChange]): only the pending items and their cloud versions.
  * - One sync at a time; every sync works on the current account's items only.
+ * - After a full sync, documents (on this device only) of trips that no longer exist are removed ([TripCleanup]).
+ * - Once per account, a full sync also deletes the account's old place documents from the cloud (places were synced
+ *   until the Map tab was removed; [SyncFlags] remembers that it is done).
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SyncManager(
@@ -43,6 +46,10 @@ class SyncManager(
     private val cloud: CloudStore,
     private val local: SyncLocalStore,
     private val network: NetworkMonitor,
+    /** Remembers the one-time removal of the old place documents. */
+    private val flags: SyncFlags,
+    /** Removes this device's documents of deleted trips after each full sync (never on sign-out). */
+    private val tripCleanup: TripCleanup,
     /** Application-wide scope; tests pass their test scope. */
     private val scope: CoroutineScope,
     /** Waits this long after a local change, so a burst of edits is uploaded together. */
@@ -125,6 +132,11 @@ class SyncManager(
                     cloudCall { cloud.write(uid, chunk) }
                     chunk.forEach { local.markSynced(uid, it) }
                 }
+                if (full) {
+                    removeLegacyPlaces(uid)
+                    // Every trip of the account is on this device now: documents of trips that are gone go too.
+                    tripCleanup.afterFullSync(uid)
+                }
                 lastAttemptFailed.value = false
                 true
             } catch (e: CloudUnavailableException) {
@@ -153,6 +165,20 @@ class SyncManager(
             mutex.withLock { local.deleteAllFor(uid) }
         }
         return SignOutResult.SIGNED_OUT
+    }
+
+    /**
+     * Deletes the account's old place documents once. A failure never fails the sync: the next full sync tries
+     * again, and the flag is only set after the cloud confirmed the delete.
+     */
+    private suspend fun removeLegacyPlaces(uid: String) {
+        if (flags.isPlacesCleanupDone(uid)) return
+        try {
+            cloudCall { cloud.deleteLegacyPlaces(uid) }
+            flags.markPlacesCleanupDone(uid)
+        } catch (e: CloudUnavailableException) {
+            // Retried at the next full sync.
+        }
     }
 
     private suspend fun pendingCount(uid: String) = local.pendingCount(uid).first()

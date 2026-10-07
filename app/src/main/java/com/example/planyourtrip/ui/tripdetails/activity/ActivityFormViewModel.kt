@@ -11,6 +11,7 @@ import com.example.planyourtrip.appContainer
 import com.example.planyourtrip.data.auth.AuthRepository
 import com.example.planyourtrip.data.trip.ActivityInput
 import com.example.planyourtrip.data.trip.ActivityRepository
+import com.example.planyourtrip.data.trip.DeletedActivityStore
 import com.example.planyourtrip.data.trip.ActivityType
 import com.example.planyourtrip.data.trip.TripRepository
 import com.example.planyourtrip.ui.common.Money
@@ -38,6 +39,8 @@ class ActivityFormViewModel(
     private val tripRepository: TripRepository,
     private val authRepository: AuthRepository,
     private val clock: Clock,
+    /** Receives the deleted activity, so the trip screen can offer "Undo". */
+    private val deletedActivities: DeletedActivityStore = DeletedActivityStore(),
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ActivityFormUiState(isEditing = activityId != null))
@@ -134,14 +137,17 @@ class ActivityFormViewModel(
         }
     }
 
-    /** Deletes the edited activity. The confirmation dialog is shown by the screen before this is called. */
+    /**
+     * Deletes the edited activity. The confirmation dialog is shown by the screen before this is called; the trip
+     * screen then offers "Undo".
+     */
     fun onDelete() {
         val id = activityId ?: return
         if (_uiState.value.isBusy) return
         val ownerId = authRepository.currentUser.value?.uid ?: return
         _uiState.update { it.copy(isSaving = true) }
         viewModelScope.launch {
-            activityRepository.deleteActivity(id, ownerId)
+            activityRepository.deleteActivity(id, ownerId)?.let(deletedActivities::offer)
             _uiState.update { it.copy(isSaving = false, done = true) }
         }
     }
@@ -161,6 +167,7 @@ class ActivityFormViewModel(
                     tripRepository = container.tripRepository,
                     authRepository = container.authRepository,
                     clock = container.clock,
+                    deletedActivities = container.deletedActivities,
                 )
             }
         }

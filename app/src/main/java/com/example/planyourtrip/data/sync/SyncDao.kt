@@ -7,6 +7,7 @@ import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Update
 import com.example.planyourtrip.data.trip.ActivityEntity
+import com.example.planyourtrip.data.trip.ChecklistItemEntity
 import com.example.planyourtrip.data.trip.ExpenseEntity
 import com.example.planyourtrip.data.trip.TripEntity
 import kotlinx.coroutines.flow.Flow
@@ -29,6 +30,12 @@ interface SyncDao {
     )
     suspend fun activities(ownerId: String, pendingOnly: Boolean): List<ActivityRow>
 
+    @Query(
+        "SELECT c.*, t.uuid AS trip_uuid FROM checklist_items c JOIN trips t ON t.id = c.trip_id " +
+            "WHERE t.owner_id = :ownerId AND (:pendingOnly = 0 OR c.pending_sync = 1)"
+    )
+    suspend fun checklistItems(ownerId: String, pendingOnly: Boolean): List<ChecklistRow>
+
     @Query("SELECT * FROM deletions WHERE owner_id = :ownerId")
     suspend fun deletions(ownerId: String): List<DeletionEntity>
 
@@ -38,6 +45,8 @@ interface SyncDao {
             " WHERE t.owner_id = :ownerId AND e.pending_sync = 1)" +
             " + (SELECT COUNT(*) FROM activities a JOIN trips t ON t.id = a.trip_id" +
             " WHERE t.owner_id = :ownerId AND a.pending_sync = 1)" +
+            " + (SELECT COUNT(*) FROM checklist_items c JOIN trips t ON t.id = c.trip_id" +
+            " WHERE t.owner_id = :ownerId AND c.pending_sync = 1)" +
             " + (SELECT COUNT(*) FROM deletions WHERE owner_id = :ownerId)"
     )
     fun pendingCount(ownerId: String): Flow<Int>
@@ -50,6 +59,9 @@ interface SyncDao {
 
     @Query("SELECT * FROM activities WHERE uuid = :uuid")
     suspend fun activityByUuid(uuid: String): ActivityEntity?
+
+    @Query("SELECT * FROM checklist_items WHERE uuid = :uuid")
+    suspend fun checklistItemByUuid(uuid: String): ChecklistItemEntity?
 
     @Query("SELECT * FROM deletions WHERE uuid = :uuid")
     suspend fun deletion(uuid: String): DeletionEntity?
@@ -72,7 +84,13 @@ interface SyncDao {
     @Update
     suspend fun updateActivity(activity: ActivityEntity)
 
-    /** Deleting a trip also deletes its expenses and activities (foreign key CASCADE). */
+    @Insert
+    suspend fun insertChecklistItem(item: ChecklistItemEntity)
+
+    @Update
+    suspend fun updateChecklistItem(item: ChecklistItemEntity)
+
+    /** Deleting a trip also deletes its expenses, activities and checklist items (foreign key CASCADE). */
     @Query("DELETE FROM trips WHERE uuid = :uuid AND owner_id = :ownerId AND updated_at = :updatedAt")
     suspend fun deleteTrip(uuid: String, ownerId: String, updatedAt: Long)
 
@@ -88,6 +106,12 @@ interface SyncDao {
     )
     suspend fun deleteActivity(uuid: String, ownerId: String, updatedAt: Long)
 
+    @Query(
+        "DELETE FROM checklist_items WHERE uuid = :uuid AND updated_at = :updatedAt " +
+            "AND trip_id IN (SELECT id FROM trips WHERE owner_id = :ownerId)"
+    )
+    suspend fun deleteChecklistItem(uuid: String, ownerId: String, updatedAt: Long)
+
     @Query("UPDATE trips SET pending_sync = 0 WHERE uuid = :uuid AND owner_id = :ownerId AND updated_at = :updatedAt")
     suspend fun markTripSynced(uuid: String, ownerId: String, updatedAt: Long)
 
@@ -102,6 +126,12 @@ interface SyncDao {
             "AND trip_id IN (SELECT id FROM trips WHERE owner_id = :ownerId)"
     )
     suspend fun markActivitySynced(uuid: String, ownerId: String, updatedAt: Long)
+
+    @Query(
+        "UPDATE checklist_items SET pending_sync = 0 WHERE uuid = :uuid AND updated_at = :updatedAt " +
+            "AND trip_id IN (SELECT id FROM trips WHERE owner_id = :ownerId)"
+    )
+    suspend fun markChecklistItemSynced(uuid: String, ownerId: String, updatedAt: Long)
 
     @Query("DELETE FROM deletions WHERE uuid = :uuid AND owner_id = :ownerId AND deleted_at = :deletedAt")
     suspend fun dropDeletion(uuid: String, ownerId: String, deletedAt: Long)
@@ -123,5 +153,10 @@ data class ExpenseRow(
 
 data class ActivityRow(
     @Embedded val activity: ActivityEntity,
+    @ColumnInfo(name = "trip_uuid") val tripUuid: String,
+)
+
+data class ChecklistRow(
+    @Embedded val item: ChecklistItemEntity,
     @ColumnInfo(name = "trip_uuid") val tripUuid: String,
 )

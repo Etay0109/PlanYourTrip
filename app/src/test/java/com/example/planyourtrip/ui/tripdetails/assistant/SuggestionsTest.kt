@@ -21,7 +21,7 @@ class SuggestionsTest {
         date = nov(13),
         title = "Vatican day",
         activities = listOf(
-            SuggestedActivity(LocalTime.of(9, 30), "Vatican Museums", ActivityType.ACTIVITY, "Book ahead", 9_000),
+            SuggestedActivity(LocalTime.of(9, 30), "Vatican Museums", ActivityType.ACTIVITY, "Book ahead", 9_000, place = "Vatican Museums"),
             SuggestedActivity(LocalTime.of(13, 30), "Lunch at Borgo Pio", ActivityType.DINING, null, null),
             SuggestedActivity(null, "Castel Sant'Angelo", ActivityType.OTHER, "Sunset", 2_000),
         ),
@@ -31,8 +31,9 @@ class SuggestionsTest {
     fun onlyCheckedSuggestions_becomeActivitiesOnThePlanDay() {
         assertEquals(
             listOf(
+                // The named venue becomes the location text (looked up after adding); none stays null.
                 ActivityInput(nov(13), LocalTime.of(9, 30), "Vatican Museums", ActivityType.ACTIVITY, "Book ahead",
-                    location = null, estimatedCostAgorot = 9_000, booked = false),
+                    location = "Vatican Museums", estimatedCostAgorot = 9_000, booked = false),
                 ActivityInput(nov(13), null, "Castel Sant'Angelo", ActivityType.OTHER, "Sunset",
                     location = null, estimatedCostAgorot = 2_000, booked = false),
             ),

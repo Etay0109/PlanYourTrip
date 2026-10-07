@@ -1,6 +1,9 @@
 package com.example.planyourtrip.ui.common.share
 
 import com.example.planyourtrip.data.trip.ActivityType
+import androidx.compose.ui.graphics.toArgb
+import com.example.planyourtrip.ui.theme.LightExtendedColors
+import com.example.planyourtrip.ui.theme.PdfColors
 import com.example.planyourtrip.data.trip.Expense
 import com.example.planyourtrip.data.trip.ExpenseCategory
 import com.example.planyourtrip.data.trip.Trip
@@ -132,6 +135,16 @@ class TripPdfContentTest {
             PdfActivity(LocalTime.of(9, 0), "Activity 1", ActivityType.DINING, "Place 1", "Note 1"),
             day.activities.single(),
         )
+    }
+
+    @Test
+    fun `a shopping activity keeps its type, and every type has a PDF color`() {
+        val shopping = listOf(activity(1, nov(12), LocalTime.of(16, 0)).copy(type = ActivityType.SHOPPING))
+        val pdfActivity = buildTripPdfContent(trip, expenses, shopping, includeCosts = true).days!![0].activities.single()
+        assertEquals(ActivityType.SHOPPING, pdfActivity.type)
+        // The PDF draws the label with labelRes() ("Attraction", "Shopping") in the type's color.
+        ActivityType.entries.forEach { PdfColors.activityType(it) }
+        assertEquals(PdfColors.activityType(ActivityType.SHOPPING), LightExtendedColors.category(ExpenseCategory.SHOPPING).content.toArgb())
     }
 
     @Test

@@ -109,6 +109,7 @@ val LightExtendedColors = ExtendedColors(
         ActivityType.TRANSPORT to TintedColor(HueIndigoContainer, HueIndigo),
         ActivityType.LODGING to TintedColor(HuePurpleContainer, HuePurple),
         ActivityType.OTHER to TintedColor(HueGrayContainer, HueGray),
+        ActivityType.SHOPPING to TintedColor(HueGreenContainer, HueGreen),
     ),
 )
 
@@ -156,6 +157,7 @@ val DarkExtendedColors = ExtendedColors(
         ActivityType.TRANSPORT to TintedColor(HueIndigoContainerDark, HueIndigoDark),
         ActivityType.LODGING to TintedColor(HuePurpleContainerDark, HuePurpleDark),
         ActivityType.OTHER to TintedColor(HueGrayContainerDark, HueGrayDark),
+        ActivityType.SHOPPING to TintedColor(HueGreenContainerDark, HueGreenDark),
     ),
 )
 

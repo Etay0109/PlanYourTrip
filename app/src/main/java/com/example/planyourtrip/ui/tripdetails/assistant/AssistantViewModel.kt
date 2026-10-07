@@ -181,8 +181,8 @@ class AssistantViewModel(
         val inputs = suggestionInputs(card.plan, card.checked, trip.startDate, trip.endDate)
         updatePlan(messageId) { it.copy(status = AddStatus.ADDING) }
         viewModelScope.launch {
-            var added = true
-            inputs.forEach { input -> added = activityRepository.addActivity(tripId, ownerId, input) != null && added }
+            val ids = inputs.map { input -> activityRepository.addActivity(tripId, ownerId, input) }
+            val added = ids.all { it != null }
             updatePlan(messageId) { it.copy(status = if (added) AddStatus.ADDED else AddStatus.NEW) }
         }
     }

@@ -9,7 +9,7 @@ import java.math.BigDecimal
 import java.time.LocalDate
 
 /** Tabs of the trip screen. The selected tab is pure UI state, kept in Compose. */
-enum class TripTab { OVERVIEW, BUDGET, MAP, PLAN }
+enum class TripTab { OVERVIEW, BUDGET, PREP, PLAN }
 
 sealed interface TripDetailsUiState {
     /** Room has not answered yet; nothing is drawn. */

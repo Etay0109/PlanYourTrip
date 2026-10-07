@@ -74,6 +74,17 @@ service cloud.firestore {
         && d.deleted == false;
     }
 
+    function validChecklistItem(d) {
+      return d.keys().hasOnly(['list', 'text', 'checked', 'dueDate', 'createdAt', 'updatedAt', 'deleted'])
+        && d.list is string
+        && d.text is string && d.text.size() > 0
+        && d.checked is bool
+        && (d.dueDate == null || isDate(d.dueDate))
+        && d.createdAt is int
+        && d.updatedAt is int
+        && d.deleted == false;
+    }
+
     match /users/{uid}/trips/{tripId} {
       allow read, delete: if isOwner(uid);
       allow create, update: if isOwner(uid)
@@ -85,10 +96,23 @@ service cloud.firestore {
           && (isTombstone(request.resource.data) || validExpense(request.resource.data));
       }
 
+      // Places were synced until the Map tab was removed. The app now only deletes what is left (once per
+      // account); nothing can be written here any more.
+      match /places/{placeId} {
+        allow read, delete: if isOwner(uid);
+      }
+
       match /activities/{activityId} {
         allow read, delete: if isOwner(uid);
         allow create, update: if isOwner(uid)
           && (isTombstone(request.resource.data) || validActivity(request.resource.data));
+      }
+
+      // The Prep tab's checklists ("Before the trip", "Packing"). Trip documents are never uploaded.
+      match /checklist/{itemId} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid)
+          && (isTombstone(request.resource.data) || validChecklistItem(request.resource.data));
       }
     }
   }

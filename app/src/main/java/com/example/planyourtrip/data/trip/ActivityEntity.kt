@@ -9,7 +9,9 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.util.UUID
 
-/** A planned activity of a trip. Deleting the trip deletes its activities (foreign key CASCADE). */
+/**
+ * A planned activity of a trip. Deleting the trip deletes its activities (foreign key CASCADE).
+ */
 @Entity(
     tableName = "activities",
     foreignKeys = [

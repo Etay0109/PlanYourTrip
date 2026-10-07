@@ -17,6 +17,7 @@ class PlanYourTripApplication : Application() {
         container = AppContainer(this)
         // Downloads and merges the signed-in account's data now and after every sign in; uploads local changes.
         container.syncManager.start()
+        container.cleanUpDocumentFiles()
     }
 
     // Android resets the JVM default locale to the system language when it changes; keep it English.

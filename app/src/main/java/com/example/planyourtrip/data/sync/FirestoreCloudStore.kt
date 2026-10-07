@@ -15,8 +15,8 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.tasks.await
 
 /**
- * Cloud Firestore: users/{uid}/trips/{tripUuid}, …/expenses/{uuid}, …/activities/{uuid}. The only class in the
- * app that imports Firestore. Field names and tombstones come from [SyncDocuments] (see firestore.rules).
+ * Cloud Firestore: users/{uid}/trips/{tripUuid}, …/expenses/{uuid}, …/activities/{uuid}, …/checklist/{uuid}.
+ * The only class in the app that imports Firestore. Field names and tombstones come from [SyncDocuments] (see firestore.rules).
  */
 class FirestoreCloudStore private constructor(private val firestore: FirebaseFirestore) : CloudStore {
 
@@ -30,9 +30,11 @@ class FirestoreCloudStore private constructor(private val firestore: FirebaseFir
                     if (trip.isDeleted) return@async listOf(trip)
                     val expenses = doc.reference.collection(EXPENSES).get(Source.SERVER)
                     val activities = doc.reference.collection(ACTIVITIES).get(Source.SERVER)
+                    val checklist = doc.reference.collection(CHECKLIST).get(Source.SERVER)
                     listOf(trip) +
                         expenses.await().documents.mapNotNull { read(SyncKind.EXPENSE, it, doc.id) } +
-                        activities.await().documents.mapNotNull { read(SyncKind.ACTIVITY, it, doc.id) }
+                        activities.await().documents.mapNotNull { read(SyncKind.ACTIVITY, it, doc.id) } +
+                        checklist.await().documents.mapNotNull { read(SyncKind.CHECKLIST, it, doc.id) }
                 }
             }.awaitAll().flatten()
         }
@@ -54,9 +56,9 @@ class FirestoreCloudStore private constructor(private val firestore: FirebaseFir
         for (item in items) {
             writes += ref(uid, item) to SyncDocuments.toDocument(item)
             if (item.kind == SyncKind.TRIP && item.isDeleted) {
-                // Other devices must also drop the trip's expenses and activities.
+                // Other devices must also drop the trip's expenses, activities and checklist items.
                 val trip = trips(uid).document(item.uuid)
-                for (child in listOf(EXPENSES, ACTIVITIES)) {
+                for (child in listOf(EXPENSES, ACTIVITIES, CHECKLIST)) {
                     trip.collection(child).get(Source.SERVER).await().documents
                         .filter { it.getBoolean(SyncDocuments.DELETED) != true }
                         .forEach { writes += it.reference to SyncDocuments.toDocument(item.copy(data = null)) }
@@ -71,6 +73,20 @@ class FirestoreCloudStore private constructor(private val firestore: FirebaseFir
         }
     }
 
+    override suspend fun deleteLegacyPlaces(uid: String) = call("deleteLegacyPlaces") {
+        val tripDocs = trips(uid).get(Source.SERVER).await().documents
+        val places = coroutineScope {
+            tripDocs.map { trip ->
+                async { trip.reference.collection(LEGACY_PLACES).get(Source.SERVER).await().documents }
+            }.awaitAll().flatten()
+        }
+        for (chunk in places.chunked(MAX_BATCH)) {
+            val batch = firestore.batch()
+            chunk.forEach { batch.delete(it.reference) }
+            batch.commit().await()
+        }
+    }
+
     private fun trips(uid: String): CollectionReference =
         firestore.collection(USERS).document(uid).collection(TRIPS)
 
@@ -78,6 +94,7 @@ class FirestoreCloudStore private constructor(private val firestore: FirebaseFir
         SyncKind.TRIP -> trips(uid).document(item.uuid)
         SyncKind.EXPENSE -> trips(uid).document(checkNotNull(item.tripUuid)).collection(EXPENSES).document(item.uuid)
         SyncKind.ACTIVITY -> trips(uid).document(checkNotNull(item.tripUuid)).collection(ACTIVITIES).document(item.uuid)
+        SyncKind.CHECKLIST -> trips(uid).document(checkNotNull(item.tripUuid)).collection(CHECKLIST).document(item.uuid)
     }
 
     private fun read(kind: SyncKind, doc: DocumentSnapshot, tripUuid: String?): SyncItem? =
@@ -100,7 +117,10 @@ class FirestoreCloudStore private constructor(private val firestore: FirebaseFir
         private const val USERS = "users"
         private const val TRIPS = "trips"
         private const val EXPENSES = "expenses"
+        /** Places were synced until the Map tab was removed; only [deleteLegacyPlaces] still touches them. */
+        private const val LEGACY_PLACES = "places"
         private const val ACTIVITIES = "activities"
+        private const val CHECKLIST = "checklist"
 
         /** Firestore allows at most 500 writes per batch. */
         private const val MAX_BATCH = 450

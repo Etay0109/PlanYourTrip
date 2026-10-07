@@ -8,6 +8,7 @@ import com.example.planyourtrip.data.sync.SyncKind
 /**
  * In-memory [CloudStore] (one map of documents per account), never Firestore. Set [offline] to fail every call,
  * or [failAfterWrites] to let that many more write calls succeed and fail the rest (offline in the middle).
+ * [legacyPlaces] counts each account's old place documents; [failLegacyPlaces] fails only their removal.
  */
 class FakeCloudStore : CloudStore {
     /** uid → uuid → document. */
@@ -15,6 +16,10 @@ class FakeCloudStore : CloudStore {
 
     var offline = false
     var failAfterWrites: Int? = null
+
+    /** uid → number of old place documents still in the cloud. */
+    val legacyPlaces = mutableMapOf<String, Int>()
+    var failLegacyPlaces = false
 
     /** Runs inside each successful write, before it returns (e.g. to make a local edit "during" the sync). */
     var onWrite: suspend () -> Unit = {}
@@ -56,6 +61,13 @@ class FakeCloudStore : CloudStore {
             }
         }
         onWrite()
+    }
+
+    override suspend fun deleteLegacyPlaces(uid: String) {
+        calls += "deleteLegacyPlaces:$uid"
+        check()
+        if (failLegacyPlaces) throw CloudUnavailableException()
+        legacyPlaces.remove(uid)
     }
 
     private fun check() {

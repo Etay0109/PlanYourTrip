@@ -1,5 +1,12 @@
 package com.example.planyourtrip.ui.tripdetails
 
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
@@ -29,13 +36,17 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -48,10 +59,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.planyourtrip.R
+import com.example.planyourtrip.data.trip.ActivityType
 import com.example.planyourtrip.data.trip.Expense
 import com.example.planyourtrip.data.trip.ExpenseCategory
 import com.example.planyourtrip.data.trip.ForeignAmount
-import com.example.planyourtrip.data.trip.ActivityType
 import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.data.trip.TripActivity
 import com.example.planyourtrip.data.trip.TripColor
@@ -67,13 +78,13 @@ import com.example.planyourtrip.ui.common.share.ShareTripViewModel
 import com.example.planyourtrip.ui.common.tripStatus
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.PlanYourTripTheme
+import com.example.planyourtrip.ui.tripdetails.components.ActivityCard
+import com.example.planyourtrip.ui.tripdetails.components.AddActivityButton
 import com.example.planyourtrip.ui.tripdetails.components.BudgetCard
 import com.example.planyourtrip.ui.tripdetails.components.BudgetDialog
 import com.example.planyourtrip.ui.tripdetails.components.CategoryChartCard
 import com.example.planyourtrip.ui.tripdetails.components.CurrencyCard
 import com.example.planyourtrip.ui.tripdetails.components.CurrencyCardActions
-import com.example.planyourtrip.ui.tripdetails.components.ActivityCard
-import com.example.planyourtrip.ui.tripdetails.components.AddActivityButton
 import com.example.planyourtrip.ui.tripdetails.components.DailyPlanProgress
 import com.example.planyourtrip.ui.tripdetails.components.DayChipsRow
 import com.example.planyourtrip.ui.tripdetails.components.DayPreviewCard
@@ -82,8 +93,27 @@ import com.example.planyourtrip.ui.tripdetails.components.ExpenseRow
 import com.example.planyourtrip.ui.tripdetails.components.FeatureCard
 import com.example.planyourtrip.ui.tripdetails.components.ItineraryActions
 import com.example.planyourtrip.ui.tripdetails.components.ItineraryHeader
+import com.example.planyourtrip.ui.tripdetails.components.OverviewMapIllustration
 import com.example.planyourtrip.ui.tripdetails.components.PlanTimeline
 import com.example.planyourtrip.ui.tripdetails.components.TripHeader
+import com.example.planyourtrip.data.document.DocumentKind
+import com.example.planyourtrip.data.document.DocumentType
+import com.example.planyourtrip.data.trip.ChecklistItem
+import com.example.planyourtrip.data.trip.ChecklistKind
+import com.example.planyourtrip.ui.tripdetails.prep.ChecklistRowState
+import com.example.planyourtrip.ui.tripdetails.prep.ChecklistState
+import com.example.planyourtrip.ui.tripdetails.prep.DocumentCardState
+import com.example.planyourtrip.ui.tripdetails.prep.PrepActions
+import com.example.planyourtrip.ui.tripdetails.prep.PrepDialogs
+import com.example.planyourtrip.ui.tripdetails.prep.PrepUiState
+import com.example.planyourtrip.ui.tripdetails.prep.PrepViewModel
+import com.example.planyourtrip.ui.tripdetails.prep.dueState
+import com.example.planyourtrip.ui.tripdetails.prep.itemsOf
+import com.example.planyourtrip.ui.tripdetails.prep.listCount
+import com.example.planyourtrip.ui.tripdetails.prep.prepProgress
+import com.example.planyourtrip.ui.tripdetails.prep.prepTab
+import com.example.planyourtrip.ui.tripdetails.prep.progressMessage
+import com.example.planyourtrip.ui.tripdetails.prep.rememberPrepActions
 import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.LocalTime
@@ -99,11 +129,26 @@ fun TripDetailsScreen(
     onOpenAssistant: () -> Unit,
     viewModel: TripDetailsViewModel = viewModel(factory = TripDetailsViewModel.Factory),
     shareViewModel: ShareTripViewModel = viewModel(factory = ShareTripViewModel.Factory),
+    prepViewModel: PrepViewModel = viewModel(factory = PrepViewModel.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val budgetDialog by viewModel.budgetDialog.collectAsStateWithLifecycle()
     val currencyCard by viewModel.currencyCard.collectAsStateWithLifecycle()
     val currencyPicker by viewModel.currencyPicker.collectAsStateWithLifecycle()
+    val deletedActivity by viewModel.deletedActivity.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    // "Activity deleted" with "Undo", once per delete; Undo brings the activity back.
+    val deletedMessage = stringResource(R.string.activity_deleted)
+    val undoLabel = stringResource(R.string.action_undo)
+    LaunchedEffect(deletedActivity) {
+        val deleted = deletedActivity ?: return@LaunchedEffect
+        val result = snackbarHostState.showSnackbar(deletedMessage, undoLabel, duration = SnackbarDuration.Long)
+        if (result == SnackbarResult.ActionPerformed) {
+            viewModel.onUndoDelete(deleted)
+        } else {
+            viewModel.onDeleteMessageDismissed(deleted)
+        }
+    }
     var selectedTab by rememberSaveable { mutableStateOf(TripTab.OVERVIEW) }
 
     // Opening the Overview refreshes a rate older than 12 hours; a changed currency is fetched right away.
@@ -113,13 +158,26 @@ fun TripDetailsScreen(
         if (selectedTab == TripTab.OVERVIEW && loaded) viewModel.onOverviewShown()
     }
 
+    // The map card (destination) and the Plan cards (activity location) open Google Maps: the app, or the browser;
+    // nothing at all → a message.
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val noMapsApp = stringResource(R.string.trip_no_maps_app)
+    val openUrl: (String) -> Unit = remember(context, snackbarHostState, noMapsApp) {
+        { url -> if (!openGoogleMaps(context, url)) scope.launch { snackbarHostState.showSnackbar(noMapsApp) } }
+    }
+    val destination = (state as? TripDetailsUiState.Loaded)?.trip?.destination.orEmpty()
+
+    val prepState by prepViewModel.uiState.collectAsStateWithLifecycle()
+    val prepActions = rememberPrepActions(prepViewModel, snackbarHostState)
+
     val currencyActions = remember(viewModel) {
         CurrencyCardActions(
             onChooseCurrency = viewModel::onChooseCurrency,
             onRetry = viewModel::onRetryRate,
         )
     }
-    val itineraryActions = remember(viewModel, onAddActivity, onActivityClick) {
+    val itineraryActions = remember(viewModel, onAddActivity, onActivityClick, openUrl, destination) {
         ItineraryActions(
             onPlanDaySelected = viewModel::onPlanDaySelected,
             onOverviewPreviousDay = viewModel::onOverviewPreviousDay,
@@ -130,6 +188,9 @@ fun TripDetailsScreen(
             },
             onAddActivity = onAddActivity,
             onActivityClick = onActivityClick,
+            onOpenInMaps = { activity ->
+                activity.location?.let { openUrl(googleMapsActivityUrl(it, destination)) }
+            },
         )
     }
     TripDetailsContent(
@@ -150,6 +211,10 @@ fun TripDetailsScreen(
         onAddExpense = onAddExpense,
         onExpenseClick = onExpenseClick,
         onOpenAssistant = onOpenAssistant,
+        snackbarHostState = snackbarHostState,
+        onOpenMaps = { destination -> openUrl(googleMapsSearchUrl(destination)) },
+        prep = prepState,
+        prepActions = prepActions,
     )
 
     currencyPicker?.let { picker ->
@@ -162,6 +227,15 @@ fun TripDetailsScreen(
         )
     }
     ShareTripHost(shareViewModel)
+    PrepDialogs(prepViewModel)
+}
+
+/** Opens a Google Maps [url]; false when no app (not even a browser) can open it. */
+private fun openGoogleMaps(context: Context, url: String): Boolean = try {
+    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+    true
+} catch (e: ActivityNotFoundException) {
+    false
 }
 
 @Composable
@@ -183,6 +257,13 @@ fun TripDetailsContent(
     onExpenseClick: (Long) -> Unit,
     onOpenAssistant: () -> Unit,
     onShareTrip: (Long) -> Unit = {},
+    /** Messages over every tab ("Activity deleted" + "Undo"). */
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
+    /** The map card was tapped: open Google Maps on this destination. */
+    onOpenMaps: (String) -> Unit = {},
+    /** The Prep tab's checklists and documents (their own ViewModel). */
+    prep: PrepUiState = PrepUiState.Loading,
+    prepActions: PrepActions = PrepActions.None,
 ) {
     when (state) {
         // Nothing is drawn until Room answers, so no placeholder flashes.
@@ -194,6 +275,7 @@ fun TripDetailsContent(
             // The header draws behind the status bar; the navigation bar pads itself.
             contentWindowInsets = WindowInsets(0),
             bottomBar = { TripNavigationBar(selectedTab, onTabSelected) },
+            snackbarHost = { SnackbarHost(snackbarHostState) },
             // On every tab, above the navigation bar.
             floatingActionButton = { AssistantFab(onOpenAssistant) },
         ) { innerPadding ->
@@ -216,9 +298,12 @@ fun TripDetailsContent(
                     }
                     when (selectedTab) {
                         TripTab.OVERVIEW ->
-                            overviewTab(state, currencyCard, currencyActions, itineraryActions, onTabSelected, onEditBudget)
+                            overviewTab(
+                                state, currencyCard, currencyActions, itineraryActions,
+                                onTabSelected, onEditBudget, onOpenMaps,
+                            )
                         TripTab.BUDGET -> budgetTab(state, onEditBudget, onAddExpense, onExpenseClick)
-                        TripTab.MAP -> comingSoon(R.drawable.ic_location, R.string.trip_coming_soon_map)
+                        TripTab.PREP -> prepTab(prep, prepActions)
                         TripTab.PLAN -> planTab(state, itineraryActions)
                     }
                 }
@@ -245,6 +330,7 @@ private fun LazyListScope.overviewTab(
     itineraryActions: ItineraryActions,
     onTabSelected: (TripTab) -> Unit,
     onSetBudget: () -> Unit,
+    onOpenMaps: (String) -> Unit,
 ) {
     val itinerary = state.itinerary
     item(key = "budget") {
@@ -266,14 +352,23 @@ private fun LazyListScope.overviewTab(
             modifier = cardPadding.height(IntrinsicSize.Min),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            // The map picture fills whatever height the Daily plan card next to it needs.
             FeatureCard(
-                icon = R.drawable.ic_bookmark,
-                title = stringResource(R.string.trip_places),
-                subtitle = stringResource(R.string.trip_places_empty),
-                onClick = { onTabSelected(TripTab.MAP) },
+                icon = R.drawable.ic_map,
+                title = stringResource(R.string.trip_map),
+                subtitle = state.trip.destination,
+                subtitleMaxLines = 2,
+                onClick = { onOpenMaps(state.trip.destination) },
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight(),
+                content = {
+                    OverviewMapIllustration(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                    )
+                },
             )
             val progress = itinerary.progress
             val progressContent: (@Composable ColumnScope.() -> Unit)? =
@@ -302,7 +397,10 @@ private fun LazyListScope.overviewTab(
     }
 }
 
-private fun LazyListScope.planTab(state: TripDetailsUiState.Loaded, actions: ItineraryActions) {
+private fun LazyListScope.planTab(
+    state: TripDetailsUiState.Loaded,
+    actions: ItineraryActions,
+) {
     val itinerary = state.itinerary
     val plan = itinerary.plan
     item(key = "itinerary-header") {
@@ -325,7 +423,7 @@ private fun LazyListScope.planTab(state: TripDetailsUiState.Loaded, actions: Iti
     } else {
         // One item, so the timeline line runs unbroken between the cards.
         item(key = "timeline-${plan.day}") {
-            PlanTimeline(plan.activities, actions.onActivityClick, modifier = cardPadding)
+            PlanTimeline(plan.activities, actions, modifier = cardPadding)
         }
     }
     item(key = "add-activity") {
@@ -352,6 +450,7 @@ private fun LazyListScope.planTab(state: TripDetailsUiState.Loaded, actions: Iti
                 activity,
                 onClick = { actions.onActivityClick(activity.id) },
                 showDate = true,
+                onOpenInMaps = { actions.onOpenInMaps(activity) },
                 modifier = cardPadding,
             )
         }
@@ -408,17 +507,7 @@ private fun LazyListScope.budgetTab(
     }
 }
 
-private fun LazyListScope.comingSoon(@DrawableRes icon: Int, @StringRes body: Int) {
-    item(key = "coming-soon") {
-        EmptyMessage(
-            icon = icon,
-            title = stringResource(R.string.trip_coming_soon_title),
-            body = stringResource(body),
-        )
-    }
-}
-
-/** Centered icon, title and body text (empty states and "Coming soon"). */
+/** Centered icon, title and body text (empty states). */
 @Composable
 private fun EmptyMessage(@DrawableRes icon: Int, title: String, body: String) {
     Column(
@@ -491,7 +580,7 @@ private fun TripNavigationBar(selected: TripTab, onSelect: (TripTab) -> Unit) {
 private fun TripTab.iconRes(): Int = when (this) {
     TripTab.OVERVIEW -> R.drawable.ic_dashboard
     TripTab.BUDGET -> R.drawable.ic_payments
-    TripTab.MAP -> R.drawable.ic_location
+    TripTab.PREP -> R.drawable.ic_checklist
     TripTab.PLAN -> R.drawable.ic_calendar
 }
 
@@ -499,7 +588,7 @@ private fun TripTab.iconRes(): Int = when (this) {
 private fun TripTab.labelRes(): Int = when (this) {
     TripTab.OVERVIEW -> R.string.trip_tab_overview
     TripTab.BUDGET -> R.string.trip_tab_budget
-    TripTab.MAP -> R.string.trip_tab_map
+    TripTab.PREP -> R.string.trip_tab_prep
     TripTab.PLAN -> R.string.trip_tab_plan
 }
 
@@ -607,6 +696,56 @@ private fun previewState(
     itinerary = itineraryState(trip.startDate, trip.endDate, activities, planDay, null, previewToday),
 )
 
+private val previewChecklist = listOf(
+    ChecklistItem(1, 1, ChecklistKind.BEFORE_TRIP, "Check passport is valid", checked = true, createdAt = 1),
+    ChecklistItem(2, 1, ChecklistKind.BEFORE_TRIP, "Buy travel insurance", checked = true, createdAt = 2),
+    ChecklistItem(3, 1, ChecklistKind.BEFORE_TRIP, "Book the hotel", checked = true, createdAt = 3),
+    ChecklistItem(4, 1, ChecklistKind.BEFORE_TRIP, "Book Colosseum tickets", checked = true, createdAt = 4),
+    ChecklistItem(5, 1, ChecklistKind.BEFORE_TRIP, "Tell the bank about the trip", checked = true, createdAt = 5),
+    ChecklistItem(
+        6, 1, ChecklistKind.BEFORE_TRIP, "Online check-in", dueDate = nov12.minusDays(1), createdAt = 6,
+    ),
+    ChecklistItem(7, 1, ChecklistKind.BEFORE_TRIP, "Exchange money", createdAt = 7),
+    // Overdue (the preview's today is after 20 Sep).
+    ChecklistItem(
+        8, 1, ChecklistKind.BEFORE_TRIP, "Book airport transfer", dueDate = LocalDate.of(2026, 9, 20), createdAt = 8,
+    ),
+    ChecklistItem(9, 1, ChecklistKind.PACKING, "Phone charger", checked = true, createdAt = 9),
+    ChecklistItem(10, 1, ChecklistKind.PACKING, "Power adapter", createdAt = 10),
+)
+
+private val previewDocuments = listOf(
+    DocumentCardState(1, "Flight tickets", DocumentType.FLIGHT, "TLV → FCO · 12 Nov", DocumentKind.PDF),
+    DocumentCardState(2, "Hotel booking", DocumentType.LODGING, "Hotel Campo de' Fiori · 5n", DocumentKind.PDF),
+    DocumentCardState(3, "Travel insurance", DocumentType.INSURANCE, "Valid 12–17 Nov", DocumentKind.PHOTO),
+)
+
+private fun previewPrep(
+    items: List<ChecklistItem> = previewChecklist,
+    documents: List<DocumentCardState> = previewDocuments,
+): PrepUiState {
+    val progress = prepProgress(items)
+    fun list(kind: ChecklistKind) = ChecklistState(
+        kind = kind,
+        rows = itemsOf(items, kind).map {
+            ChecklistRowState(it.id, it.text, it.checked, it.dueDate, dueState(it, previewToday))
+        },
+        count = listCount(items, kind),
+    )
+    return PrepUiState.Loaded(
+        destination = previewTrip.destination,
+        startDate = previewTrip.startDate,
+        endDate = previewTrip.endDate,
+        progress = progress,
+        message = progressMessage(progress, previewTrip.startDate, previewToday),
+        beforeTrip = list(ChecklistKind.BEFORE_TRIP),
+        packing = list(ChecklistKind.PACKING),
+        documents = documents,
+    )
+}
+
+private val previewPrep = previewPrep()
+
 private val previewRate = CurrencyCardState.Rate("EUR", BigDecimal("3.4408"), LocalDate.of(2026, 10, 2))
 
 private val previewCurrencyActions = CurrencyCardActions(onChooseCurrency = {}, onRetry = {})
@@ -622,6 +761,7 @@ private fun Preview(
     tab: TripTab,
     darkTheme: Boolean = false,
     currency: CurrencyCardState = previewRate,
+    prep: PrepUiState = previewPrep,
 ) {
     PlanYourTripTheme(darkTheme = darkTheme) {
         TripDetailsContent(
@@ -630,6 +770,7 @@ private fun Preview(
             itineraryActions = previewItineraryActions,
             onTabSelected = {}, onBack = {}, onEditTrip = {}, onEditBudget = {}, onBudgetInputChange = {},
             onSaveBudget = {}, onDismissBudget = {}, onAddExpense = {}, onExpenseClick = {}, onOpenAssistant = {},
+            prep = prep,
         )
     }
 }
@@ -693,10 +834,6 @@ private fun OverviewNarrowPreview() = Preview(
     TripTab.OVERVIEW,
 )
 
-@Preview(name = "Map – coming soon", widthDp = 411, heightDp = 891)
-@Composable
-private fun MapPreview() = Preview(previewState(), TripTab.MAP)
-
 @Preview(name = "Plan", widthDp = 411, heightDp = 2100)
 @Composable
 private fun PlanPreview() = Preview(previewState(), TripTab.PLAN)
@@ -713,6 +850,22 @@ private fun OverviewDarkPreview() = Preview(previewState(), TripTab.OVERVIEW, da
 @Composable
 private fun PlanEmptyDayPreview() =
     Preview(previewState(planDay = nov12.plusDays(5)), TripTab.PLAN, darkTheme = true)
+
+@Preview(name = "Prep", widthDp = 411, heightDp = 1700)
+@Composable
+private fun PrepPreview() = Preview(previewState(), TripTab.PREP)
+
+@Preview(name = "Prep – dark", widthDp = 411, heightDp = 1700)
+@Composable
+private fun PrepDarkPreview() = Preview(previewState(), TripTab.PREP, darkTheme = true)
+
+@Preview(name = "Prep – empty", widthDp = 411, heightDp = 1300)
+@Composable
+private fun PrepEmptyPreview() = Preview(previewState(), TripTab.PREP, prep = previewPrep(emptyList(), emptyList()))
+
+@Preview(name = "Prep – narrow, large font", widthDp = 320, heightDp = 2200, fontScale = 1.5f)
+@Composable
+private fun PrepNarrowPreview() = Preview(previewState(), TripTab.PREP)
 
 @Preview(name = "Plan – outside trip dates", widthDp = 411, heightDp = 1200)
 @Composable

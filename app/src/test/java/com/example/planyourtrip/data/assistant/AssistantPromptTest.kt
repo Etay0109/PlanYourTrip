@@ -14,7 +14,9 @@ class AssistantPromptTest {
         assertTrue("remaining budget" in text)
         assertTrue("Do not repeat activities that are already planned" in text)
         assertTrue("opening hours" in text && "not sure" in text)
-        assertTrue("ACTIVITY, DINING, TRANSPORT, LODGING, OTHER" in text)
+        assertTrue("ACTIVITY, DINING, SHOPPING, LODGING, TRANSPORT, OTHER" in text)
+        // One real venue (saved as the location text), never a description of the activity.
+        assertTrue("\"place\"" in text && "exactly as it appears on a map" in text && "never a description" in text)
         assertTrue("24-hour HH:mm" in text)
     }
 

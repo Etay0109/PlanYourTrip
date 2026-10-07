@@ -2,6 +2,7 @@ package com.example.planyourtrip.data.sync
 
 import com.example.planyourtrip.data.trip.ActivityInput
 import com.example.planyourtrip.data.trip.ActivityType
+import com.example.planyourtrip.data.trip.ChecklistKind
 import com.example.planyourtrip.data.trip.ExpenseCategory
 import com.example.planyourtrip.data.trip.TripColor
 import java.time.LocalDate
@@ -49,6 +50,21 @@ object SyncTestData {
                 booked = false,
             )
         ),
+    )
+
+    fun checklistItem(
+        uuid: String,
+        tripUuid: String,
+        updatedAt: Long,
+        text: String = "Passport",
+        checked: Boolean = false,
+        dueDate: LocalDate? = LocalDate.of(2026, 11, 1),
+    ) = SyncItem(
+        kind = SyncKind.CHECKLIST,
+        uuid = uuid,
+        tripUuid = tripUuid,
+        updatedAt = updatedAt,
+        data = ItemData.ChecklistData(ChecklistKind.BEFORE_TRIP, text, checked, dueDate, createdAt = 42),
     )
 
     fun SyncItem.deletedAt(at: Long) = copy(updatedAt = at, data = null)

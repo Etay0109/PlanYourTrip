@@ -15,7 +15,14 @@ interface ActivityRepository {
 
     suspend fun updateActivity(id: Long, ownerId: String, input: ActivityInput)
 
-    suspend fun deleteActivity(id: Long, ownerId: String)
+    /** Deletes the activity. Returns what was deleted (for "Undo"), or null when there was no such activity of the owner. */
+    suspend fun deleteActivity(id: Long, ownerId: String): DeletedActivity?
+
+    /**
+     * "Undo" of [deleteActivity]: adds the activity back as a new item. Returns the new activity id, or null when the
+     * trip is gone or not the owner's.
+     */
+    suspend fun restoreActivity(deleted: DeletedActivity, ownerId: String): Long?
 }
 
 /** Trims the texts and turns blank optional texts into null, as stored. */

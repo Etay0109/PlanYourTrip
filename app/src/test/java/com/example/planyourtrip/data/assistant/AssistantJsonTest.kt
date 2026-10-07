@@ -43,6 +43,16 @@ class AssistantJsonTest {
     }
 
     @Test
+    fun theVenueNameIsRead_blankOrMissingIsNull() {
+        val withPlace = """{"time":"09:30","title":"Morning","type":"ACTIVITY","note":"","place":" Colosseum "}"""
+        val blank = """{"time":"13:00","title":"Lunch","type":"DINING","note":"","place":"  "}"""
+        val plan = AssistantJson.parseReply(answer(withPlace, blank, activity(type = "SHOPPING")))!!.plan!!
+
+        assertEquals(listOf("Colosseum", null, null), plan.activities.map { it.place })
+        assertEquals(ActivityType.SHOPPING, plan.activities[2].type)
+    }
+
+    @Test
     fun replyWithoutPlan_hasNoPlan() {
         val reply = AssistantJson.parseReply("""{"reply":"You have ₪2,500 left."}""")!!
         assertEquals("You have ₪2,500 left.", reply.text)

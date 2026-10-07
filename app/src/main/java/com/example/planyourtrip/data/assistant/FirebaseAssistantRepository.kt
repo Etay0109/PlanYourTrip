@@ -68,7 +68,7 @@ class FirebaseAssistantRepository(private val ai: FirebaseAI) : AssistantReposit
     private companion object {
         const val TAG = "TripAssistant"
 
-        /** `{reply, plan?: {date, title, activities: [{time, title, type, note, costShekels?}]}}`. */
+        /** `{reply, plan?: {date, title, activities: [{time, title, type, note, place?, costShekels?}]}}`. */
         val replySchema: Schema = Schema.obj(
             properties = mapOf(
                 "reply" to Schema.string(),
@@ -83,9 +83,12 @@ class FirebaseAssistantRepository(private val ai: FirebaseAI) : AssistantReposit
                                     "title" to Schema.string(),
                                     "type" to Schema.enumeration(ActivityType.entries.map { it.name }),
                                     "note" to Schema.string(),
+                                    "place" to Schema.string(
+                                        description = "The one venue's exact name as on a map, e.g. Colosseum",
+                                    ),
                                     "costShekels" to Schema.integer(description = "Estimated cost in ILS"),
                                 ),
-                                optionalProperties = listOf("costShekels"),
+                                optionalProperties = listOf("place", "costShekels"),
                             ),
                         ),
                     ),

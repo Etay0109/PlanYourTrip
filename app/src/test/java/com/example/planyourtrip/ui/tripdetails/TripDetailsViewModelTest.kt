@@ -8,6 +8,8 @@ import com.example.planyourtrip.FakeTripRepository
 import com.example.planyourtrip.data.auth.AuthUser
 import com.example.planyourtrip.data.currency.ExchangeRate
 import com.example.planyourtrip.data.trip.ActivityType
+import com.example.planyourtrip.data.trip.DeletedActivity
+import com.example.planyourtrip.data.trip.DeletedActivityStore
 import com.example.planyourtrip.data.trip.Expense
 import com.example.planyourtrip.data.trip.ExpenseCategory
 import com.example.planyourtrip.data.trip.Trip
@@ -63,7 +65,10 @@ class TripDetailsViewModelTest {
     @After
     fun tearDown() = Dispatchers.resetMain()
 
-    private fun vm(tripId: Long = 1) = TripDetailsViewModel(tripId, trips, expenses, activities, auth, currencies, clock, dispatcher)
+    private val deleted = DeletedActivityStore()
+
+    private fun vm(tripId: Long = 1) =
+        TripDetailsViewModel(tripId, trips, expenses, activities, auth, currencies, clock, dispatcher, deleted)
 
     private suspend fun TripDetailsViewModel.loaded() =
         uiState.filterIsInstance<TripDetailsUiState.Loaded>().first()
@@ -91,6 +96,48 @@ class TripDetailsViewModelTest {
         assertEquals(255_000L, state.summary?.leftAgorot)
         assertEquals(PerDay(42_500, 6), state.summary?.perDay)
         assertEquals(listOf(ExpenseCategory.FLIGHTS, ExpenseCategory.FOOD), state.categoryTotals.map { it.category })
+    }
+
+    @Test
+    fun undo_bringsBackTheDeletedActivity() = runTest(dispatcher) {
+        val visit = TripActivity(
+            7, 1, rome.startDate, LocalTime.of(10, 0), "Arena tour", ActivityType.ACTIVITY, note = "Tickets",
+            location = "Colosseum",
+        )
+        activities.activities.value = listOf(visit)
+        val vm = vm()
+        vm.deletedActivity.launchIn(backgroundScope)
+
+        // The activity form deletes it and hands it over.
+        deleted.offer(checkNotNull(activities.deleteActivity(visit.id, "u1")))
+        assertTrue(activities.activities.value.isEmpty())
+        val shown = checkNotNull(vm.deletedActivity.value)
+        assertEquals(DeletedActivity(visit), shown)
+
+        vm.onUndoDelete(shown)
+
+        assertEquals(visit.copy(id = activities.activities.value.single().id), activities.activities.value.single())
+        assertNull(vm.deletedActivity.value)
+        assertNull(deleted.last.value)
+    }
+
+    @Test
+    fun deletedMessage_onlyForThisTrip_andDismissingKeepsTheDelete() = runTest(dispatcher) {
+        val visit = TripActivity(7, 1, rome.startDate, null, "Meet", ActivityType.OTHER)
+        val elsewhere = DeletedActivity(visit.copy(id = 8, tripId = 2))
+        val vm = vm()
+        vm.deletedActivity.launchIn(backgroundScope)
+
+        deleted.offer(elsewhere)
+        assertNull(vm.deletedActivity.value)
+
+        val mine = DeletedActivity(visit)
+        deleted.offer(mine)
+        assertEquals(mine, vm.deletedActivity.value)
+        vm.onDeleteMessageDismissed(mine)
+
+        assertNull(vm.deletedActivity.value)
+        assertTrue(activities.activities.value.isEmpty())
     }
 
     @Test

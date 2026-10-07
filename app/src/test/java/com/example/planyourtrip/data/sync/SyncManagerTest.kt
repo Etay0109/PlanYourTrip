@@ -3,9 +3,11 @@ package com.example.planyourtrip.data.sync
 import com.example.planyourtrip.FakeAuthRepository
 import com.example.planyourtrip.FakeCloudStore
 import com.example.planyourtrip.FakeNetworkMonitor
+import com.example.planyourtrip.FakeSyncFlags
 import com.example.planyourtrip.FakeSyncLocalStore
 import com.example.planyourtrip.data.auth.AuthUser
 import com.example.planyourtrip.data.sync.SyncTestData.activity
+import com.example.planyourtrip.data.sync.SyncTestData.checklistItem
 import com.example.planyourtrip.data.sync.SyncTestData.deletedAt
 import com.example.planyourtrip.data.sync.SyncTestData.expense
 import com.example.planyourtrip.data.sync.SyncTestData.renamed
@@ -31,6 +33,10 @@ class SyncManagerTest {
     private val cloud = FakeCloudStore()
     private val local = FakeSyncLocalStore()
     private val network = FakeNetworkMonitor(online = true)
+    private val flags = FakeSyncFlags()
+
+    /** Accounts whose documents of deleted trips were cleaned up (after each full sync). */
+    private val cleanups = mutableListOf<String>()
 
     private val rome = trip("t1", updatedAt = 100)
     private val dinner = expense("e1", "t1", updatedAt = 100)
@@ -41,6 +47,8 @@ class SyncManagerTest {
         cloud = cloud,
         local = local,
         network = network,
+        flags = flags,
+        tripCleanup = { cleanups += it },
         scope = backgroundScope,
         uploadChunkSize = chunkSize,
     )
@@ -263,5 +271,109 @@ class SyncManagerTest {
         assertEquals(SignOutResult.SIGNED_OUT, result)
         assertNull(auth.currentUser.value)
         assertEquals(1, pendingOf("alice"))
+    }
+
+    // ---------- Old place documents (places were synced until the Map tab was removed) ----------
+
+    @Test
+    fun theFirstFullSync_removesTheAccountsOldPlaceDocuments_once() = runTest {
+        cloud.put("alice", rome)
+        cloud.legacyPlaces["alice"] = 3
+        val sync = manager()
+        sync.start()
+        settle()
+
+        assertNull(cloud.legacyPlaces["alice"])
+        assertTrue("alice" in flags.placesCleanupDone)
+
+        // Later full syncs (reconnect) don't ask the cloud again.
+        network.isOnline.value = false
+        network.isOnline.value = true
+        settle()
+        assertEquals(1, cloud.calls.count { it == "deleteLegacyPlaces:alice" })
+    }
+
+    @Test
+    fun aFailedCleanup_doesNotFailTheSync_andIsRetriedAtTheNextFullSync() = runTest {
+        cloud.put("alice", rome)
+        cloud.legacyPlaces["alice"] = 2
+        cloud.failLegacyPlaces = true
+        local.edit("alice", dinner)
+
+        assertTrue(manager().sync("alice", full = true))
+        assertEquals(0, pendingOf("alice"))
+        assertEquals(2, cloud.legacyPlaces["alice"])
+        assertFalse("alice" in flags.placesCleanupDone)
+
+        cloud.failLegacyPlaces = false
+        assertTrue(manager().sync("alice", full = true))
+        assertNull(cloud.legacyPlaces["alice"])
+        assertTrue("alice" in flags.placesCleanupDone)
+    }
+
+    @Test
+    fun aQuickSync_orOffline_neverRunsTheCleanup() = runTest {
+        cloud.legacyPlaces["alice"] = 1
+        local.edit("alice", rome)
+        assertTrue(manager().sync("alice", full = false))
+
+        network.isOnline.value = false
+        assertFalse(manager().sync("alice", full = true))
+
+        assertFalse(cloud.calls.any { it.startsWith("deleteLegacyPlaces") })
+        assertEquals(1, cloud.legacyPlaces["alice"])
+    }
+
+    @Test
+    fun eachAccount_getsItsOwnCleanup() = runTest {
+        cloud.legacyPlaces["alice"] = 1
+        cloud.legacyPlaces["bob"] = 1
+        flags.markPlacesCleanupDone("alice")
+
+        assertTrue(manager().sync("bob", full = true))
+
+        assertEquals(listOf("deleteLegacyPlaces:bob"), cloud.calls.filter { it.startsWith("deleteLegacyPlaces") })
+        assertEquals(1, cloud.legacyPlaces["alice"])
+        assertNull(cloud.legacyPlaces["bob"])
+    }
+
+    // ---------- Checklist items and the documents of deleted trips ----------
+
+    @Test
+    fun checklistItems_uploadAndDownloadLikeTheOtherItems() = runTest {
+        val passport = checklistItem("c1", "t1", updatedAt = 100)
+        local.edit("alice", rome)
+        local.edit("alice", passport)
+        cloud.put("alice", checklistItem("c2", "t1", updatedAt = 50, text = "Charger"))
+
+        assertTrue(manager().sync("alice", full = true))
+
+        assertEquals(passport, cloud.docsOf("alice")["c1"])
+        assertEquals("Charger", (local.liveOf("alice")["c2"]?.data as ItemData.ChecklistData).text)
+        assertEquals(0, pendingOf("alice"))
+    }
+
+    @Test
+    fun aFullSync_cleansUpTheDocumentsOfDeletedTrips() = runTest {
+        cloud.put("alice", rome)
+        assertTrue(manager().sync("alice", full = true))
+        assertEquals(listOf("alice"), cleanups)
+    }
+
+    @Test
+    fun aQuickSync_aFailedOrOfflineSync_andSignOut_neverCleanUpDocuments() = runTest {
+        local.edit("alice", rome)
+        assertTrue(manager().sync("alice", full = false))
+
+        cloud.offline = true
+        assertFalse(manager().sync("alice", full = true))
+        cloud.offline = false
+
+        network.isOnline.value = false
+        assertFalse(manager().sync("alice", full = true))
+        network.isOnline.value = true
+
+        assertEquals(SignOutResult.SIGNED_OUT, manager().signOut(force = false))
+        assertTrue(cleanups.isEmpty())
     }
 }

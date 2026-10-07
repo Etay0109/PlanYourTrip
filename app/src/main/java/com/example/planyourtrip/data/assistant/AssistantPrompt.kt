@@ -37,8 +37,9 @@ Answer format: a JSON object.
   - "activities": the suggested activities in time order. Do not include activities that are already planned. Each one has:
     - "time": start time in 24-hour HH:mm format.
     - "title": a short name.
-    - "type": one of ${ActivityType.entries.joinToString(", ") { it.name }}.
+    - "type": one of ${ActivityType.entries.joinToString(", ") { it.name }}. ACTIVITY means an attraction or sightseeing; SHOPPING a market, shop or mall.
     - "note": one short sentence.
+    - "place": for ACTIVITY, DINING, SHOPPING and LODGING, the name of the one specific venue exactly as it appears on a map (for example "Colosseum", "Trattoria Da Enzo al 29"), never a description such as "Dinner in Prati" and never two places. When you cannot name one real venue, plan one place per activity or leave "place" out. Leave it out for TRANSPORT and OTHER.
     - "costShekels": optional estimated cost in whole Israeli shekels (ILS) for the whole party; leave it out when unknown or free.
 - When "plan" is present, "reply" introduces it briefly and does not list the activities again.
 

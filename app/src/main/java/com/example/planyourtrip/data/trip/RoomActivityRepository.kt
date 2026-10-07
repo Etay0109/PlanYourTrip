@@ -2,6 +2,7 @@ package com.example.planyourtrip.data.trip
 
 import com.example.planyourtrip.data.sync.LocalChangeListener
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.time.Clock
 
@@ -57,8 +58,30 @@ class RoomActivityRepository(
         changes.onLocalChange()
     }
 
-    override suspend fun deleteActivity(id: Long, ownerId: String) {
+    override suspend fun deleteActivity(id: Long, ownerId: String): DeletedActivity? {
+        val activity = activityDao.observeById(id, ownerId).first()?.toTripActivity() ?: return null
         activityDao.deleteAndRecord(id, ownerId, clock.millis())
         changes.onLocalChange()
+        return DeletedActivity(activity)
+    }
+
+    override suspend fun restoreActivity(deleted: DeletedActivity, ownerId: String): Long? {
+        val activity = deleted.activity
+        if (!tripDao.exists(activity.tripId, ownerId)) return null
+        // A new row with a new uuid: the recorded delete still uploads, so no device mixes the old and new items.
+        return activityDao.insert(
+            ActivityEntity(
+                tripId = activity.tripId,
+                date = activity.date,
+                startTime = activity.startTime,
+                title = activity.title,
+                note = activity.note,
+                type = activity.type,
+                location = activity.location,
+                estimatedCostAgorot = activity.estimatedCostAgorot,
+                booked = activity.booked,
+                updatedAt = clock.millis(),
+            )
+        ).also { changes.onLocalChange() }
     }
 }

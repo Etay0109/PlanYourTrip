@@ -12,11 +12,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 /**
- * Small Overview card (Places, Daily plan): icon chip, title and a short status line, then optional [content]
- * (the Daily plan progress).
+ * Small Overview card (Map, Daily plan): icon chip, title and a short status line (at most [subtitleMaxLines]),
+ * then optional [content] (the drawn map, the Daily plan progress).
  */
 @Composable
 fun FeatureCard(
@@ -25,6 +26,7 @@ fun FeatureCard(
     subtitle: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    subtitleMaxLines: Int = Int.MAX_VALUE,
     content: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
     Surface(
@@ -47,6 +49,8 @@ fun FeatureCard(
                 text = subtitle,
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = subtitleMaxLines,
+                overflow = TextOverflow.Ellipsis,
             )
             if (content != null) {
                 Spacer(Modifier.height(16.dp))

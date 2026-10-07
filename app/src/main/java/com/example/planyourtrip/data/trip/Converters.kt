@@ -1,6 +1,7 @@
 package com.example.planyourtrip.data.trip
 
 import androidx.room.TypeConverter
+import com.example.planyourtrip.data.document.DocumentType
 import com.example.planyourtrip.data.sync.SyncKind
 import java.math.BigDecimal
 import java.time.Instant
@@ -57,6 +58,22 @@ class Converters {
     @TypeConverter
     fun nameToActivityType(name: String): ActivityType =
         ActivityType.entries.firstOrNull { it.name == name } ?: ActivityType.OTHER
+
+    @TypeConverter
+    fun checklistKindToName(kind: ChecklistKind): String = kind.name
+
+    /** Unknown names fall back to [ChecklistKind.BEFORE_TRIP] instead of crashing. */
+    @TypeConverter
+    fun nameToChecklistKind(name: String): ChecklistKind =
+        ChecklistKind.entries.firstOrNull { it.name == name } ?: ChecklistKind.BEFORE_TRIP
+
+    @TypeConverter
+    fun documentTypeToName(type: DocumentType): String = type.name
+
+    /** Unknown names fall back to [DocumentType.OTHER] instead of crashing. */
+    @TypeConverter
+    fun nameToDocumentType(name: String): DocumentType =
+        DocumentType.entries.firstOrNull { it.name == name } ?: DocumentType.OTHER
 
     @TypeConverter
     fun syncKindToName(kind: SyncKind): String = kind.name

@@ -30,6 +30,12 @@ interface ActivityDao {
     )
     fun observeById(id: Long, ownerId: String): Flow<ActivityEntity?>
 
+    @Query(
+        "SELECT a.trip_id FROM activities a JOIN trips t ON t.id = a.trip_id " +
+            "WHERE a.id = :id AND t.owner_id = :ownerId"
+    )
+    suspend fun tripIdOf(id: Long, ownerId: String): Long?
+
     @Insert
     suspend fun insert(activity: ActivityEntity): Long
 

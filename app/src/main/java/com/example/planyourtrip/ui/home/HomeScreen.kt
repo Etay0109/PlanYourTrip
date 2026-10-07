@@ -1,7 +1,6 @@
 package com.example.planyourtrip.ui.home
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -17,22 +16,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -40,17 +31,19 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.planyourtrip.R
-import com.example.planyourtrip.data.sync.SyncStatus
 import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.data.trip.TripColor
+import com.example.planyourtrip.ui.common.account.AccountState
+import com.example.planyourtrip.ui.common.account.AccountViewModel
+import com.example.planyourtrip.ui.common.account.actions
+import com.example.planyourtrip.ui.common.components.AccountActions
+import com.example.planyourtrip.ui.common.components.AccountButton
 import com.example.planyourtrip.ui.common.components.BrandMark
 import com.example.planyourtrip.ui.common.components.Pill
 import com.example.planyourtrip.ui.common.components.PrimaryButton
@@ -70,33 +63,31 @@ fun HomeScreen(
     onTripClick: (Long) -> Unit,
     viewModel: HomeViewModel = viewModel(factory = HomeViewModel.Factory),
     shareViewModel: ShareTripViewModel = viewModel(factory = ShareTripViewModel.Factory),
+    accountViewModel: AccountViewModel = viewModel(factory = AccountViewModel.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val account by accountViewModel.state.collectAsStateWithLifecycle()
     ShareTripHost(shareViewModel)
     HomeContent(
         state = state,
+        account = account,
         onAddTrip = onAddTrip,
         onTripClick = onTripClick,
         onShareTrip = shareViewModel::onShareTrip,
-        onSignOut = viewModel::onSignOut,
-        onConfirmSignOut = viewModel::onConfirmSignOut,
-        onDismissSignOutWarning = viewModel::onDismissSignOutWarning,
+        accountActions = remember(accountViewModel) { accountViewModel.actions() },
     )
 }
 
 @Composable
 fun HomeContent(
     state: HomeUiState,
+    /** The profile menu (null = no avatar). */
+    account: AccountState?,
     onAddTrip: () -> Unit,
     onTripClick: (Long) -> Unit,
-    onSignOut: () -> Unit,
     onShareTrip: (Long) -> Unit,
-    onConfirmSignOut: () -> Unit = {},
-    onDismissSignOutWarning: () -> Unit = {},
+    accountActions: AccountActions = AccountActions({}, {}, {}),
 ) {
-    if ((state as? HomeUiState.Content)?.showSignOutWarning == true) {
-        SignOutWarningDialog(onConfirm = onConfirmSignOut, onDismiss = onDismissSignOutWarning)
-    }
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
@@ -126,7 +117,7 @@ fun HomeContent(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             item(key = "header") {
-                HomeHeader(content, onSignOut)
+                HomeHeader(content, account, accountActions)
             }
 
             if (sections.isEmpty) {
@@ -197,7 +188,7 @@ fun HomeContent(
 }
 
 @Composable
-private fun HomeHeader(content: HomeUiState.Content, onSignOut: () -> Unit) {
+private fun HomeHeader(content: HomeUiState.Content, account: AccountState?, accountActions: AccountActions) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -211,97 +202,11 @@ private fun HomeHeader(content: HomeUiState.Content, onSignOut: () -> Unit) {
                 color = MaterialTheme.colorScheme.onBackground,
             )
         }
-        Spacer(Modifier.width(16.dp))
-        AccountAvatar(content, onSignOut)
-    }
-}
-
-/** Initials avatar that opens a menu with the user's name, email, the sync status and "Sign out". */
-@Composable
-private fun AccountAvatar(content: HomeUiState.Content, onSignOut: () -> Unit) {
-    var menuOpen by rememberSaveable { mutableStateOf(false) }
-    val profileDescription = stringResource(R.string.home_profile, content.userName)
-    Box {
-        Surface(
-            onClick = { menuOpen = true },
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary,
-            modifier = Modifier
-                .size(Dimens.AvatarSize)
-                .semantics { contentDescription = profileDescription },
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(text = content.initials, style = MaterialTheme.typography.titleMedium)
-            }
-        }
-        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                Text(
-                    text = content.userName,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                if (content.email.isNotEmpty()) {
-                    Text(
-                        text = content.email,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                SyncStatusRow(content.syncStatus, modifier = Modifier.padding(top = 8.dp))
-            }
-            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.home_sign_out)) },
-                leadingIcon = { Icon(painterResource(R.drawable.ic_logout), contentDescription = null) },
-                onClick = {
-                    menuOpen = false
-                    onSignOut()
-                },
-            )
+        if (account != null) {
+            Spacer(Modifier.width(16.dp))
+            AccountButton(account, accountActions, size = Dimens.AvatarSize)
         }
     }
-}
-
-/** "All changes saved" / "Syncing…" / "Offline – changes will sync later" with a small cloud icon. */
-@Composable
-private fun SyncStatusRow(status: SyncStatus, modifier: Modifier = Modifier) {
-    val (icon, text) = when (status) {
-        SyncStatus.SAVED -> R.drawable.ic_cloud_done to R.string.home_sync_saved
-        SyncStatus.SYNCING -> R.drawable.ic_sync to R.string.home_sync_syncing
-        SyncStatus.OFFLINE -> R.drawable.ic_cloud_off to R.string.home_sync_offline
-    }
-    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
-        Icon(
-            painter = painterResource(icon),
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(16.dp),
-        )
-        Spacer(Modifier.width(6.dp))
-        Text(
-            text = stringResource(text),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-/** Shown when changes still wait to upload and there is no connection. */
-@Composable
-private fun SignOutWarningDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.home_sign_out_warning_title)) },
-        text = { Text(stringResource(R.string.home_sign_out_warning_body)) },
-        confirmButton = {
-            TextButton(onClick = onConfirm) { Text(stringResource(R.string.home_sign_out_anyway)) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
-        },
-    )
 }
 
 @Composable
@@ -367,17 +272,17 @@ private val previewTrips = listOf(
 
 private fun previewState(trips: List<Trip>) = HomeUiState.Content(
     userName = "Etay Zahavi",
-    email = "etay@example.com",
     firstName = "Etay",
-    initials = "EZ",
     sections = groupTrips(trips, previewToday),
 )
+
+private val previewAccount = AccountState(userName = "Etay Zahavi", email = "etay@example.com", initials = "EZ")
 
 @Preview(name = "Home", widthDp = 411, heightDp = 891)
 @Composable
 private fun HomePreview() {
     PlanYourTripTheme(darkTheme = false) {
-        HomeContent(previewState(previewTrips), onAddTrip = {}, onTripClick = {}, onSignOut = {}, onShareTrip = {})
+        HomeContent(previewState(previewTrips), previewAccount, onAddTrip = {}, onTripClick = {}, onShareTrip = {})
     }
 }
 
@@ -399,7 +304,8 @@ private fun HomeNarrowPreview() {
                     ),
                 )
             ),
-            onAddTrip = {}, onTripClick = {}, onSignOut = {}, onShareTrip = {},
+            previewAccount,
+            onAddTrip = {}, onTripClick = {}, onShareTrip = {},
         )
     }
 }
@@ -408,7 +314,7 @@ private fun HomeNarrowPreview() {
 @Composable
 private fun HomeDarkPreview() {
     PlanYourTripTheme(darkTheme = true) {
-        HomeContent(previewState(previewTrips), onAddTrip = {}, onTripClick = {}, onSignOut = {}, onShareTrip = {})
+        HomeContent(previewState(previewTrips), previewAccount, onAddTrip = {}, onTripClick = {}, onShareTrip = {})
     }
 }
 
@@ -416,6 +322,6 @@ private fun HomeDarkPreview() {
 @Composable
 private fun HomeEmptyPreview() {
     PlanYourTripTheme(darkTheme = false) {
-        HomeContent(previewState(emptyList()), onAddTrip = {}, onTripClick = {}, onSignOut = {}, onShareTrip = {})
+        HomeContent(previewState(emptyList()), previewAccount, onAddTrip = {}, onTripClick = {}, onShareTrip = {})
     }
 }

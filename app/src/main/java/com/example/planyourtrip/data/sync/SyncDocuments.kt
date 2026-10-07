@@ -2,6 +2,7 @@ package com.example.planyourtrip.data.sync
 
 import com.example.planyourtrip.data.trip.ActivityInput
 import com.example.planyourtrip.data.trip.ActivityType
+import com.example.planyourtrip.data.trip.ChecklistKind
 import com.example.planyourtrip.data.trip.ExpenseCategory
 import com.example.planyourtrip.data.trip.ForeignAmount
 import com.example.planyourtrip.data.trip.TripColor
@@ -56,13 +57,20 @@ object SyncDocuments {
                     "booked" to booked,
                 )
             }
+            is ItemData.ChecklistData -> mapOf(
+                "list" to data.list.name,
+                "text" to data.text,
+                "checked" to data.checked,
+                "dueDate" to data.dueDate?.toString(),
+                "createdAt" to data.createdAt,
+            )
         }
         return fields + mapOf(DELETED to false, UPDATED_AT to item.updatedAt)
     }
 
     /**
      * Reads a cloud document; null when it can't be read (missing or wrong fields), so one bad document never
-     * stops a sync. Unknown enum names fall back like in Room (first color, OTHER).
+     * stops a sync. Unknown enum names fall back like in Room (first color, OTHER, BEFORE_TRIP).
      */
     fun fromDocument(kind: SyncKind, uuid: String, tripUuid: String?, doc: Map<String, Any?>): SyncItem? =
         runCatching {
@@ -93,7 +101,15 @@ object SyncDocuments {
                         location = doc.string("location"),
                         estimatedCostAgorot = doc.long("estimatedCostAgorot"),
                         booked = doc["booked"] as Boolean,
-                    )
+                    ),
+                    // Older documents may still hold "placeId" / "placeLookup" (removed with the Map tab): ignored.
+                )
+                SyncKind.CHECKLIST -> ItemData.ChecklistData(
+                    list = ChecklistKind.entries.firstOrNull { it.name == doc["list"] } ?: ChecklistKind.BEFORE_TRIP,
+                    text = doc.string("text")!!,
+                    checked = doc["checked"] as Boolean,
+                    dueDate = doc.string("dueDate")?.let { LocalDate.parse(it) },
+                    createdAt = doc.long("createdAt")!!,
                 )
             }
             SyncItem(kind, uuid, tripUuid, updatedAt, data)
