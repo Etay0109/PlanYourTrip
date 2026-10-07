@@ -43,6 +43,10 @@ android {
     buildFeatures {
         compose = true
     }
+    // The app is English only (see AppLocale): drop the libraries' translations, so built-in labels stay English.
+    androidResources {
+        localeFilters += "en"
+    }
 }
 
 room {

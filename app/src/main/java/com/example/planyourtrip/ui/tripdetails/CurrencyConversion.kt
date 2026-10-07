@@ -1,5 +1,6 @@
 package com.example.planyourtrip.ui.tripdetails
 
+import com.example.planyourtrip.ui.common.AppLocale
 import java.math.BigDecimal
 import java.math.MathContext
 import java.math.RoundingMode
@@ -105,7 +106,7 @@ object CurrencyConversion {
      * Number part of "1 EUR = ₪3.44": 2 decimals for rates of ₪1 or more, otherwise 4 significant digits
      * ("0.01944"), so weak currencies don't show as "₪0.02".
      */
-    fun formatRate(ilsPerUnit: BigDecimal, locale: Locale = Locale.getDefault()): String {
+    fun formatRate(ilsPerUnit: BigDecimal, locale: Locale = AppLocale.locale): String {
         val rounded = if (ilsPerUnit >= BigDecimal.ONE) {
             ilsPerUnit.setScale(DECIMALS, RoundingMode.HALF_UP)
         } else {
@@ -121,7 +122,7 @@ object CurrencyConversion {
     }
 
     /** The currency's symbol ("€", "$"), or null when the platform knows none besides the code itself. */
-    fun currencySymbol(code: String, locale: Locale = Locale.getDefault()): String? {
+    fun currencySymbol(code: String, locale: Locale = AppLocale.locale): String? {
         val symbol = runCatching { java.util.Currency.getInstance(code).getSymbol(locale) }.getOrNull()
         return symbol?.takeIf { it != code }
     }

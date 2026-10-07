@@ -9,6 +9,7 @@ import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /**
  * Cloud document fields (pure, no Firebase types, so it is unit-tested on the JVM). Must match firestore.rules.
@@ -20,7 +21,7 @@ object SyncDocuments {
     const val UPDATED_AT = "updatedAt"
     const val DELETED = "deleted"
 
-    private val TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+    private val TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.ROOT)
 
     fun toDocument(item: SyncItem): Map<String, Any?> {
         val fields: Map<String, Any?> = when (val data = item.data) {

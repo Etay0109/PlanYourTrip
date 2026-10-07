@@ -24,8 +24,10 @@ Package: `com.example.planyourtrip`. minSdk 26, targetSdk 36.
 ## Structure
 ```
 app/src/main/java/com/example/planyourtrip/
-  MainActivity.kt              # PlanYourTripTheme { AppNavHost() }
-  PlanYourTripApplication.kt   # installAppCheck(), creates the AppContainer, syncManager.start();
+  MainActivity.kt              # PlanYourTripTheme { AppNavHost() }; attachBaseContext → withAppLocale()
+  AppLocaleSetup.kt            # Context.withAppLocale() (English + LTR resources), applyDefaultAppLocale()
+  PlanYourTripApplication.kt   # applyDefaultAppLocale() (also on config change), installAppCheck(), creates the
+                               # AppContainer, syncManager.start();
                                # CreationExtras.appContainer() helper
   AppContainer.kt              # manual DI: AuthRepository, AppDatabase, TripRepository, ExpenseRepository,
                                # ActivityRepository, CurrencyRepository, AssistantRepository, Clock,
@@ -75,6 +77,7 @@ app/src/main/java/com/example/planyourtrip/
                                # AssistantChip + suggestionChips, chatHistory, planCard), Suggestions (pure:
                                # suggestionInputs))
   ui/common/                   # code shared by several features:
+                               #   AppLocale (the one app locale, Locale.US, default of every formatter),
                                #   TripFormatting (dates, cached formatters), TripTexts (datesWithLength,
                                #   statusLabel), TripStatus (tripStatus()), Money (agorot format/parse, percent,
                                #   shekels()), PickerDates (DatePicker UTC conversion), ErrorText (errorSupportingText),
@@ -137,6 +140,33 @@ app/src/main/res/xml/file_paths.xml  # FileProvider paths: only cache/shared_pdf
 - **Edit forms reuse the create forms.** `TripForm(tripId?)`, `ExpenseForm(tripId, expenseId?)` and
   `ActivityForm(tripId, activityId?, dateEpochDay?)` create when the id is null and edit otherwise; the ViewModel loads the item once (`isLoading` hides the fields until then) and
   saving sets `isSaving` synchronously, so double taps save once.
+
+## Language and layout direction (always English, left to right)
+The app looks and behaves as in English on every phone, also when the phone's language is Hebrew, Arabic or any
+other RTL language. There are no translations (`res/values` only).
+- **One locale:** `AppLocale.locale` (`ui/common/AppLocale.kt`, `Locale.US`). Every formatter (`TripFormatting`,
+  `Money`, `CurrencyConversion.formatRate`/`currencySymbol`, `ExpenseCurrency.formatOriginal`, `currencyName`) takes
+  it as its **default** `locale` parameter — never `Locale.getDefault()`. Formats that must not depend on any locale
+  (Firestore "HH:mm", `Money.toInput`) use `Locale.ROOT`. `AppLocaleTest` runs every formatter with a he-IL, ar-EG,
+  fa-IR and de-DE JVM default and expects the English output; add new formatters there.
+- **Resources:** `MainActivity.attachBaseContext` wraps the context with `withAppLocale()` (`AppLocaleSetup.kt`):
+  a configuration context with `setLocale(AppLocale.locale)` + `setLayoutDirection(...)`. Compose reads
+  `LocalConfiguration`/`LocalLayoutDirection` from it, so every screen, dialog, menu, bottom sheet, snackbar and the
+  Material date/time pickers (month and day names, labels) are English and LTR. Works on all API levels (26+),
+  no AppCompat or per-app language API needed.
+- **Layout direction, twice more:** the manifest has `android:supportsRtl="false"` (the View system, which Compose's
+  `onRtlPropertiesChanged` follows, stays LTR), and `androidResources.localeFilters += "en"` in `app/build.gradle.kts`
+  drops the libraries' translations from the APK, so built-in labels are English even outside the wrapped context.
+- **JVM default:** `applyDefaultAppLocale()` sets `Locale.setDefault(AppLocale.locale)` for library code that reads
+  it, in `Application.onCreate`, `onConfigurationChanged` (Android resets the default when the system language
+  changes) and every `withAppLocale()`.
+- **User text in Hebrew/Arabic** (destinations, titles, notes, expense names, chat messages) keeps Compose's
+  default text direction: in an LTR layout it resolves to `ContentOrLtr`, so a paragraph whose first strong
+  character is RTL reads right to left (bidi for mixed text) without mirroring the layout. Never set
+  `TextDirection.Ltr` on text that can hold user input. String resources that embed user text start with fixed or
+  LTR text ("%1$s · %2$s" = dates · destination), so the line order stays as in English.
+- The PDF keeps its own RTL paragraph handling (`FIRSTSTRONG_LTR`); its fixed labels are English strings.
+- Money stays "₪2,550" (`money_shekels` = "₪%1$s", grouping from `AppLocale`).
 
 ## Data model (Room)
 Database `plan_your_trip.db`, `AppDatabase` version 7, five tables:
@@ -738,7 +768,9 @@ Reference: `design/home_screen.png`. Match it closely when adding or changing sc
 - All user-visible text lives in `res/values/strings.xml` (with `plurals` for counts) — no hard-coded strings in
   Composables. Text-field errors go through `errorSupportingText(error?.messageRes())`; each feature maps its own
   error enum to string resources.
-- All date formatting goes through `TripFormatting` (never build a `DateTimeFormatter` in a composable).
+- All date formatting goes through `TripFormatting` (never build a `DateTimeFormatter` in a composable). New
+  locale-dependent formatters default to `AppLocale.locale`, never `Locale.getDefault()` (see "Language and layout
+  direction").
 - Dependencies go through the version catalog `gradle/libs.versions.toml`. Room 2.7.2, KSP 2.0.21-1.0.28,
   Navigation 2.9.0, serialization 1.7.3, **Compose BoM 2025.09.01** (Compose 1.9.2, Material 3 1.4.0) and
   **Firebase BoM 34.12.0** (incl. `firebase-firestore` 26.2.0, built with Kotlin 2.0.21) were chosen to match Kotlin 2.0.21; check
@@ -751,7 +783,7 @@ Reference: `design/home_screen.png`. Match it closely when adding or changing sc
   with Kotlin 2.0.21 + serialization 1.7.3; check its POM before upgrading the BoM. Only declare dependencies that code actually uses (`androidx.test:runner` is declared
   explicitly because `AndroidJUnitRunner` needs it).
 - Keep pure logic in plain Kotlin and unit-test it: validators, `groupTrips`, `tripStatus`, `TripFormatting`,
-  `PickerDates`, `Money`, `BudgetCalculations`, `Itinerary` (`ItineraryTest`: one-day, past and current trips,
+  `PickerDates`, `Money`, `BudgetCalculations`, `AppLocaleTest` (formatters stay English under an RTL default locale), `Itinerary` (`ItineraryTest`: one-day, past and current trips,
   untimed activities, activities outside the dates),
   `CurrencyConversion` (incl. digit-by-digit typing tests), activity type and category color contrast (`TintedColorsTest`), `ExpenseCurrency` (no-decimal currency, no rate, editing with/without changing the amount, switching currency), the expense date limit (`ExpenseFormTest`: default after the trip ended, date after the trip on save, editing an expense already dated after the trip), `CurrencyPicker`, `FrankfurterJson`, `isStale`, the assistant (`AssistantJsonTest`: malformed answer, unknown type,
   bad times, costs, invalid date; `AssistantPromptTest`; `AssistantContextTest`: context, chips, history;

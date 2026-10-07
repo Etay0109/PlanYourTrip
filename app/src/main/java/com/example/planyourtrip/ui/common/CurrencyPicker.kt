@@ -39,6 +39,6 @@ fun filterCurrencies(currencies: List<Currency>, query: String): List<Currency> 
  * Full name of [code] for display ("Euro"): from the service's [currencies] when loaded, else the platform's
  * name, else null.
  */
-fun currencyName(code: String, currencies: List<Currency>, locale: Locale = Locale.getDefault()): String? =
+fun currencyName(code: String, currencies: List<Currency>, locale: Locale = AppLocale.locale): String? =
     currencies.firstOrNull { it.code == code }?.name
         ?: runCatching { java.util.Currency.getInstance(code).getDisplayName(locale) }.getOrNull()?.takeIf { it != code }

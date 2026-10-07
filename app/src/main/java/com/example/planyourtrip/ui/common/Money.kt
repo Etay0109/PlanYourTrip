@@ -19,10 +19,10 @@ object Money {
     private val INPUT = Regex("""\d+([.,]\d{1,2})?""")
 
     /**
-     * Number part of an amount, grouped for [locale]: "2,550" for whole shekels, "12.50" when there are
+     * Number part of an amount, grouped for [locale] (the app locale by default): "2,550" for whole shekels, "12.50" when there are
      * agorot. Negative amounts are shown by their absolute value (callers say "over budget" instead).
      */
-    fun formatAgorot(agorot: Long, locale: Locale = Locale.getDefault()): String {
+    fun formatAgorot(agorot: Long, locale: Locale = AppLocale.locale): String {
         val value = abs(agorot)
         val format = NumberFormat.getNumberInstance(locale).apply {
             isGroupingUsed = true
@@ -55,7 +55,7 @@ object Money {
         else "%d.%02d".format(Locale.ROOT, agorot / 100, agorot % 100)
 
     /** "57.5%", "100%" — at most one decimal. */
-    fun formatPercent(percent: Double, locale: Locale = Locale.getDefault()): String {
+    fun formatPercent(percent: Double, locale: Locale = AppLocale.locale): String {
         val format = NumberFormat.getPercentInstance(locale).apply {
             minimumFractionDigits = 0
             maximumFractionDigits = 1

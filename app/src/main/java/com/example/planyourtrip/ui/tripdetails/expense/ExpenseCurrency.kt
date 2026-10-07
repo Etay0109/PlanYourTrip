@@ -4,6 +4,7 @@ import com.example.planyourtrip.data.currency.ExchangeRate
 import com.example.planyourtrip.data.currency.ILS
 import com.example.planyourtrip.data.trip.Expense
 import com.example.planyourtrip.data.trip.ForeignAmount
+import com.example.planyourtrip.ui.common.AppLocale
 import com.example.planyourtrip.ui.common.Money
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -112,7 +113,7 @@ object ExpenseCurrency {
     }
 
     /** "€10.00", "¥1,500" — the original amount with its currency's symbol and decimals. */
-    fun formatOriginal(original: ForeignAmount, locale: Locale = Locale.getDefault()): String {
+    fun formatOriginal(original: ForeignAmount, locale: Locale = AppLocale.locale): String {
         val currency = runCatching { java.util.Currency.getInstance(original.currencyCode) }.getOrNull()
             ?: return "${original.amount.toPlainString()} ${original.currencyCode}"
         val digits = fractionDigits(original.currencyCode)
