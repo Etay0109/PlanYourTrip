@@ -38,4 +38,11 @@ interface TripRepository {
 
     /** Sets (or clears, with null) the destination currency of one of the owner's trips (3-letter code). */
     suspend fun setCurrency(id: Long, ownerId: String, currencyCode: String?)
+
+    /**
+     * Deletes one of the owner's trips with its expenses, activities and checklist items, and records the delete for
+     * the sync. Returns the trip's uuid (its documents are keyed by it, see `DocumentRepository.deleteForTrip`), or
+     * null when the trip isn't the owner's.
+     */
+    suspend fun deleteTrip(id: Long, ownerId: String): String?
 }

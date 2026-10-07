@@ -68,6 +68,13 @@ class RoomDocumentRepository(
         return ViewFile(uri, document.mimeType)
     }
 
+    override suspend fun deleteForTrip(tripUuid: String, ownerId: String) {
+        for (document in documentDao.forTrip(tripUuid, ownerId)) {
+            documentDao.delete(document.id, ownerId)
+            files.delete(document.fileName)
+        }
+    }
+
     override suspend fun removeOrphans(ownerId: String) {
         for (document in documentDao.orphans(ownerId)) {
             documentDao.delete(document.id, ownerId)

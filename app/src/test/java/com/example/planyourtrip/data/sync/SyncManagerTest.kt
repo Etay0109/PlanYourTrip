@@ -195,6 +195,41 @@ class SyncManagerTest {
     }
 
     @Test
+    fun aTripDeletedOffline_isRemovedFromTheCloudWithItsChildren_whenTheConnectionReturns() = runTest {
+        val passport = checklistItem("c1", "t1", updatedAt = 100)
+        cloud.put("alice", rome, dinner, colosseum, passport)
+        val sync = manager()
+        sync.start()
+        settle()
+        assertEquals(setOf("t1", "e1", "a1", "c1"), local.liveOf("alice").keys)
+
+        // Offline: the trip is deleted here (its children go with it) and the delete waits.
+        network.isOnline.value = false
+        settle()
+        cloud.calls.clear()
+        local.delete("alice", rome, at = 500)
+        sync.onLocalChange()
+        settle()
+
+        assertTrue(cloud.calls.isEmpty())
+        assertEquals(SyncStatus.OFFLINE, sync.status.value)
+        assertTrue(local.liveOf("alice").isEmpty())
+        assertEquals(1, pendingOf("alice")) // the trip's tombstone
+        assertEquals(rome, cloud.docsOf("alice")["t1"])
+
+        network.isOnline.value = true
+        settle()
+
+        val docs = cloud.docsOf("alice")
+        assertEquals(rome.deletedAt(500), docs["t1"])
+        assertEquals(dinner.deletedAt(500), docs["e1"])
+        assertEquals(colosseum.deletedAt(500), docs["a1"])
+        assertEquals(passport.deletedAt(500), docs["c1"])
+        assertTrue(local.rowsOf("alice").isEmpty()) // tombstone uploaded and dropped, nothing came back
+        assertEquals(SyncStatus.SAVED, sync.status.value)
+    }
+
+    @Test
     fun aLocalChange_isUploadedWithAQuickSync() = runTest {
         cloud.put("alice", rome)
         val sync = manager()

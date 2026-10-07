@@ -21,7 +21,7 @@ class RoomChecklistRepository(
         val clean = text.trim()
         if (clean.isEmpty() || !tripDao.exists(tripId, ownerId)) return null
         val now = clock.millis()
-        return checklistDao.insert(newItem(tripId, kind, clean, createdAt = now, updatedAt = now))
+        return checklistDao.insertInOrder(tripId, listOf(newItem(tripId, kind, clean, updatedAt = now)), now).single()
             .also { changes.onLocalChange() }
     }
 
@@ -29,8 +29,8 @@ class RoomChecklistRepository(
         val clean = texts.map { it.trim() }.filter { it.isNotEmpty() }
         if (clean.isEmpty() || !tripDao.exists(tripId, ownerId)) return
         val now = clock.millis()
-        // One millisecond apart, so every device lists them in this order.
-        checklistDao.insertAll(clean.mapIndexed { i, text -> newItem(tripId, kind, text, now + i, now) })
+        // Increasing creation times (1 ms apart, after every existing item), so every device lists them in this order.
+        checklistDao.insertInOrder(tripId, clean.map { newItem(tripId, kind, it, updatedAt = now) }, now)
         changes.onLocalChange()
     }
 
@@ -61,7 +61,8 @@ class RoomChecklistRepository(
     override suspend fun restoreItem(deleted: DeletedChecklistItem, ownerId: String): Long? {
         val item = deleted.item
         if (!tripDao.exists(item.tripId, ownerId)) return null
-        // A new row with a new uuid (the recorded delete still uploads); the old createdAt keeps its place.
+        // A new row with a new uuid (the recorded delete still uploads); the old createdAt keeps its place (no other
+        // item of the trip has that time, see insertInOrder).
         return checklistDao.insert(
             ChecklistItemEntity(
                 tripId = item.tripId,
@@ -75,14 +76,15 @@ class RoomChecklistRepository(
         ).also { changes.onLocalChange() }
     }
 
-    private fun newItem(tripId: Long, kind: ChecklistKind, text: String, createdAt: Long, updatedAt: Long) =
+    /** `createdAt` is set by [ChecklistDao.insertInOrder]. */
+    private fun newItem(tripId: Long, kind: ChecklistKind, text: String, updatedAt: Long) =
         ChecklistItemEntity(
             tripId = tripId,
             list = kind,
             text = text,
             checked = false,
             dueDate = null,
-            createdAt = createdAt,
+            createdAt = 0,
             updatedAt = updatedAt,
         )
 }

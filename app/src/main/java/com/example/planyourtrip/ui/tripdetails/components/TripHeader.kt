@@ -51,6 +51,7 @@ fun TripHeader(
     onBack: () -> Unit,
     onEdit: () -> Unit,
     onShare: () -> Unit,
+    onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = ExtendedTheme.colors
@@ -80,7 +81,7 @@ fun TripHeader(
                     HeaderButton(R.drawable.ic_edit, stringResource(R.string.trip_edit), onEdit)
                     Spacer(Modifier.width(8.dp))
                     val moreDescription = stringResource(R.string.share_more_options, trip.destination)
-                    TripMoreMenu(onShare) { open -> HeaderButton(R.drawable.ic_more_vert, moreDescription, open) }
+                    TripMoreMenu(onShare, onDelete) { open -> HeaderButton(R.drawable.ic_more_vert, moreDescription, open) }
                 }
                 if (status != null && !badgeInline) {
                     Spacer(Modifier.height(16.dp))

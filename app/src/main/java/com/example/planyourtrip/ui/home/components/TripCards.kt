@@ -45,6 +45,7 @@ fun UpcomingTripCard(
     item: ActiveTrip,
     onClick: () -> Unit,
     onShare: () -> Unit,
+    onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = ExtendedTheme.colors
@@ -64,6 +65,7 @@ fun UpcomingTripCard(
             datesColor = MaterialTheme.colorScheme.onSurfaceVariant,
             onClick = onClick,
             onShare = onShare,
+            onDelete = onDelete,
             belowDates = {
                 if (!badgeInline) {
                     Spacer(Modifier.height(8.dp))
@@ -86,6 +88,7 @@ fun PastTripCard(
     trip: Trip,
     onClick: () -> Unit,
     onShare: () -> Unit,
+    onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = ExtendedTheme.colors
@@ -101,6 +104,7 @@ fun PastTripCard(
         datesColor = colors.onPastCardMuted,
         onClick = onClick,
         onShare = onShare,
+        onDelete = onDelete,
         modifier = modifier,
     )
 }
@@ -121,6 +125,7 @@ private fun TripListCard(
     datesColor: Color,
     onClick: () -> Unit,
     onShare: () -> Unit,
+    onDelete: () -> Unit,
     modifier: Modifier = Modifier,
     border: BorderStroke? = null,
     shadowElevation: Dp = 0.dp,
@@ -159,7 +164,7 @@ private fun TripListCard(
             }
             beforeMenu()
             // The button's own inset gives the gap to the badge or the text.
-            TripMoreButton(destination, onShare, tint = ExtendedTheme.colors.chevron)
+            TripMoreButton(destination, onShare, onDelete, tint = ExtendedTheme.colors.chevron)
         }
     }
 }

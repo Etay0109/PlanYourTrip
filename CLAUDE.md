@@ -7,7 +7,8 @@ see "Cloud sync"). Exchange rates come from the free Frankfurter API and are cac
 An AI trip assistant (Gemini through Firebase AI Logic, protected by Firebase App Check) chats about the trip and can
 add suggested day plans to the itinerary. "Share trip" creates a PDF summary (Android `PdfDocument`) and opens the
 share sheet. The trip screen's third tab, **Prep**, holds two checklists ("Before the trip", "Packing"; synced like the
-other items) and travel documents (PDFs/images copied into private storage, **on this device only**). Maps are links only: the
+other items) and travel documents (PDFs/images copied into private storage, **on this device only**). A trip is deleted
+by swiping its Home card to the left or with "Delete trip" in its three-dots menus (see "Deleting a trip"). Maps are links only: the
 Overview's Map card (a drawn illustration) opens Google Maps on the destination and each Plan activity with a location
 has an "Open in Maps" button (a URL, no SDK, no key, no location permission).
 Package: `com.example.planyourtrip`. minSdk 26, targetSdk 36.
@@ -72,7 +73,8 @@ app/src/main/java/com/example/planyourtrip/
   ui/navigation/               # Routes.kt (type-safe routes), AppNavHost.kt, SessionViewModel
   ui/auth/                     # AuthScreen, AuthViewModel, AuthUiState, AuthValidator
   ui/home/                     # HomeScreen, HomeViewModel, HomeUiState, TripGrouping,
-                               # components/ (NextTripCard, TripCards: upcoming + past list cards)
+                               # components/ (NextTripCard, TripCards: upcoming + past list cards,
+                               # SwipeToDeleteBox: swipe left → red "Delete" area)
   ui/tripform/                 # TripFormScreen/ViewModel/UiState, TripValidator — new trip AND edit trip
   ui/tripdetails/              # the trip area: TripDetailsScreen (header + 4 tabs), TripDetailsViewModel,
                                # TripDetailsUiState (+ TripTab, BudgetDialogState, CurrencyCardState, ItineraryState,
@@ -113,13 +115,15 @@ app/src/main/java/com/example/planyourtrip/
                                #   PdfPagination (pure: paginate), TripPdfExporter (interface, SharedPdf),
                                #   AndroidTripPdfExporter (the only PdfDocument/FileProvider code), ShareTripViewModel,
                                #   ShareTripUiState, ShareTripDialog (+ ShareTripHost: dialog + share sheet)
+  ui/common/delete/            # "Delete trip": DeleteTripViewModel (+ DeleteTripUiState, DeleteDialogState,
+                               #   DeleteTripMessage), DeleteTripDialog (+ DeleteTripHost: the confirmation dialog)
   ui/common/account/           # AccountViewModel (+ AccountState, actions()): the profile menu's user, sync status and
                                #   sign out (Home avatar)
   ui/common/components/        # PrimaryButton (optional leadingIcon), BackTopAppBar (optional actions), BrandMark,
                                #   AccountMenu (AccountButton + AccountActions: profile button, menu, sign-out warning),
                                #   DateField (read-only field + DatePickerPopup, also used alone), HeroWaves (gradient decoration),
                                #   TripComponents (LetterSquare, Pill, TripDatesRow),
-                               #   TripMoreMenu (+ TripMoreButton: the trip's three-dots menu, "Share trip"),
+                               #   TripMoreMenu (+ TripMoreButton: the trip's three-dots menu, "Share trip", "Delete trip"),
                                #   CurrencyPickerSheet (searchable currency list, trip form + trip screen),
                                #   TimeField (read-only time field + 24-hour TimePicker dialog; activity form)
   ui/theme/                    # Color, ExtendedColors, Shape, Type (Inter + named styles), Dimens, Theme,
@@ -275,7 +279,7 @@ A row exists only while the delete waits to upload (local tombstone).
 | `text` | TEXT | trimmed, never blank |
 | `checked` | INTEGER | Boolean |
 | `due_date` | INTEGER, nullable | epoch day; only ever set on `BEFORE_TRIP` items (the DAO's update has `AND list = 'BEFORE_TRIP'`) |
-| `created_at` | INTEGER | epoch millis when added (synced); lists are ordered `created_at, id`, the same on every device. Suggested items get +1 ms each; "Undo" keeps the old value, so the item returns to its place |
+| `created_at` | INTEGER | epoch millis when added (synced); lists are ordered `created_at, id` (creation time, then insertion order), the same on every device. `ChecklistDao.insertInOrder` (one transaction) gives every new item `max(now, latest created_at of the trip + 1)` and suggested items +1 ms each from there, so no two items of a trip tie on a device, even in the same millisecond or with a clock set back; "Undo" keeps the old value, so the item returns to its place |
 | + `uuid`, `updated_at`, `pending_sync` | | sync columns as above |
 
 - **Deleting a checklist item** (`ChecklistDao.deleteAndRecord`) records a `CHECKLIST` deletion; `restoreItem` inserts
@@ -351,9 +355,12 @@ the text uploads; activities that already had a location are untouched); then `a
 - **Never seed sample trips into the database.** Sample data belongs only in previews and tests.
 - **Changing the schema:** bump `version`, add a `Migration` or `AutoMigration`, build, and commit the new JSON in
   `app/schemas/`. Do not use `fallbackToDestructiveMigration` — users would lose their trips.
-- There is no "delete trip" UI yet; when added, the FK cascade removes the expenses, activities and checklist items,
-  the repository must record a `TRIP` row in `deletions` (the sync layer already handles trip tombstones), and it must
-  call `DocumentRepository.removeOrphans(ownerId)` (documents have no FK, see below).
+- **Deleting a trip** (`TripRepository.deleteTrip` → `TripDao.deleteAndRecord`, one transaction): records a `TRIP`
+  row in `deletions`, deletes the trip (the FK cascade removes its expenses, activities and checklist items) and
+  returns the trip's uuid; then `DocumentRepository.deleteForTrip(tripUuid, ownerId)` deletes its documents and their
+  files (no FK). Not `removeOrphans`: right after a sign-in, before the first full sync brings the trips back, it would
+  also wipe the documents of trips that aren't back yet. If the app dies between the two steps, the next full sync's
+  orphan cleanup removes the rest. `DeleteTripViewModel` runs both steps (see "Deleting a trip").
 
 ## Cloud sync (`data/sync`)
 **Room is the only source for the screens**; the app works offline exactly as before. Firestore is a per-account
@@ -419,7 +426,9 @@ every live document also has                   updatedAt (epoch millis, int), de
 | tombstone | missing / tombstone | drop the local tombstone |
 
 Children of a trip that ends up deleted are deleted here and never saved or uploaded. Cloud versions are saved in
-`SyncKind` order (`TRIP, EXPENSE, ACTIVITY, CHECKLIST`, stored by name so it may be reordered), trips first. `RoomSyncLocalStore.apply`
+`SyncKind` order (`TRIP, EXPENSE, ACTIVITY, CHECKLIST`, stored by name so it may be reordered), trips first;
+checklist items in `createdAt` order, ties by uuid, so their rows are inserted in list order (the `id` tie-break then
+matches) whatever order Firestore returned them in. `RoomSyncLocalStore.apply`
 re-checks `updated_at` so a cloud version never replaces a newer local change made while the sync ran.
 Timestamps are device clocks (no server time), so a device with a very wrong clock can win conflicts it shouldn't.
 
@@ -462,6 +471,8 @@ TripDetails ──(tap an expense)─────▶ ExpenseForm(tripId, expense
 TripDetails ──("Add activity")─────▶ ActivityForm(tripId, dateEpochDay = selected day)  Save / back → pop
 TripDetails ──(tap an activity)────▶ ActivityForm(tripId, activityId)  Save / Delete / back → pop
 TripDetails ──(sparkle FAB)────────▶ TripAssistant(tripId)       back arrow → pop (conversation is kept)
+TripDetails ──("Delete trip" confirmed)──▶ pop to Home with Home's savedStateHandle["pendingDeleteTripId"] = tripId;
+                                   Home deletes it (DeleteTripViewModel.deleteConfirmed) and clears the key
 (session becomes null) ──▶ Login                   popUpTo(graph) inclusive → whole back stack cleared
 ```
 - `SessionViewModel.startsSignedIn` picks the start destination once. Firebase restores a saved session
@@ -494,13 +505,16 @@ TripDetails ──(sparkle FAB)────────▶ TripAssistant(tripId)
 - The header greeting and initials come from the signed-in user's `greetingName()`: the display name, or the part
   of the email before "@" when there is no name.
 - **Trip card menu:** the cards have **no chevron**. Every card (Next trip, Upcoming, Past) ends with a three-dots
-  `TripMoreButton` ("Share trip", see "Share trip (PDF)") at the right edge, vertically centered, no background:
+  `TripMoreButton` ("Share trip", see "Share trip (PDF)"; "Delete trip", see "Deleting a trip") at the right edge, vertically centered, no background:
   `onHeroMuted` on the Next trip card, the `chevron` gray on the list cards. The countdown box / badge sits to its
   left; the Next trip card's left side stays label, destination, dates. The button is a 48dp touch target with a
   20dp icon (`Dimens.CardMenuIconSize`); the card rows end with `Dimens.CardMenuEndPadding` (2dp) so the icon is
   `CardMenuIconInset` (16dp) from the card edge on all three cards, and the button's 14dp inset is the gap to the
   countdown. The button consumes its taps (never opens the trip); the menu is right-aligned to the button and
   shifted by the end padding, so it lines up with the card's edge.
+- **Card keys** are `"trip-<id>"` in all three sections and every item has `Modifier.animateItem()`, so a deleted card
+  fades out and the trip that becomes the Next trip moves up from Upcoming. Every card sits in a `SwipeToDeleteBox`
+  (see "Deleting a trip"); the Scaffold has a `SnackbarHost` for "Trip deleted".
 - **Avatar menu** (`AccountButton` + `AccountViewModel` in `ui/common`): tapping the
   avatar opens a `DropdownMenu` with the user's name and email, the sync status (small cloud icon + "All changes
   saved" / "Syncing…" / "Offline – changes will sync later", from `AccountState.syncStatus`) and "Sign out". Sign out
@@ -516,7 +530,7 @@ Reference: `design/trip_overview.png` (there is no separate Budget design; the B
 - **Header** (`TripHeader`, on every tab, scrolls with the list): hero gradient + `HeroWaves`, only bottom corners
   rounded (`extraLarge`), drawn behind the status bar (`contentWindowInsets = WindowInsets(0)` +
   `statusBarsPadding()`); back circle, status pill ("In 38 days" / "Now", **hidden after the trip ended**), edit
-  circle (→ `TripForm(tripId)`), three-dots circle (`TripMoreMenu` → "Share trip"), destination (`headlineLarge`,
+  circle (→ `TripForm(tripId)`), three-dots circle (`TripMoreMenu` → "Share trip", "Delete trip"), destination (`headlineLarge`,
   ≤ 3 lines), dates with length. Below 300dp content width or
   above font scale 1.2 the status pill moves to its own line under the buttons.
 - **Overview:** `BudgetCard` (tap → Budget tab; "Set budget" button opens the budget dialog), then `CurrencyCard`,
@@ -807,6 +821,33 @@ distances, weather, plan photo, microphone or like/dislike buttons; **no orange*
   `androidx.core.content.FileProvider` (authority `${applicationId}.fileprovider`, `res/xml/file_paths.xml`, not
   exported). Failures are logged (`adb logcat -s TripPdf`) and rethrown to the ViewModel.
 
+## Deleting a trip (`ui/common/delete`, `ui/home/components/SwipeToDeleteBox.kt`)
+- **Entry points:** swipe a Home card (Next trip, Upcoming, Past) to the left; "Delete trip" (red, `ic_delete`) in
+  the three-dots menu of every Home card and of the trip header. Each screen has its own `DeleteTripViewModel`
+  (default owner) and renders `DeleteTripHost`.
+- **Swipe** (`SwipeToDeleteBox`, foundation `AnchoredDraggableState`, end-to-start only): anchors `Closed` 0,
+  `Revealed` −`Dimens.SwipeRevealWidth` (96dp), `Dismissed` −card width; 50% positional threshold. A short swipe
+  springs back; past the reveal width the card stays open on a red (`colorScheme.error`) area with `ic_delete` +
+  "Delete" (`onError`) that can be tapped; a full swipe or a fast fling opens the dialog right away. While the dialog
+  is open for that trip (`deletePending`) the card stays; when it closes without deleting, the card animates back.
+  The drag takes only horizontal gestures, so a swipe never opens the trip and a tap still does. TalkBack gets a
+  "Delete trip" custom action.
+- **Dialog** (`DeleteDialogState(tripId, destination, isDeleting)`): "Delete this trip?", the body names the trip and
+  what goes with it (`trip_delete_body` starts with U+200E LRM, so an RTL destination at the start doesn't turn the
+  English sentence right to left), "Cancel" and a red "Delete". `isDeleting` is set synchronously (double taps delete
+  once; Cancel and dismiss are ignored, a spinner replaces "Delete").
+- **Home** confirms with `onConfirm()`: delete with the current uid, then the documents; the dialog closes and
+  `message` = `DELETED` ("Trip deleted" snackbar) or `FAILED` (no user, another account's trip, an exception;
+  "Couldn't delete the trip. Try again.", nothing deleted). A failure in the documents step still counts as deleted.
+  Room's flow re-groups the trips (the next upcoming trip becomes the Next trip, the empty state after the last one).
+- **Trip screen** confirms with `takeConfirmed()` (nothing deleted there, so it never flashes "not found") and calls
+  `onTripDeleted(tripId)`: `AppNavHost` pops back to Home with `pendingDeleteTripId`, and Home runs
+  `deleteConfirmed(tripId)` with the usual animation and snackbar.
+- **Sync:** the recorded `TRIP` tombstone uploads with the quick sync, or at the next full sync after the connection
+  returns; `FirestoreCloudStore.write` tombstones the trip's expenses, activities and checklist documents and
+  `planMerge` drops the children's own local tombstones. `firestore.rules` already allow all of it (tombstones on
+  create/update of the trip and of every child collection, reads of the children).
+
 ## Design rules
 Reference: `design/home_screen.png`. Match it closely when adding or changing screens.
 - **Use theme tokens, never hard-coded colors in screens.** Material roles come from `MaterialTheme.colorScheme`;
@@ -855,7 +896,7 @@ Reference: `design/home_screen.png`. Match it closely when adding or changing sc
 - **Sizes** (`ui/theme/Dimens.kt`): `ScreenPadding` 20dp screen side padding, `AvatarSize` 56dp avatar and letter
   squares, `ButtonHeight` 52dp primary buttons, `IconChipSize` 44dp round icon chips, `CategoryIconSize` 40dp
   category squares, `TouchTarget` 48dp, `CardMenuIconSize` / `CardMenuIconInset` / `CardMenuEndPadding` (home card
-  three-dots button), `MapPreviewMinHeight` 88dp (Overview Map card's picture). Add a value there instead of repeating a number in several files.
+  three-dots button), `MapPreviewMinHeight` 88dp (Overview Map card's picture), `SwipeRevealWidth` 96dp (Home card's red "Delete" area). Add a value there instead of repeating a number in several files.
 - **Spacing:** 16dp between cards, 16–24dp inside cards. The home list has an extra 104dp bottom padding so the FAB
   never covers the last card.
 - **Reuse the shared components** before writing new UI: `PrimaryButton` (pill button with optional loading
@@ -959,7 +1000,8 @@ budget, over/under/on budget, no expenses, no activities, only activities outsid
 planned, untimed activities; `PdfFileNameTest`: special characters, emoji, Hebrew, fallback, long names;
 `PdfPaginationTest`; `ShareTripViewModelTest`: double tap, failure + try again, costs off, another account's trip),
 the sync (`SyncMergeTest`: edited on two devices,
-deleted on one and edited on another, first upload, children of a deleted trip; `SyncDocumentsTest`: field formats,
+deleted on one and edited on another, first upload, children of a deleted trip, checklist items saved in creation
+order; `SyncDocumentsTest`: field formats,
 tombstones, fallbacks; `SyncManagerTest`: second account on the same device, offline in the middle of a sync,
 reconnect, quick sync, edits during an upload, sign-out paths, the one-time removal of old place documents (once per
 account, retried after a failure, never in a quick sync or offline), checklist items, the documents cleanup (only after a
@@ -969,16 +1011,22 @@ today / checked, toggling, insertion order, suggested items; `DocumentFilesTest`
 20 MB limit, unknown size, badge, extension, default name; `PrepViewModelTest`: toggling, add, suggestions once, edit
 text, due dates, delete + Undo, another account's trip, too large / unsupported / unreadable / too large while copying,
 double tap, edit, delete with confirmation, view a missing file), `ActivityTypeTest`, `GoogleMapsTest` (spaces, comma, Hebrew, special
-characters, trimming, decodes back; the activity URL with/without the destination), `AccountViewModelTest` (menu state, sign out, warning, sign out anyway), `firstName`/`initials`/`greetingName`, `TripColor`, and every
+characters, trimming, decodes back; the activity URL with/without the destination), `AccountViewModelTest` (menu state, sign out, warning, sign out anyway), deleting a trip (`DeleteTripViewModelTest`:
+confirm, cancel, double tap, the trip's document files removed and other trips' kept, another account's trip, no
+user, failure, confirmed on the trip screen and deleted on Home; `HomeViewModelTest`: the next upcoming trip becomes
+the Next trip, the last trip → empty; `SyncManagerTest`: deleted offline, uploaded with its children's tombstones when
+the connection returns), `firstName`/`initials`/`greetingName`, `TripColor`, and every
   ViewModel (with `FakeTripRepository`, `FakeExpenseRepository`, `FakeActivityRepository`,
   `FakeCurrencyRepository`, `FakeChecklistRepository`, `FakeDocumentRepository` + `FakeDocumentFileStore` (`picked`,
-  `actualSizes`, `failCopy`), `FakeAssistantRepository` (scripted responses, recorded requests, `gate`), `FakeTripPdfExporter` (`exports`,
+  `actualSizes`, `failCopy`), `FakeAssistantRepository` (scripted responses, recorded requests, `gate`), `FakeTripRepository` (`failDelete`, `deleteGate`, `deletes`, trip uuid = `uuidOf(id)`), `FakeTripPdfExporter` (`exports`,
   `fail`, `gate`), `FakeSyncController`, `FakeCloudStore`,
   `FakeSyncLocalStore`, `FakeSyncFlags`, `FakeNetworkMonitor` and `FakeAuthRepository` in
   `app/src/test`; set `nextSignInError`, `FakeCurrencyRepository.offline` etc. to simulate backend failures).
   `TripDaoTest` in `app/src/androidTest` covers Room (owner scoping, updates, currency, rate cache, expenses,
   activities, cascades, sync columns, recorded deletes, restore as a new pending row, checklist order/scoping/due
   dates/restore, documents scoped by owner, kept after sign-out and shown again when the trip returns, orphans and the
-  file sweep); `MigrationTest` covers v6 → v7, v7 → v8, v8 → v9, v9 → v10, v10 → v11 (place names copied into empty
+  file sweep, suggested items keeping their order with a fixed clock (same millisecond, delete + Undo, clock set
+  back), checklist items from the cloud stored in creation order, a deleted trip leaving no expenses/activities/checklist items/documents/files behind and only its
+  `TRIP` tombstone pending); `MigrationTest` covers v6 → v7, v7 → v8, v8 → v9, v9 → v10, v10 → v11 (place names copied into empty
   locations as pending edits, own locations untouched, places and `PLACE` deletions gone, all trips/expenses/activities
   kept, cascade still works) and v11 → v12 (all data kept, new tables empty, checklist cascade, documents without FK).

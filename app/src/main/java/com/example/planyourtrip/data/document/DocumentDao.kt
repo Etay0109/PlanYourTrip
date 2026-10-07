@@ -28,6 +28,9 @@ interface DocumentDao {
     @Query("DELETE FROM documents WHERE id = :id AND owner_id = :ownerId")
     suspend fun delete(id: Long, ownerId: String)
 
+    @Query("SELECT * FROM documents WHERE trip_uuid = :tripUuid AND owner_id = :ownerId")
+    suspend fun forTrip(tripUuid: String, ownerId: String): List<DocumentEntity>
+
     /** The owner's documents whose trip isn't on this device (any more) for that owner. */
     @Query(
         "SELECT * FROM documents WHERE owner_id = :ownerId " +

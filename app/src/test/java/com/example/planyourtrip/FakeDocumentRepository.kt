@@ -82,6 +82,12 @@ class FakeDocumentRepository(
         return ViewFile(uri, row.document.mimeType)
     }
 
+    override suspend fun deleteForTrip(tripUuid: String, ownerId: String) {
+        val gone = rows.value.filter { it.ownerId == ownerId && FakeTripRepository.uuidOf(it.tripId) == tripUuid }
+        rows.update { it - gone.toSet() }
+        gone.forEach { files.delete(it.document.fileName) }
+    }
+
     override suspend fun removeOrphans(ownerId: String) {
         val orphans = rows.value.filter { it.ownerId == ownerId && !owns(ownerId, it.tripId) }
         rows.update { it - orphans.toSet() }

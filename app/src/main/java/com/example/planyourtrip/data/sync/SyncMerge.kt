@@ -65,12 +65,22 @@ fun planMerge(local: List<LocalItem>, cloud: List<SyncItem>): MergePlan {
         d.drop?.let { drop += it }
     }
     return MergePlan(
-        saveLocally = save.sortedBy { it.kind.ordinal },
+        saveLocally = save.sortedWith(saveOrder),
         deleteLocally = delete,
         upload = upload,
         dropTombstones = drop,
     )
 }
+
+/**
+ * Trips before their children; checklist items in creation order (ties by uuid, the same on every device), so the
+ * rows they become here are inserted in list order and `ORDER BY created_at, id` matches the other devices.
+ */
+private val saveOrder: Comparator<SyncItem> = compareBy<SyncItem>(
+    { it.kind.ordinal },
+    { (it.data as? ItemData.ChecklistData)?.createdAt ?: 0L },
+    { if (it.kind == SyncKind.CHECKLIST) it.uuid else "" },
+)
 
 private class Decision(
     val uuid: String,

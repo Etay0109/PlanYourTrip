@@ -9,8 +9,11 @@ import com.example.planyourtrip.data.document.DocumentInput
 import com.example.planyourtrip.data.document.DocumentType
 import com.example.planyourtrip.data.document.PickedFile
 import com.example.planyourtrip.data.document.RoomDocumentRepository
+import com.example.planyourtrip.data.sync.ItemData
 import com.example.planyourtrip.data.sync.RoomSyncLocalStore
+import com.example.planyourtrip.data.sync.SyncItem
 import com.example.planyourtrip.data.sync.SyncKind
+import com.example.planyourtrip.data.sync.planMerge
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -21,9 +24,11 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.math.BigDecimal
+import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.ZoneOffset
 
 @RunWith(AndroidJUnit4::class)
 class TripDaoTest {
@@ -34,6 +39,13 @@ class TripDaoTest {
     private lateinit var activities: RoomActivityRepository
     private lateinit var checklist: RoomChecklistRepository
     private lateinit var documents: RoomDocumentRepository
+
+    /**
+     * The checklist's clock stands still: every item is added in the same millisecond, the case where the order used
+     * to depend on chance.
+     */
+    private val now = Instant.parse("2026-10-07T10:00:00Z")
+    private val fixedClock = Clock.fixed(now, ZoneOffset.UTC)
 
     /** In-memory files: name → size. */
     private val storedFiles = mutableMapOf<String, Long>()
@@ -60,7 +72,7 @@ class TripDaoTest {
         repository = RoomTripRepository(db.tripDao())
         expenses = RoomExpenseRepository(db.expenseDao(), db.tripDao())
         activities = RoomActivityRepository(db.activityDao(), db.tripDao())
-        checklist = RoomChecklistRepository(db.checklistDao(), db.tripDao())
+        checklist = RoomChecklistRepository(db.checklistDao(), db.tripDao(), fixedClock)
         documents = RoomDocumentRepository(db.documentDao(), db.tripDao(), files)
     }
 
@@ -367,6 +379,61 @@ class TripDaoTest {
     }
 
     @Test
+    fun suggestedItems_alwaysKeepTheirOrder_evenWhenEverythingIsAddedInTheSameMillisecond() = runTest {
+        val rome = repository.addTrip("u1", "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17))
+        val suggested = listOf("Passport", "Charger", "Adapter", "Sunscreen", "Toothbrush", "Medicines")
+        checklist.addItem(rome, "u1", ChecklistKind.PACKING, "First")
+        checklist.addItems(rome, "u1", ChecklistKind.PACKING, suggested)
+        checklist.addItem(rome, "u1", ChecklistKind.PACKING, "Last")
+
+        fun texts(items: List<ChecklistItem>) = items.sortedWith(compareBy({ it.createdAt }, { it.id })).map { it.text }
+        val expected = listOf("First") + suggested + "Last"
+        val items = checklist.observeItems(rome, "u1").first()
+        assertEquals(expected, items.map { it.text }) // the query's order
+        assertEquals(expected, texts(items))
+        // Increasing creation times, 1 ms apart, starting at the clock's time.
+        assertEquals((0L until expected.size.toLong()).map { now.toEpochMilli() + it }, items.map { it.createdAt })
+
+        // Deleting and restoring an item in the middle brings it back to its place.
+        val adapter = items.first { it.text == "Adapter" }
+        checklist.restoreItem(checklist.deleteItem(adapter.id, "u1")!!, "u1")
+        assertEquals(expected, checklist.observeItems(rome, "u1").first().map { it.text })
+
+        // A clock set back still adds at the end.
+        val earlier = RoomChecklistRepository(
+            db.checklistDao(), db.tripDao(), Clock.fixed(now.minusSeconds(3_600), ZoneOffset.UTC),
+        )
+        earlier.addItems(rome, "u1", ChecklistKind.PACKING, listOf("Hat", "Book"))
+        assertEquals(expected + listOf("Hat", "Book"), checklist.observeItems(rome, "u1").first().map { it.text })
+    }
+
+    @Test
+    fun checklistItemsFromTheCloud_areStoredInCreationOrder_whateverOrderTheyArriveIn() = runTest {
+        val sync = RoomSyncLocalStore(db)
+        val rome = repository.addTrip("u1", "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17))
+        val tripUuid = db.tripDao().uuidOf(rome, "u1")!!
+        fun item(uuid: String, text: String, createdAt: Long) = SyncItem(
+            kind = SyncKind.CHECKLIST,
+            uuid = uuid,
+            tripUuid = tripUuid,
+            updatedAt = 100,
+            data = ItemData.ChecklistData(ChecklistKind.PACKING, text, false, null, createdAt),
+        )
+        // Another device's suggested items, plus two items added there in the same millisecond (ties go by uuid).
+        val cloud = listOf(
+            item("u-5", "Tie b", 50), item("u-3", "Adapter", 12), item("u-1", "Passport", 10),
+            item("u-4", "Tie a", 50), item("u-2", "Charger", 11),
+        )
+
+        sync.apply("u1", planMerge(local = emptyList(), cloud = cloud))
+
+        val stored = checklist.observeItems(rome, "u1").first()
+        assertEquals(listOf("Passport", "Charger", "Adapter", "Tie a", "Tie b"), stored.map { it.text })
+        // Rows were inserted in that order, so the ids (the tie-break of the query) follow it too.
+        assertEquals(stored.map { it.id }.sorted(), stored.map { it.id })
+    }
+
+    @Test
     fun documents_scopedToOwner_surviveSignOut_andComeBackWithTheTrip() = runTest {
         val sync = RoomSyncLocalStore(db)
         val rome = repository.addTrip("u1", "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17))
@@ -431,5 +498,54 @@ class TripDaoTest {
         documents.deleteDocument(hotel.id, "u1")
         assertTrue(documents.observeDocuments(rome, "u1").first().isEmpty())
         assertEquals(1, storedFiles.size)
+    }
+
+    // ---------- Deleting a trip ----------
+
+    private fun count(sql: String, vararg args: Any): Int =
+        db.query(sql, args).use { c -> c.moveToFirst(); c.getInt(0) }
+
+    @Test
+    fun deletingATrip_leavesNoExpensesActivitiesChecklistItemsOrDocumentsBehind() = runTest {
+        val sync = RoomSyncLocalStore(db)
+        val rome = repository.addTrip("u1", "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17))
+        val oslo = repository.addTrip("u1", "Oslo", LocalDate.of(2026, 12, 1), LocalDate.of(2026, 12, 3))
+        for (trip in listOf(rome, oslo)) {
+            expenses.addExpense(trip, "u1", "Dinner", 12_050, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13))
+            activities.addActivity(trip, "u1", input("Museum", LocalDate.of(2026, 11, 13)))
+            checklist.addItem(trip, "u1", ChecklistKind.PACKING, "Charger")
+            documents.addDocument(trip, "u1", DocumentInput("Ticket", DocumentType.TICKET, null), "c$trip", "application/pdf")
+        }
+        val osloFile = documents.observeDocuments(oslo, "u1").first().single().fileName
+        val romeUuid = db.tripDao().uuidOf(rome, "u1")!!
+        sync.snapshot("u1", pendingOnly = true).forEach { sync.markSynced("u1", it.item) }
+
+        // Another account can't delete it.
+        assertNull(repository.deleteTrip(rome, "u2"))
+        assertEquals(2, repository.observeTrips("u1").first().size)
+
+        val deletedUuid = repository.deleteTrip(rome, "u1")
+        assertEquals(romeUuid, deletedUuid)
+        documents.deleteForTrip(deletedUuid!!, "u1")
+
+        assertEquals(listOf(oslo), repository.observeTrips("u1").first().map { it.id })
+        assertEquals(0, count("SELECT COUNT(*) FROM expenses WHERE trip_id = ?", rome))
+        assertEquals(0, count("SELECT COUNT(*) FROM activities WHERE trip_id = ?", rome))
+        assertEquals(0, count("SELECT COUNT(*) FROM checklist_items WHERE trip_id = ?", rome))
+        assertEquals(0, count("SELECT COUNT(*) FROM documents WHERE trip_uuid = ?", romeUuid))
+        assertEquals(setOf(osloFile), storedFiles.keys) // Rome's file is gone, Oslo's stays
+
+        // Oslo keeps everything.
+        assertEquals(1, count("SELECT COUNT(*) FROM expenses WHERE trip_id = ?", oslo))
+        assertEquals(1, count("SELECT COUNT(*) FROM activities WHERE trip_id = ?", oslo))
+        assertEquals(1, count("SELECT COUNT(*) FROM checklist_items WHERE trip_id = ?", oslo))
+        assertEquals(1, documents.observeDocuments(oslo, "u1").first().size)
+
+        // Only the trip's delete waits to upload; the cloud tombstones its children.
+        val pending = sync.snapshot("u1", pendingOnly = true).map { it.item }
+        assertEquals(1, pending.size)
+        assertEquals(SyncKind.TRIP, pending.single().kind)
+        assertEquals(romeUuid, pending.single().uuid)
+        assertTrue(pending.single().isDeleted)
     }
 }

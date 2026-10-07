@@ -13,7 +13,8 @@ import java.time.LocalDate
 
 /**
  * Every query is scoped to the owner of the item's trip, so an account never sees or changes another account's
- * checklist items. Items come in the order they were added (`created_at, id`).
+ * checklist items. Items come in the order they were added (`created_at, id`): [insertInOrder] gives every new item
+ * a later `created_at` than any item of its trip, so two items never tie on this device.
  */
 @Dao
 interface ChecklistDao {
@@ -33,7 +34,22 @@ interface ChecklistDao {
     suspend fun insert(item: ChecklistItemEntity): Long
 
     @Insert
-    suspend fun insertAll(items: List<ChecklistItemEntity>)
+    suspend fun insertAll(items: List<ChecklistItemEntity>): List<Long>
+
+    @Query("SELECT MAX(created_at) FROM checklist_items WHERE trip_id = :tripId")
+    suspend fun maxCreatedAt(tripId: Long): Long?
+
+    /**
+     * Adds [items] (all of trip [tripId]) at the end of the trip's lists, in the given order: the first gets [now], or
+     * 1 ms after the trip's latest item when that is later (same millisecond, a clock set back), and every next one
+     * 1 ms more. Returns the new ids.
+     */
+    @Transaction
+    suspend fun insertInOrder(tripId: Long, items: List<ChecklistItemEntity>, now: Long): List<Long> {
+        val latest = maxCreatedAt(tripId)
+        val start = if (latest == null) now else maxOf(now, latest + 1)
+        return insertAll(items.mapIndexed { i, item -> item.copy(tripId = tripId, createdAt = start + i) })
+    }
 
     @Query(
         "UPDATE checklist_items SET checked = :checked, updated_at = :updatedAt, pending_sync = 1 " +

@@ -73,6 +73,8 @@ import com.example.planyourtrip.ui.common.components.CurrencyPickerSheet
 import com.example.planyourtrip.ui.common.components.PrimaryButton
 import com.example.planyourtrip.ui.common.iconRes
 import com.example.planyourtrip.ui.common.labelRes
+import com.example.planyourtrip.ui.common.delete.DeleteTripHost
+import com.example.planyourtrip.ui.common.delete.DeleteTripViewModel
 import com.example.planyourtrip.ui.common.share.ShareTripHost
 import com.example.planyourtrip.ui.common.share.ShareTripViewModel
 import com.example.planyourtrip.ui.common.tripStatus
@@ -127,8 +129,11 @@ fun TripDetailsScreen(
     onAddActivity: (LocalDate) -> Unit,
     onActivityClick: (Long) -> Unit,
     onOpenAssistant: () -> Unit,
+    /** "Delete trip" was confirmed: go back to Home, which deletes the trip there. */
+    onTripDeleted: (Long) -> Unit,
     viewModel: TripDetailsViewModel = viewModel(factory = TripDetailsViewModel.Factory),
     shareViewModel: ShareTripViewModel = viewModel(factory = ShareTripViewModel.Factory),
+    deleteViewModel: DeleteTripViewModel = viewModel(factory = DeleteTripViewModel.Factory),
     prepViewModel: PrepViewModel = viewModel(factory = PrepViewModel.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -204,6 +209,7 @@ fun TripDetailsScreen(
         onBack = onBack,
         onEditTrip = onEditTrip,
         onShareTrip = shareViewModel::onShareTrip,
+        onDeleteTrip = deleteViewModel::onDeleteTrip,
         onEditBudget = viewModel::onEditBudget,
         onBudgetInputChange = viewModel::onBudgetInputChange,
         onSaveBudget = viewModel::onSaveBudget,
@@ -227,6 +233,8 @@ fun TripDetailsScreen(
         )
     }
     ShareTripHost(shareViewModel)
+    // Confirmed here, deleted on Home (the trip screen would otherwise show "not found" for a moment).
+    DeleteTripHost(deleteViewModel, onConfirm = { deleteViewModel.takeConfirmed()?.let(onTripDeleted) })
     PrepDialogs(prepViewModel)
 }
 
@@ -257,6 +265,8 @@ fun TripDetailsContent(
     onExpenseClick: (Long) -> Unit,
     onOpenAssistant: () -> Unit,
     onShareTrip: (Long) -> Unit = {},
+    /** "Delete trip" in the header menu: (trip id, destination). */
+    onDeleteTrip: (Long, String) -> Unit = { _, _ -> },
     /** Messages over every tab ("Activity deleted" + "Undo"). */
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     /** The map card was tapped: open Google Maps on this destination. */
@@ -294,6 +304,7 @@ fun TripDetailsContent(
                             onBack = onBack,
                             onEdit = onEditTrip,
                             onShare = { onShareTrip(state.trip.id) },
+                            onDelete = { onDeleteTrip(state.trip.id, state.trip.destination) },
                         )
                     }
                     when (selectedTab) {

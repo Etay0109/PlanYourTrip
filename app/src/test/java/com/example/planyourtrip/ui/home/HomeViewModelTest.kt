@@ -90,6 +90,37 @@ class HomeViewModelTest {
         assertNull(content.sections.next)
     }
 
+    @Test
+    fun deletingTheNextTrip_theNextUpcomingTripTakesItsPlace() = runTest(dispatcher) {
+        val rome = Trip(1, "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17), TripColor.SKY)
+        val athens = Trip(2, "Athens", LocalDate.of(2027, 2, 3), LocalDate.of(2027, 2, 7), TripColor.PEACH)
+        val lisbon = Trip(3, "Lisbon", LocalDate.of(2027, 4, 20), LocalDate.of(2027, 4, 26), TripColor.MINT)
+        val trips = FakeTripRepository(listOf("u1" to rome, "u1" to athens, "u1" to lisbon))
+        val vm = homeViewModel(trips, FakeAuthRepository(etay))
+        assertEquals(rome, vm.content().sections.next?.trip)
+
+        trips.deleteTrip(1, "u1")
+
+        val sections = vm.uiState.filterIsInstance<HomeUiState.Content>()
+            .first { it.sections.next?.trip != rome }.sections
+        assertEquals(athens, sections.next?.trip)
+        assertEquals(listOf(lisbon), sections.upcoming.map { it.trip })
+    }
+
+    @Test
+    fun deletingTheLastTrip_showsTheEmptyState() = runTest(dispatcher) {
+        val rome = Trip(1, "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17), TripColor.SKY)
+        val trips = FakeTripRepository(listOf("u1" to rome))
+        val vm = homeViewModel(trips, FakeAuthRepository(etay))
+        assertEquals(rome, vm.content().sections.next?.trip)
+
+        trips.deleteTrip(1, "u1")
+
+        val content = vm.uiState.filterIsInstance<HomeUiState.Content>().first { it.sections.isEmpty }
+        assertNull(content.sections.next)
+        assertTrue(content.sections.past.isEmpty())
+    }
+
     private fun homeViewModel(trips: FakeTripRepository, auth: FakeAuthRepository) =
         HomeViewModel(trips, auth, clock, dispatcher)
 }

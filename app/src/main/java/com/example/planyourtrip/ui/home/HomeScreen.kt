@@ -20,8 +20,11 @@ import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -47,10 +50,14 @@ import com.example.planyourtrip.ui.common.components.AccountButton
 import com.example.planyourtrip.ui.common.components.BrandMark
 import com.example.planyourtrip.ui.common.components.Pill
 import com.example.planyourtrip.ui.common.components.PrimaryButton
+import com.example.planyourtrip.ui.common.delete.DeleteTripHost
+import com.example.planyourtrip.ui.common.delete.DeleteTripMessage
+import com.example.planyourtrip.ui.common.delete.DeleteTripViewModel
 import com.example.planyourtrip.ui.common.share.ShareTripHost
 import com.example.planyourtrip.ui.common.share.ShareTripViewModel
 import com.example.planyourtrip.ui.home.components.NextTripCard
 import com.example.planyourtrip.ui.home.components.PastTripCard
+import com.example.planyourtrip.ui.home.components.SwipeToDeleteBox
 import com.example.planyourtrip.ui.home.components.UpcomingTripCard
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
@@ -61,19 +68,43 @@ import java.time.LocalDate
 fun HomeScreen(
     onAddTrip: () -> Unit,
     onTripClick: (Long) -> Unit,
+    /** A trip whose delete was confirmed on the trip screen; deleted here, then [onPendingDeleteHandled]. */
+    pendingDeleteTripId: Long? = null,
+    onPendingDeleteHandled: () -> Unit = {},
     viewModel: HomeViewModel = viewModel(factory = HomeViewModel.Factory),
     shareViewModel: ShareTripViewModel = viewModel(factory = ShareTripViewModel.Factory),
     accountViewModel: AccountViewModel = viewModel(factory = AccountViewModel.Factory),
+    deleteViewModel: DeleteTripViewModel = viewModel(factory = DeleteTripViewModel.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val account by accountViewModel.state.collectAsStateWithLifecycle()
+    val deleteState by deleteViewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(pendingDeleteTripId) {
+        val id = pendingDeleteTripId ?: return@LaunchedEffect
+        onPendingDeleteHandled()
+        deleteViewModel.deleteConfirmed(id)
+    }
+    val deletedText = stringResource(R.string.trip_deleted)
+    val failedText = stringResource(R.string.trip_delete_failed)
+    LaunchedEffect(deleteState.message) {
+        val message = deleteState.message ?: return@LaunchedEffect
+        deleteViewModel.onMessageShown()
+        snackbarHostState.showSnackbar(if (message == DeleteTripMessage.DELETED) deletedText else failedText)
+    }
+
     ShareTripHost(shareViewModel)
+    DeleteTripHost(deleteViewModel)
     HomeContent(
         state = state,
         account = account,
         onAddTrip = onAddTrip,
         onTripClick = onTripClick,
         onShareTrip = shareViewModel::onShareTrip,
+        onDeleteTrip = { trip -> deleteViewModel.onDeleteTrip(trip.id, trip.destination) },
+        deletingTripId = deleteState.dialog?.tripId,
+        snackbarHostState = snackbarHostState,
         accountActions = remember(accountViewModel) { accountViewModel.actions() },
     )
 }
@@ -86,10 +117,16 @@ fun HomeContent(
     onAddTrip: () -> Unit,
     onTripClick: (Long) -> Unit,
     onShareTrip: (Long) -> Unit,
+    /** Opens the "Delete this trip?" dialog (card menu, swipe). */
+    onDeleteTrip: (Trip) -> Unit = {},
+    /** The trip whose delete dialog is open: its card stays swiped open until the dialog closes. */
+    deletingTripId: Long? = null,
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     accountActions: AccountActions = AccountActions({}, {}, {}),
 ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = onAddTrip,
@@ -121,24 +158,34 @@ fun HomeContent(
             }
 
             if (sections.isEmpty) {
-                item(key = "empty") { EmptyState(onAddTrip) }
+                item(key = "empty") { EmptyState(onAddTrip, Modifier.animateItem()) }
                 return@LazyColumn
             }
 
+            // Every card is keyed by its trip, whatever its section: a deleted card fades out and the trip that
+            // takes the Next trip place moves there from the Upcoming list.
             sections.next?.let { next ->
-                item(key = "next") {
-                    NextTripCard(
-                        next = next,
-                        onClick = { onTripClick(next.trip.id) },
-                        onShare = { onShareTrip(next.trip.id) },
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
+                item(key = tripKey(next.trip.id)) {
+                    SwipeToDeleteBox(
+                        shape = MaterialTheme.shapes.extraLarge,
+                        deletePending = deletingTripId == next.trip.id,
+                        onDelete = { onDeleteTrip(next.trip) },
+                        modifier = Modifier.animateItem().padding(top = 8.dp),
+                    ) {
+                        NextTripCard(
+                            next = next,
+                            onClick = { onTripClick(next.trip.id) },
+                            onShare = { onShareTrip(next.trip.id) },
+                            onDelete = { onDeleteTrip(next.trip) },
+                        )
+                    }
                 }
             }
 
             if (sections.upcoming.isNotEmpty()) {
                 item(key = "upcoming-header") {
                     SectionHeader(
+                        modifier = Modifier.animateItem(),
                         title = stringResource(R.string.home_upcoming),
                         titleColor = MaterialTheme.colorScheme.onSurface,
                     ) {
@@ -151,18 +198,27 @@ fun HomeContent(
                         )
                     }
                 }
-                items(sections.upcoming, key = { "upcoming-${it.trip.id}" }) { item ->
-                    UpcomingTripCard(
-                        item = item,
-                        onClick = { onTripClick(item.trip.id) },
-                        onShare = { onShareTrip(item.trip.id) },
-                    )
+                items(sections.upcoming, key = { tripKey(it.trip.id) }) { item ->
+                    SwipeToDeleteBox(
+                        shape = MaterialTheme.shapes.large,
+                        deletePending = deletingTripId == item.trip.id,
+                        onDelete = { onDeleteTrip(item.trip) },
+                        modifier = Modifier.animateItem(),
+                    ) {
+                        UpcomingTripCard(
+                            item = item,
+                            onClick = { onTripClick(item.trip.id) },
+                            onShare = { onShareTrip(item.trip.id) },
+                            onDelete = { onDeleteTrip(item.trip) },
+                        )
+                    }
                 }
             }
 
             if (sections.past.isNotEmpty()) {
                 item(key = "past-header") {
                     SectionHeader(
+                        modifier = Modifier.animateItem(),
                         title = stringResource(R.string.home_past_trips),
                         titleColor = ExtendedTheme.colors.onPastCard,
                     ) {
@@ -175,12 +231,20 @@ fun HomeContent(
                         )
                     }
                 }
-                items(sections.past, key = { "past-${it.id}" }) { trip ->
-                    PastTripCard(
-                        trip = trip,
-                        onClick = { onTripClick(trip.id) },
-                        onShare = { onShareTrip(trip.id) },
-                    )
+                items(sections.past, key = { tripKey(it.id) }) { trip ->
+                    SwipeToDeleteBox(
+                        shape = MaterialTheme.shapes.large,
+                        deletePending = deletingTripId == trip.id,
+                        onDelete = { onDeleteTrip(trip) },
+                        modifier = Modifier.animateItem(),
+                    ) {
+                        PastTripCard(
+                            trip = trip,
+                            onClick = { onTripClick(trip.id) },
+                            onShare = { onShareTrip(trip.id) },
+                            onDelete = { onDeleteTrip(trip) },
+                        )
+                    }
                 }
             }
         }
@@ -209,14 +273,17 @@ private fun HomeHeader(content: HomeUiState.Content, account: AccountState?, acc
     }
 }
 
+private fun tripKey(id: Long) = "trip-$id"
+
 @Composable
 private fun SectionHeader(
     title: String,
     titleColor: Color,
+    modifier: Modifier = Modifier,
     trailing: @Composable () -> Unit,
 ) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(top = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -232,9 +299,9 @@ private fun SectionHeader(
 }
 
 @Composable
-private fun EmptyState(onAddTrip: () -> Unit) {
+private fun EmptyState(onAddTrip: () -> Unit, modifier: Modifier = Modifier) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(top = 64.dp, start = 12.dp, end = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,

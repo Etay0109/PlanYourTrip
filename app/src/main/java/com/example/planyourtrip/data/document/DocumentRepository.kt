@@ -25,6 +25,12 @@ interface DocumentRepository {
     /** The stored file as other apps may open it, or null when the document or its file is missing. */
     suspend fun fileToView(id: Long, ownerId: String): ViewFile?
 
+    /**
+     * Deletes the documents (and files) of the owner's trip [tripUuid], after that trip was deleted. Only that trip:
+     * [removeOrphans] would also remove documents whose trip hasn't come back from the cloud yet after a sign-in.
+     */
+    suspend fun deleteForTrip(tripUuid: String, ownerId: String)
+
     /** Deletes the owner's documents (and files) whose trip is no longer on this device for that owner. */
     suspend fun removeOrphans(ownerId: String)
 

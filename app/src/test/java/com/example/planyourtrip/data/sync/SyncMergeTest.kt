@@ -233,4 +233,23 @@ class SyncMergeTest {
             plan.saveLocally.map { it.kind },
         )
     }
+
+    @Test
+    fun checklistItemsFromTheCloud_areSavedInCreationOrder_tiesByUuid() {
+        val rome = trip("t1", updatedAt = 100)
+        val cloud = listOf(
+            checklistItem("c5", "t1", updatedAt = 100, text = "Tie b", createdAt = 50),
+            checklistItem("c3", "t1", updatedAt = 100, text = "Adapter", createdAt = 12),
+            rome,
+            checklistItem("c1", "t1", updatedAt = 100, text = "Passport", createdAt = 10),
+            checklistItem("c4", "t1", updatedAt = 100, text = "Tie a", createdAt = 50),
+            checklistItem("c2", "t1", updatedAt = 100, text = "Charger", createdAt = 11),
+        )
+
+        val plan = planMerge(local = emptyList(), cloud = cloud)
+
+        assertEquals(listOf("t1", "c1", "c2", "c3", "c4", "c5"), plan.saveLocally.map { it.uuid })
+        // The same order whatever order the cloud returned them in.
+        assertEquals(plan.saveLocally, planMerge(emptyList(), cloud.reversed()).saveLocally)
+    }
 }

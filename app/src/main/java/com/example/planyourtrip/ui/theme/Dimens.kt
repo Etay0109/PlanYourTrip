@@ -34,6 +34,9 @@ object Dimens {
      */
     val CardMenuEndPadding = CardMenuIconInset - (TouchTarget - CardMenuIconSize) / 2
 
+    /** The red "Delete" area a home trip card shows when it is swiped to the left (and stays open). */
+    val SwipeRevealWidth = 96.dp
+
     /** The Overview map card's picture: at least this tall, taller when the Daily plan card next to it is. */
     val MapPreviewMinHeight = 88.dp
 

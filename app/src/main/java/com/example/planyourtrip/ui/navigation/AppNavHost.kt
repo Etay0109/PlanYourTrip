@@ -2,7 +2,9 @@ package com.example.planyourtrip.ui.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.compose.NavHost
@@ -24,6 +26,7 @@ import com.example.planyourtrip.ui.tripform.TripFormScreen
  * Home → TripForm() (new trip; pops back to Home after saving)
  * Home → TripDetails(tripId) → TripForm(tripId) (edit trip) / ExpenseForm(tripId, expenseId?) /
  *   ActivityForm(tripId, activityId?, dateEpochDay?) / TripAssistant(tripId) — each pops back
+ * TripDetails → "Delete trip" confirmed → back to Home, which deletes it ([PENDING_DELETE_TRIP])
  * Signed out (from the avatar menu or by the backend) → Login, with the whole back stack cleared.
  */
 @Composable
@@ -54,10 +57,15 @@ fun AppNavHost(session: SessionViewModel = viewModel(factory = SessionViewModel.
                 },
             )
         }
-        composable<Home> {
+        composable<Home> { entry ->
+            // A delete confirmed on the trip screen, handed over when it popped back here.
+            val pendingDelete by entry.savedStateHandle.getStateFlow<Long?>(PENDING_DELETE_TRIP, null)
+                .collectAsStateWithLifecycle()
             HomeScreen(
                 onAddTrip = { navController.navigate(TripForm()) { launchSingleTop = true } },
                 onTripClick = { id -> navController.navigate(TripDetails(id)) { launchSingleTop = true } },
+                pendingDeleteTripId = pendingDelete,
+                onPendingDeleteHandled = { entry.savedStateHandle[PENDING_DELETE_TRIP] = null },
             )
         }
         composable<TripForm> {
@@ -85,6 +93,11 @@ fun AppNavHost(session: SessionViewModel = viewModel(factory = SessionViewModel.
                     navController.navigate(ActivityForm(tripId, activityId)) { launchSingleTop = true }
                 },
                 onOpenAssistant = { navController.navigate(TripAssistant(tripId)) { launchSingleTop = true } },
+                onTripDeleted = { id ->
+                    // Back to Home first; Home deletes the trip, animates its card out and says "Trip deleted".
+                    navController.getBackStackEntry<Home>().savedStateHandle[PENDING_DELETE_TRIP] = id
+                    navController.popBackStack<Home>(inclusive = false)
+                },
             )
         }
         composable<TripAssistant> { entry ->
@@ -110,3 +123,6 @@ fun AppNavHost(session: SessionViewModel = viewModel(factory = SessionViewModel.
         }
     }
 }
+
+/** Home's saved-state key for a trip whose delete was confirmed on the trip screen. */
+private const val PENDING_DELETE_TRIP = "pendingDeleteTripId"

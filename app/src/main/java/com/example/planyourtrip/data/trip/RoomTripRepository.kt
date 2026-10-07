@@ -65,4 +65,7 @@ class RoomTripRepository(
         dao.setCurrency(id, ownerId, currencyCode, clock.millis())
         changes.onLocalChange()
     }
+
+    override suspend fun deleteTrip(id: Long, ownerId: String): String? =
+        dao.deleteAndRecord(id, ownerId, clock.millis())?.also { changes.onLocalChange() }
 }

@@ -6,6 +6,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -22,12 +23,13 @@ import com.example.planyourtrip.R
 import com.example.planyourtrip.ui.theme.Dimens
 
 /**
- * The three-dots menu of a trip ("Share trip"). [anchor] draws the button that opens it, so the home cards and
+ * The three-dots menu of a trip ("Share trip", "Delete trip"). [anchor] draws the button that opens it, so the home cards and
  * the trip header can each use their own button style. [menuOffset] shifts the menu from its anchor.
  */
 @Composable
 fun TripMoreMenu(
     onShare: () -> Unit,
+    onDelete: () -> Unit,
     modifier: Modifier = Modifier,
     menuOffset: DpOffset = DpOffset.Zero,
     anchor: @Composable (open: () -> Unit) -> Unit,
@@ -44,6 +46,20 @@ fun TripMoreMenu(
                     onShare()
                 },
             )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.trip_delete), color = MaterialTheme.colorScheme.error) },
+                leadingIcon = {
+                    Icon(
+                        painterResource(R.drawable.ic_delete),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                    )
+                },
+                onClick = {
+                    open = false
+                    onDelete()
+                },
+            )
         }
     }
 }
@@ -58,10 +74,11 @@ fun TripMoreMenu(
 fun TripMoreButton(
     destination: String,
     onShare: () -> Unit,
+    onDelete: () -> Unit,
     tint: Color,
     modifier: Modifier = Modifier,
 ) {
-    TripMoreMenu(onShare, modifier, menuOffset = DpOffset(Dimens.CardMenuEndPadding, 0.dp)) { open ->
+    TripMoreMenu(onShare, onDelete, modifier, menuOffset = DpOffset(Dimens.CardMenuEndPadding, 0.dp)) { open ->
         IconButton(onClick = open, modifier = Modifier.size(Dimens.TouchTarget)) {
             Icon(
                 painter = painterResource(R.drawable.ic_more_vert),

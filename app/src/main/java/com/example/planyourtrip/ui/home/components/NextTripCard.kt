@@ -42,6 +42,7 @@ fun NextTripCard(
     next: ActiveTrip,
     onClick: () -> Unit,
     onShare: () -> Unit,
+    onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = ExtendedTheme.colors
@@ -90,7 +91,7 @@ fun NextTripCard(
             Spacer(Modifier.width(12.dp))
             CountdownBox(next.status)
             // The button's own inset gives the gap to the countdown box.
-            TripMoreButton(next.trip.destination, onShare, tint = colors.onHeroMuted)
+            TripMoreButton(next.trip.destination, onShare, onDelete, tint = colors.onHeroMuted)
         }
     }
 }

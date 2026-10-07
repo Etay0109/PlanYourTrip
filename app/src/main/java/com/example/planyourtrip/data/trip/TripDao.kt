@@ -2,7 +2,11 @@ package com.example.planyourtrip.data.trip
 
 import androidx.room.Dao
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
+import com.example.planyourtrip.data.sync.DeletionEntity
+import com.example.planyourtrip.data.sync.SyncKind
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
 
@@ -57,4 +61,23 @@ interface TripDao {
 
     @Query("SELECT COUNT(*) FROM trips WHERE owner_id = :ownerId")
     suspend fun count(ownerId: String): Int
+
+    @Query("DELETE FROM trips WHERE id = :id AND owner_id = :ownerId")
+    suspend fun delete(id: Long, ownerId: String)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertDeletion(deletion: DeletionEntity)
+
+    /**
+     * Deletes the trip (the foreign keys cascade to its expenses, activities and checklist items) and records the
+     * delete, so it reaches the cloud and the account's other devices. Returns the trip's uuid, or null when it isn't
+     * the owner's (nothing is deleted then).
+     */
+    @Transaction
+    suspend fun deleteAndRecord(id: Long, ownerId: String, deletedAt: Long): String? {
+        val uuid = uuidOf(id, ownerId) ?: return null
+        insertDeletion(DeletionEntity(uuid, ownerId, SyncKind.TRIP, null, deletedAt))
+        delete(id, ownerId)
+        return uuid
+    }
 }

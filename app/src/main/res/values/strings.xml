@@ -283,6 +283,13 @@
     <string name="assistant_try_again">Try again</string>
 
     <!-- Share trip (PDF) -->
+    <!-- Delete trip (Home swipe + the trip menus). The body starts with U+200E (left-to-right mark), so a Hebrew or
+         Arabic destination at the start doesn't turn the English sentence right to left. -->
+    <string name="trip_delete">Delete trip</string>
+    <string name="trip_delete_title">Delete this trip?</string>
+    <string name="trip_delete_body">\u200E%1$s and its expenses, plan, checklists and documents will be deleted from this device and from your account. This can\'t be undone.</string>
+    <string name="trip_deleted">Trip deleted</string>
+    <string name="trip_delete_failed">Couldn\'t delete the trip. Try again.</string>
     <string name="share_trip">Share trip</string>
     <string name="share_more_options">More options for %1$s</string>
     <string name="share_include_costs">Include costs</string>

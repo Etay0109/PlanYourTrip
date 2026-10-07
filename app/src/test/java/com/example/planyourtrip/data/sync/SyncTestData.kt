@@ -59,12 +59,13 @@ object SyncTestData {
         text: String = "Passport",
         checked: Boolean = false,
         dueDate: LocalDate? = LocalDate.of(2026, 11, 1),
+        createdAt: Long = 42,
     ) = SyncItem(
         kind = SyncKind.CHECKLIST,
         uuid = uuid,
         tripUuid = tripUuid,
         updatedAt = updatedAt,
-        data = ItemData.ChecklistData(ChecklistKind.BEFORE_TRIP, text, checked, dueDate, createdAt = 42),
+        data = ItemData.ChecklistData(ChecklistKind.BEFORE_TRIP, text, checked, dueDate, createdAt),
     )
 
     fun SyncItem.deletedAt(at: Long) = copy(updatedAt = at, data = null)
