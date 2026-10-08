@@ -4,7 +4,6 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
-import java.time.temporal.ChronoUnit
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 
@@ -27,8 +26,7 @@ object TripFormatting {
     private fun formatters(locale: Locale): Formatters = cache.getOrPut(locale) { Formatters(locale) }
 
     /** Inclusive length: 12–17 Nov is 6 days. */
-    fun lengthInDays(start: LocalDate, end: LocalDate): Int =
-        ChronoUnit.DAYS.between(start, end).toInt() + 1
+    fun lengthInDays(start: LocalDate, end: LocalDate): Int = daysInclusive(start, end)
 
     /**
      * - same day:   "12 Nov 2026"

@@ -17,7 +17,6 @@ object ActivityValidator {
     /** The cost is optional: empty is fine, anything else must be an amount greater than zero. */
     fun validateCost(cost: String): ActivityFieldError? {
         if (cost.isBlank()) return null
-        val agorot = Money.parseAgorot(cost)
-        return if (agorot == null || agorot <= 0) ActivityFieldError.INVALID_COST else null
+        return if (Money.parsePositiveAgorot(cost) == null) ActivityFieldError.INVALID_COST else null
     }
 }

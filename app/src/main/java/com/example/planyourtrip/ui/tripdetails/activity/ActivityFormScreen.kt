@@ -7,34 +7,21 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,14 +37,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.planyourtrip.R
 import com.example.planyourtrip.data.trip.ActivityType
-import com.example.planyourtrip.ui.common.components.BackTopAppBar
 import com.example.planyourtrip.ui.common.components.DateField
-import com.example.planyourtrip.ui.common.components.PrimaryButton
+import com.example.planyourtrip.ui.common.components.EditFormScaffold
+import com.example.planyourtrip.ui.common.components.FormDelete
 import com.example.planyourtrip.ui.common.components.TimeField
+import com.example.planyourtrip.ui.common.components.TintedFilterChip
 import com.example.planyourtrip.ui.common.errorSupportingText
 import com.example.planyourtrip.ui.common.iconRes
 import com.example.planyourtrip.ui.common.labelRes
-import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
 import com.example.planyourtrip.ui.theme.PlanYourTripTheme
 import java.time.LocalDate
@@ -115,173 +102,112 @@ fun ActivityFormContent(
     actions: ActivityFormActions,
     onBack: () -> Unit,
 ) {
-    var confirmDelete by rememberSaveable { mutableStateOf(false) }
-
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            BackTopAppBar(
-                onBack = onBack,
-                title = stringResource(if (state.isEditing) R.string.activity_edit_title else R.string.activity_new_title),
-                actions = {
-                    if (state.isEditing && !state.isLoading) {
-                        IconButton(onClick = { confirmDelete = true }, enabled = !state.isSaving) {
-                            Icon(
-                                painterResource(R.drawable.ic_delete),
-                                contentDescription = stringResource(R.string.activity_delete),
-                            )
-                        }
-                    }
-                },
+    EditFormScaffold(
+        title = stringResource(if (state.isEditing) R.string.activity_edit_title else R.string.activity_new_title),
+        isLoading = state.isLoading,
+        isSaving = state.isSaving,
+        saveText = stringResource(R.string.activity_save),
+        onBack = onBack,
+        onSave = actions.onSave,
+        delete = if (state.isEditing) {
+            FormDelete(
+                iconDescription = stringResource(R.string.activity_delete),
+                dialogTitle = stringResource(R.string.activity_delete_title),
+                dialogBody = stringResource(R.string.activity_delete_body, state.title.trim()),
+                onDelete = actions.onDelete,
             )
+        } else {
+            null
         },
-    ) { innerPadding ->
-        // Wait for the trip dates (and the activity when editing) so the fields never flash empty.
-        if (state.isLoading) return@Scaffold
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .imePadding()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = Dimens.ScreenPadding, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        OutlinedTextField(
+            value = state.title,
+            onValueChange = actions.onTitleChange,
+            label = { Text(stringResource(R.string.activity_title)) },
+            placeholder = { Text(stringResource(R.string.activity_title_placeholder)) },
+            singleLine = true,
+            isError = state.titleError != null,
+            supportingText = errorSupportingText(state.titleError?.messageRes()),
+            keyboardOptions = KeyboardOptions(
+                capitalization = KeyboardCapitalization.Sentences,
+                imeAction = ImeAction.Next,
+            ),
+            shape = MaterialTheme.shapes.small,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        Text(
+            text = stringResource(R.string.activity_type),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            OutlinedTextField(
-                value = state.title,
-                onValueChange = actions.onTitleChange,
-                label = { Text(stringResource(R.string.activity_title)) },
-                placeholder = { Text(stringResource(R.string.activity_title_placeholder)) },
-                singleLine = true,
-                isError = state.titleError != null,
-                supportingText = errorSupportingText(state.titleError?.messageRes()),
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Sentences,
-                    imeAction = ImeAction.Next,
-                ),
-                shape = MaterialTheme.shapes.small,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            Text(
-                text = stringResource(R.string.activity_type),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                ActivityType.entries.forEach { type ->
-                    // Each chip shows its type color: the icon always, the tinted fill when selected.
-                    val typeColor = ExtendedTheme.colors.activityType(type)
-                    FilterChip(
-                        selected = type == state.type,
-                        onClick = { actions.onTypeChange(type) },
-                        label = { Text(stringResource(type.labelRes())) },
-                        leadingIcon = {
-                            Icon(
-                                painterResource(type.iconRes()),
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                            )
-                        },
-                        colors = FilterChipDefaults.filterChipColors(
-                            iconColor = typeColor.content,
-                            selectedContainerColor = typeColor.container,
-                            selectedLabelColor = typeColor.content,
-                            selectedLeadingIconColor = typeColor.content,
-                        ),
-                        border = FilterChipDefaults.filterChipBorder(
-                            enabled = true,
-                            selected = type == state.type,
-                            selectedBorderColor = typeColor.content,
-                            selectedBorderWidth = 1.dp,
-                        ),
-                    )
-                }
+            ActivityType.entries.forEach { type ->
+                // Each chip shows its type color: the icon always, the tinted fill when selected.
+                TintedFilterChip(
+                    selected = type == state.type,
+                    onClick = { actions.onTypeChange(type) },
+                    label = stringResource(type.labelRes()),
+                    icon = type.iconRes(),
+                    color = ExtendedTheme.colors.activityType(type),
+                )
             }
-            Spacer(Modifier.height(4.dp))
-
-            DateField(
-                label = R.string.activity_date,
-                date = state.date,
-                errorRes = null,
-                initialPickerDate = state.date,
-                onDatePicked = actions.onDateChange,
-                minDate = state.tripStart,
-                maxDate = state.tripEnd,
-            )
-
-            TimeField(time = state.startTime, onTimeChange = actions.onStartTimeChange)
-
-            OutlinedTextField(
-                value = state.location,
-                onValueChange = actions.onLocationChange,
-                label = { Text(stringResource(R.string.activity_location)) },
-                placeholder = { Text(stringResource(R.string.activity_location_placeholder)) },
-                singleLine = true,
-                leadingIcon = { Icon(painterResource(R.drawable.ic_location), contentDescription = null) },
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Words,
-                    imeAction = ImeAction.Next,
-                ),
-                shape = MaterialTheme.shapes.small,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            OutlinedTextField(
-                value = state.cost,
-                onValueChange = actions.onCostChange,
-                label = { Text(stringResource(R.string.activity_cost)) },
-                prefix = { Text(stringResource(R.string.currency_symbol)) },
-                singleLine = true,
-                isError = state.costError != null,
-                supportingText = errorSupportingText(state.costError?.messageRes()),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
-                shape = MaterialTheme.shapes.small,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            BookedRow(booked = state.booked, onBookedChange = actions.onBookedChange)
-
-            OutlinedTextField(
-                value = state.note,
-                onValueChange = actions.onNoteChange,
-                label = { Text(stringResource(R.string.activity_note)) },
-                minLines = 3,
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-                shape = MaterialTheme.shapes.small,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            Spacer(Modifier.height(16.dp))
-
-            PrimaryButton(
-                text = stringResource(R.string.activity_save),
-                onClick = actions.onSave,
-                loading = state.isSaving,
-                modifier = Modifier.fillMaxWidth(),
-            )
         }
-    }
+        Spacer(Modifier.height(4.dp))
 
-    if (confirmDelete) {
-        AlertDialog(
-            onDismissRequest = { confirmDelete = false },
-            title = { Text(stringResource(R.string.activity_delete_title)) },
-            text = { Text(stringResource(R.string.activity_delete_body, state.title.trim())) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        confirmDelete = false
-                        actions.onDelete()
-                    },
-                ) { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.action_cancel)) }
-            },
+        DateField(
+            label = R.string.activity_date,
+            date = state.date,
+            errorRes = null,
+            initialPickerDate = state.date,
+            onDatePicked = actions.onDateChange,
+            minDate = state.tripStart,
+            maxDate = state.tripEnd,
+        )
+
+        TimeField(time = state.startTime, onTimeChange = actions.onStartTimeChange)
+
+        OutlinedTextField(
+            value = state.location,
+            onValueChange = actions.onLocationChange,
+            label = { Text(stringResource(R.string.activity_location)) },
+            placeholder = { Text(stringResource(R.string.activity_location_placeholder)) },
+            singleLine = true,
+            leadingIcon = { Icon(painterResource(R.drawable.ic_location), contentDescription = null) },
+            keyboardOptions = KeyboardOptions(
+                capitalization = KeyboardCapitalization.Words,
+                imeAction = ImeAction.Next,
+            ),
+            shape = MaterialTheme.shapes.small,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        OutlinedTextField(
+            value = state.cost,
+            onValueChange = actions.onCostChange,
+            label = { Text(stringResource(R.string.activity_cost)) },
+            prefix = { Text(stringResource(R.string.currency_symbol)) },
+            singleLine = true,
+            isError = state.costError != null,
+            supportingText = errorSupportingText(state.costError?.messageRes()),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+            shape = MaterialTheme.shapes.small,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        BookedRow(booked = state.booked, onBookedChange = actions.onBookedChange)
+
+        OutlinedTextField(
+            value = state.note,
+            onValueChange = actions.onNoteChange,
+            label = { Text(stringResource(R.string.activity_note)) },
+            minLines = 3,
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+            shape = MaterialTheme.shapes.small,
+            modifier = Modifier.fillMaxWidth(),
         )
     }
 }

@@ -11,5 +11,8 @@ enum class TripColor {
     companion object {
         /** Round-robin pick: the n-th trip created gets the n-th palette color. */
         fun forIndex(index: Int): TripColor = entries[Math.floorMod(index, entries.size)]
+
+        /** Unknown names (e.g. a removed palette entry) fall back to the first color instead of crashing. */
+        fun fromName(name: String?): TripColor = entries.firstOrNull { it.name == name } ?: entries.first()
     }
 }

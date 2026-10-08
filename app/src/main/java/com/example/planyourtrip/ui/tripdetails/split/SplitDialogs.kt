@@ -46,11 +46,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.planyourtrip.R
 import com.example.planyourtrip.data.trip.Settlement
 import com.example.planyourtrip.ui.common.TripFormatting
+import com.example.planyourtrip.ui.common.components.ConfirmDeleteDialog
 import com.example.planyourtrip.ui.common.components.PrimaryButton
 import com.example.planyourtrip.ui.common.errorSupportingText
 import com.example.planyourtrip.ui.common.shekels
-import com.example.planyourtrip.ui.common.split.TravelerNameError
 import com.example.planyourtrip.ui.common.split.Transfer
+import com.example.planyourtrip.ui.common.split.TravelerNameError
 import com.example.planyourtrip.ui.theme.Dimens
 
 /** The traveler dialog, the "Settle up" sheet and the delete-payment confirmation of [viewModel]. */
@@ -92,20 +93,11 @@ fun SplitDialogs(viewModel: SplitViewModel) {
             settlementSentence(settlement, loaded),
             shekels(settlement.amountAgorot),
         )
-        AlertDialog(
-            onDismissRequest = viewModel::onDismissDeleteSettlement,
-            title = { Text(stringResource(R.string.settle_delete_title)) },
-            text = { Text(stringResource(R.string.settle_delete_body, text)) },
-            confirmButton = {
-                TextButton(onClick = viewModel::onConfirmDeleteSettlement) {
-                    Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = viewModel::onDismissDeleteSettlement) {
-                    Text(stringResource(R.string.action_cancel))
-                }
-            },
+        ConfirmDeleteDialog(
+            title = stringResource(R.string.settle_delete_title),
+            body = stringResource(R.string.settle_delete_body, text),
+            onConfirm = viewModel::onConfirmDeleteSettlement,
+            onDismiss = viewModel::onDismissDeleteSettlement,
         )
     }
 }

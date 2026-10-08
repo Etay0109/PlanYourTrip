@@ -20,6 +20,7 @@ import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.data.trip.TripActivity
 import com.example.planyourtrip.data.trip.TripColor
 import com.example.planyourtrip.ui.common.TripStatus
+import com.example.planyourtrip.ui.common.split.Person
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -135,6 +136,33 @@ class TripDetailsViewModelTest {
             listOf(ExpenseCategory.FOOD to 3_334L, ExpenseCategory.OTHER to 2_000L, ExpenseCategory.HOTELS to 0L),
             state.categoryTotals.map { it.category to it.amountAgorot },
         )
+    }
+
+    @Test
+    fun expenseRows_getPayerSplitAndMyShare_onlyWithOtherTravelers() = runTest(dispatcher) {
+        trips.trips.value = listOf("u1" to rome)
+        val noa = Traveler(1, 1, "noa", "Noa", TravelerColor.ROSE)
+        val amit = Traveler(2, 1, "amit", "Amit", TravelerColor.INDIGO)
+        expenses.expenses.value = listOf(
+            // Stored in another order than the list: shown as You, Noa, Amit.
+            Expense(
+                1, 1, "Dinner", 10_000, ExpenseCategory.FOOD, LocalDate.of(2026, 9, 20),
+                paidBy = "noa", splitBetween = listOf("amit", ME, "noa"),
+            ),
+            Expense(2, 1, "SIM", 2_000, ExpenseCategory.OTHER, LocalDate.of(2026, 9, 22)),
+        )
+        val vm = vm()
+        // Only me: no split line on any row.
+        assertEquals(emptyMap<Long, Any>(), vm.loaded().expenseSplits)
+
+        travelers.travelers.value = listOf(noa, amit)
+        val splits = vm.loaded().expenseSplits
+        assertEquals(Person.Named("noa", "Noa", TravelerColor.ROSE), splits.getValue(1).payer)
+        assertEquals(listOf(ME, "noa", "amit"), splits.getValue(1).splitWith.map { it.key })
+        assertEquals(3_334L, splits.getValue(1).myShareAgorot)
+        assertEquals(Person.You, splits.getValue(2).payer)
+        assertEquals(listOf(Person.You), splits.getValue(2).splitWith)
+        assertEquals(2_000L, splits.getValue(2).myShareAgorot)
     }
 
     @Test

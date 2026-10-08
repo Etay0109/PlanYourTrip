@@ -10,8 +10,11 @@ import java.time.temporal.ChronoUnit
 fun tripDays(start: LocalDate, end: LocalDate): List<LocalDate> =
     generateSequence(start) { it.plusDays(1) }.takeWhile { !it.isAfter(end) }.toList()
 
+/** Days from [from] to [to], both counted: the same day is 1, 12–17 Nov is 6. */
+fun daysInclusive(from: LocalDate, to: LocalDate): Int = ChronoUnit.DAYS.between(from, to).toInt() + 1
+
 /** 1-based number of [day] in a trip starting on [start] ("Day 1" is the start date). */
-fun dayNumber(day: LocalDate, start: LocalDate): Int = ChronoUnit.DAYS.between(start, day).toInt() + 1
+fun dayNumber(day: LocalDate, start: LocalDate): Int = daysInclusive(start, day)
 
 fun isWithinTrip(date: LocalDate, start: LocalDate, end: LocalDate): Boolean =
     !date.isBefore(start) && !date.isAfter(end)

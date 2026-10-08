@@ -4,7 +4,6 @@ import com.example.planyourtrip.data.sync.LocalChangeListener
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.time.Clock
-import java.time.LocalDate
 
 /** Every change is stamped with [clock], marked pending (deletes are recorded) and reported to [changes]. */
 class RoomExpenseRepository(
@@ -20,52 +19,34 @@ class RoomExpenseRepository(
     override fun observeExpense(id: Long, ownerId: String): Flow<Expense?> =
         expenseDao.observeById(id, ownerId).map { it?.toExpense() }
 
-    override suspend fun addExpense(
-        tripId: Long,
-        ownerId: String,
-        name: String,
-        amountAgorot: Long,
-        category: ExpenseCategory,
-        date: LocalDate,
-        original: ForeignAmount?,
-        paidBy: String,
-        splitBetween: List<String>,
-    ): Long? {
+    override suspend fun addExpense(tripId: Long, ownerId: String, input: ExpenseInput): Long? {
         // Never attach an expense to another account's trip.
         if (!tripDao.exists(tripId, ownerId)) return null
+        val original = input.original
         return expenseDao.insert(
             ExpenseEntity(
                 tripId = tripId,
-                name = name.trim(),
-                amountAgorot = amountAgorot,
-                category = category,
-                date = date,
+                name = input.name.trim(),
+                amountAgorot = input.amountAgorot,
+                category = input.category,
+                date = input.date,
                 originalAmount = original?.amount,
                 originalCurrency = original?.currencyCode,
                 exchangeRate = original?.ilsPerUnit,
                 rateDate = original?.rateDate,
-                paidBy = paidBy,
-                splitBetween = cleanSplit(paidBy, splitBetween),
+                paidBy = input.paidBy,
+                splitBetween = cleanSplit(input.paidBy, input.splitBetween),
                 updatedAt = clock.millis(),
             )
         ).also { changes.onLocalChange() }
     }
 
-    override suspend fun updateExpense(
-        id: Long,
-        ownerId: String,
-        name: String,
-        amountAgorot: Long,
-        category: ExpenseCategory,
-        date: LocalDate,
-        original: ForeignAmount?,
-        paidBy: String,
-        splitBetween: List<String>,
-    ) {
+    override suspend fun updateExpense(id: Long, ownerId: String, input: ExpenseInput) {
+        val original = input.original
         expenseDao.update(
-            id, ownerId, name.trim(), amountAgorot, category, date,
+            id, ownerId, input.name.trim(), input.amountAgorot, input.category, input.date,
             original?.amount, original?.currencyCode, original?.ilsPerUnit, original?.rateDate,
-            paidBy, cleanSplit(paidBy, splitBetween), clock.millis(),
+            input.paidBy, cleanSplit(input.paidBy, input.splitBetween), clock.millis(),
         )
         changes.onLocalChange()
     }

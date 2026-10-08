@@ -1,6 +1,6 @@
 package com.example.planyourtrip.ui.common.share
 
-const val PDF_MIME_TYPE = "application/pdf"
+import com.example.planyourtrip.data.document.PDF_MIME_TYPE
 
 /** A created PDF, ready for the share sheet. [uri] is a content URI another app may read once it is granted. */
 data class SharedPdf(val uri: String, val mimeType: String = PDF_MIME_TYPE)

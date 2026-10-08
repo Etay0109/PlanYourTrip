@@ -18,7 +18,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -35,6 +34,7 @@ import com.example.planyourtrip.ui.common.statusLabel
 import com.example.planyourtrip.ui.home.ActiveTrip
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
+import com.example.planyourtrip.ui.theme.isLargeFontScale
 
 /**
  * White card for an upcoming trip. On narrow cards or large font scales the countdown
@@ -51,7 +51,7 @@ fun UpcomingTripCard(
     val colors = ExtendedTheme.colors
     val pastel = colors.pastel(item.trip.color)
     BoxWithConstraints(modifier) {
-        val badgeInline = maxWidth >= 360.dp && LocalDensity.current.fontScale <= 1.2f
+        val badgeInline = maxWidth >= Dimens.CompactScreenWidth && !isLargeFontScale()
         val badge = statusLabel(item.status)
         TripListCard(
             destination = item.trip.destination,

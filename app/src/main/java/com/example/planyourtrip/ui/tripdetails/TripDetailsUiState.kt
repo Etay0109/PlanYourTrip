@@ -6,6 +6,7 @@ import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.data.trip.TripActivity
 import com.example.planyourtrip.ui.common.CategoryTotal
 import com.example.planyourtrip.ui.common.TripStatus
+import com.example.planyourtrip.ui.tripdetails.components.ExpenseSplitInfo
 import java.math.BigDecimal
 import java.time.LocalDate
 
@@ -32,6 +33,8 @@ sealed interface TripDetailsUiState {
         val travelers: List<Traveler> = emptyList(),
         /** My share of each expense, by expense id (what the budget and the chart count). */
         val myShares: Map<Long, Long> = emptyMap(),
+        /** Payer, split and my share of each expense row, by expense id; empty when the trip has only me. */
+        val expenseSplits: Map<Long, ExpenseSplitInfo> = emptyMap(),
         /** Plan tab, Daily plan card and the Overview day section. */
         val itinerary: ItineraryState,
     ) : TripDetailsUiState

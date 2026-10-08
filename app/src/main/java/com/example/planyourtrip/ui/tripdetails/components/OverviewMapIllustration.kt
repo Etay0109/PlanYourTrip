@@ -25,7 +25,6 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -34,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.R
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.PlanYourTripTheme
+import com.example.planyourtrip.ui.theme.isLargeFontScale
 
 /**
  * The Overview Map card's picture: a simple drawn map (land, a river, a few streets, a teal pin in the middle) with
@@ -93,7 +93,7 @@ fun OverviewMapIllustration(modifier: Modifier = Modifier) {
  */
 @Composable
 private fun OpenInMapsPill(modifier: Modifier = Modifier) {
-    val compact = LocalConfiguration.current.screenWidthDp < 360 || LocalDensity.current.fontScale > 1.2f
+    val compact = LocalConfiguration.current.screenWidthDp.dp < Dimens.CompactScreenWidth || isLargeFontScale()
     Surface(
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surfaceContainerLowest,

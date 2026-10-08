@@ -7,40 +7,25 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -60,9 +45,10 @@ import com.example.planyourtrip.data.trip.ExpenseCategory
 import com.example.planyourtrip.data.trip.ME
 import com.example.planyourtrip.data.trip.TravelerColor
 import com.example.planyourtrip.ui.common.TripFormatting
-import com.example.planyourtrip.ui.common.components.BackTopAppBar
 import com.example.planyourtrip.ui.common.components.DateField
-import com.example.planyourtrip.ui.common.components.PrimaryButton
+import com.example.planyourtrip.ui.common.components.EditFormScaffold
+import com.example.planyourtrip.ui.common.components.FormDelete
+import com.example.planyourtrip.ui.common.components.TintedFilterChip
 import com.example.planyourtrip.ui.common.errorSupportingText
 import com.example.planyourtrip.ui.common.iconRes
 import com.example.planyourtrip.ui.common.labelRes
@@ -71,6 +57,7 @@ import com.example.planyourtrip.ui.common.split.Person
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
 import com.example.planyourtrip.ui.theme.PlanYourTripTheme
+import com.example.planyourtrip.ui.theme.isLargeFontScale
 import com.example.planyourtrip.ui.tripdetails.CurrencyConversion
 import com.example.planyourtrip.ui.tripdetails.components.TravelerAvatar
 import com.example.planyourtrip.ui.tripdetails.components.personName
@@ -90,167 +77,116 @@ fun ExpenseFormScreen(
     }
     ExpenseFormContent(
         state = state,
+        actions = remember(viewModel) {
+            ExpenseFormActions(
+                onNameChange = viewModel::onNameChange,
+                onAmountChange = viewModel::onAmountChange,
+                onCurrencyChange = viewModel::onCurrencyChange,
+                onCategoryChange = viewModel::onCategoryChange,
+                onDateChange = viewModel::onDateChange,
+                onPaidByChange = viewModel::onPaidByChange,
+                onSplitToggle = viewModel::onSplitToggle,
+                onNotShared = viewModel::onNotShared,
+                onSave = viewModel::onSave,
+                onDelete = viewModel::onDelete,
+            )
+        },
         onBack = onBack,
-        onNameChange = viewModel::onNameChange,
-        onAmountChange = viewModel::onAmountChange,
-        onCurrencyChange = viewModel::onCurrencyChange,
-        onCategoryChange = viewModel::onCategoryChange,
-        onDateChange = viewModel::onDateChange,
-        onPaidByChange = viewModel::onPaidByChange,
-        onSplitToggle = viewModel::onSplitToggle,
-        onNotShared = viewModel::onNotShared,
-        onSave = viewModel::onSave,
-        onDelete = viewModel::onDelete,
     )
 }
+
+/** Callbacks of [ExpenseFormContent], grouped so the screen passes one value. */
+class ExpenseFormActions(
+    val onNameChange: (String) -> Unit,
+    val onAmountChange: (String) -> Unit,
+    /** ILS or the foreign currency code. */
+    val onCurrencyChange: (String) -> Unit,
+    val onCategoryChange: (ExpenseCategory) -> Unit,
+    val onDateChange: (LocalDate) -> Unit,
+    val onPaidByChange: (String) -> Unit,
+    val onSplitToggle: (String) -> Unit,
+    val onNotShared: () -> Unit,
+    val onSave: () -> Unit,
+    val onDelete: () -> Unit,
+)
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ExpenseFormContent(
     state: ExpenseFormUiState,
+    actions: ExpenseFormActions,
     onBack: () -> Unit,
-    onNameChange: (String) -> Unit,
-    onAmountChange: (String) -> Unit,
-    onCurrencyChange: (String) -> Unit,
-    onCategoryChange: (ExpenseCategory) -> Unit,
-    onDateChange: (LocalDate) -> Unit,
-    onPaidByChange: (String) -> Unit,
-    onSplitToggle: (String) -> Unit,
-    onNotShared: () -> Unit,
-    onSave: () -> Unit,
-    onDelete: () -> Unit,
 ) {
-    var confirmDelete by rememberSaveable { mutableStateOf(false) }
-
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            BackTopAppBar(
-                onBack = onBack,
-                title = stringResource(if (state.isEditing) R.string.expense_edit_title else R.string.expense_new_title),
-                actions = {
-                    if (state.isEditing && !state.isLoading) {
-                        IconButton(onClick = { confirmDelete = true }, enabled = !state.isSaving) {
-                            Icon(
-                                painterResource(R.drawable.ic_delete),
-                                contentDescription = stringResource(R.string.expense_delete),
-                            )
-                        }
-                    }
-                },
+    EditFormScaffold(
+        title = stringResource(if (state.isEditing) R.string.expense_edit_title else R.string.expense_new_title),
+        isLoading = state.isLoading,
+        isSaving = state.isSaving,
+        saveText = stringResource(R.string.expense_save),
+        onBack = onBack,
+        onSave = actions.onSave,
+        delete = if (state.isEditing) {
+            FormDelete(
+                iconDescription = stringResource(R.string.expense_delete),
+                dialogTitle = stringResource(R.string.expense_delete_title),
+                dialogBody = stringResource(R.string.expense_delete_body, state.name.trim()),
+                onDelete = actions.onDelete,
             )
+        } else {
+            null
         },
-    ) { innerPadding ->
-        // Editing: wait for the expense's values so the fields never flash empty.
-        if (state.isLoading) return@Scaffold
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .imePadding()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = Dimens.ScreenPadding, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            OutlinedTextField(
-                value = state.name,
-                onValueChange = onNameChange,
-                label = { Text(stringResource(R.string.expense_name)) },
-                placeholder = { Text(stringResource(R.string.expense_name_placeholder)) },
-                singleLine = true,
-                isError = state.nameError != null,
-                supportingText = errorSupportingText(state.nameError?.nameMessageRes()),
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Sentences,
-                    imeAction = ImeAction.Next,
-                ),
-                shape = MaterialTheme.shapes.small,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            AmountField(state, onAmountChange, onCurrencyChange)
-
-            if (state.showSplit) {
-                SplitFields(state, onPaidByChange, onSplitToggle, onNotShared)
-            }
-
-            DateField(
-                label = R.string.expense_date,
-                date = state.date,
-                errorRes = state.dateError?.dateMessageRes(),
-                // A date already after the trip opens the picker on the last selectable day.
-                initialPickerDate = state.tripEnd?.let { minOf(state.date, it) } ?: state.date,
-                onDatePicked = onDateChange,
-                maxDate = state.tripEnd,
-            )
-
-            Text(
-                text = stringResource(R.string.expense_category),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                ExpenseCategory.entries.forEach { category ->
-                    // Each chip shows its category color: the icon always, the tinted fill when selected.
-                    val categoryColor = ExtendedTheme.colors.category(category)
-                    FilterChip(
-                        selected = category == state.category,
-                        onClick = { onCategoryChange(category) },
-                        label = { Text(stringResource(category.labelRes())) },
-                        leadingIcon = {
-                            Icon(
-                                painterResource(category.iconRes()),
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                            )
-                        },
-                        colors = FilterChipDefaults.filterChipColors(
-                            iconColor = categoryColor.content,
-                            selectedContainerColor = categoryColor.container,
-                            selectedLabelColor = categoryColor.content,
-                            selectedLeadingIconColor = categoryColor.content,
-                        ),
-                        border = FilterChipDefaults.filterChipBorder(
-                            enabled = true,
-                            selected = category == state.category,
-                            selectedBorderColor = categoryColor.content,
-                            selectedBorderWidth = 1.dp,
-                        ),
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            PrimaryButton(
-                text = stringResource(R.string.expense_save),
-                onClick = onSave,
-                loading = state.isSaving,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-    }
-
-    if (confirmDelete) {
-        AlertDialog(
-            onDismissRequest = { confirmDelete = false },
-            title = { Text(stringResource(R.string.expense_delete_title)) },
-            text = { Text(stringResource(R.string.expense_delete_body, state.name.trim())) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        confirmDelete = false
-                        onDelete()
-                    },
-                ) { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.action_cancel)) }
-            },
+    ) {
+        OutlinedTextField(
+            value = state.name,
+            onValueChange = actions.onNameChange,
+            label = { Text(stringResource(R.string.expense_name)) },
+            placeholder = { Text(stringResource(R.string.expense_name_placeholder)) },
+            singleLine = true,
+            isError = state.nameError != null,
+            supportingText = errorSupportingText(state.nameError?.nameMessageRes()),
+            keyboardOptions = KeyboardOptions(
+                capitalization = KeyboardCapitalization.Sentences,
+                imeAction = ImeAction.Next,
+            ),
+            shape = MaterialTheme.shapes.small,
+            modifier = Modifier.fillMaxWidth(),
         )
+
+        AmountField(state, actions.onAmountChange, actions.onCurrencyChange)
+
+        if (state.showSplit) {
+            SplitFields(state, actions.onPaidByChange, actions.onSplitToggle, actions.onNotShared)
+        }
+
+        DateField(
+            label = R.string.expense_date,
+            date = state.date,
+            errorRes = state.dateError?.dateMessageRes(),
+            // A date already after the trip opens the picker on the last selectable day.
+            initialPickerDate = state.tripEnd?.let { minOf(state.date, it) } ?: state.date,
+            onDatePicked = actions.onDateChange,
+            maxDate = state.tripEnd,
+        )
+
+        Text(
+            text = stringResource(R.string.expense_category),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            ExpenseCategory.entries.forEach { category ->
+                // Each chip shows its category color: the icon always, the tinted fill when selected.
+                TintedFilterChip(
+                    selected = category == state.category,
+                    onClick = { actions.onCategoryChange(category) },
+                    label = stringResource(category.labelRes()),
+                    icon = category.iconRes(),
+                    color = ExtendedTheme.colors.category(category),
+                )
+            }
+        }
     }
 }
 
@@ -329,7 +265,7 @@ private fun AmountField(
 ) {
     BoxWithConstraints {
         // Side by side on regular screens; the selector moves under the field when narrow or with large text.
-        val stacked = maxWidth < 360.dp || LocalDensity.current.fontScale > 1.2f
+        val stacked = maxWidth < Dimens.CompactScreenWidth || isLargeFontScale()
         if (stacked) {
             Column {
                 AmountTextField(state, onAmountChange, Modifier.fillMaxWidth())
@@ -450,8 +386,11 @@ private fun Preview(state: ExpenseFormUiState, darkTheme: Boolean = false) {
     PlanYourTripTheme(darkTheme = darkTheme) {
         ExpenseFormContent(
             state = state,
-            onBack = {}, onNameChange = {}, onAmountChange = {}, onCurrencyChange = {}, onCategoryChange = {},
-            onDateChange = {}, onPaidByChange = {}, onSplitToggle = {}, onNotShared = {}, onSave = {}, onDelete = {},
+            actions = ExpenseFormActions(
+                onNameChange = {}, onAmountChange = {}, onCurrencyChange = {}, onCategoryChange = {}, onDateChange = {},
+                onPaidByChange = {}, onSplitToggle = {}, onNotShared = {}, onSave = {}, onDelete = {},
+            ),
+            onBack = {},
         )
     }
 }

@@ -157,16 +157,16 @@ class TripDaoTest {
     @Test
     fun expenses_newestFirst_scopedToOwner_andEditable() = runTest {
         val trip = repository.addTrip("u1", "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17))
-        val older = expenses.addExpense(trip, "u1", " Flights ", 180_000, ExpenseCategory.FLIGHTS, LocalDate.of(2026, 9, 1))!!
-        val newer = expenses.addExpense(trip, "u1", "Dinner", 12_050, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13))!!
-        assertNull(expenses.addExpense(trip, "u2", "Sneaky", 1, ExpenseCategory.OTHER, LocalDate.of(2026, 11, 13)))
+        val older = expenses.addExpense(trip, "u1", ExpenseInput(" Flights ", 180_000, ExpenseCategory.FLIGHTS, LocalDate.of(2026, 9, 1)))!!
+        val newer = expenses.addExpense(trip, "u1", ExpenseInput("Dinner", 12_050, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13)))!!
+        assertNull(expenses.addExpense(trip, "u2", ExpenseInput("Sneaky", 1, ExpenseCategory.OTHER, LocalDate.of(2026, 11, 13))))
 
         assertEquals(listOf(newer, older), expenses.observeExpenses(trip, "u1").first().map { it.id })
         assertEquals("Flights", expenses.observeExpense(older, "u1").first()?.name)
         assertEquals(emptyList<Expense>(), expenses.observeExpenses(trip, "u2").first())
         assertNull(expenses.observeExpense(older, "u2").first())
 
-        expenses.updateExpense(newer, "u1", "Dinner", 13_000, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13))
+        expenses.updateExpense(newer, "u1", ExpenseInput("Dinner", 13_000, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13)))
         expenses.deleteExpense(older, "u2") // another account deletes nothing
         assertEquals(listOf(13_000L, 180_000L), expenses.observeExpenses(trip, "u1").first().map { it.amountAgorot })
 
@@ -178,8 +178,8 @@ class TripDaoTest {
     fun deletingATrip_deletesItsExpenses() = runTest {
         val rome = repository.addTrip("u1", "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17))
         val oslo = repository.addTrip("u1", "Oslo", LocalDate.of(2026, 12, 1), LocalDate.of(2026, 12, 3))
-        expenses.addExpense(rome, "u1", "Dinner", 12_050, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13))
-        expenses.addExpense(oslo, "u1", "Taxi", 9_000, ExpenseCategory.TRANSPORT, LocalDate.of(2026, 12, 1))
+        expenses.addExpense(rome, "u1", ExpenseInput("Dinner", 12_050, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13)))
+        expenses.addExpense(oslo, "u1", ExpenseInput("Taxi", 9_000, ExpenseCategory.TRANSPORT, LocalDate.of(2026, 12, 1)))
 
         // No delete-trip API exists yet; delete the row directly to check the foreign key cascade.
         db.openHelper.writableDatabase.execSQL("DELETE FROM trips WHERE id = $rome")
@@ -253,18 +253,21 @@ class TripDaoTest {
         val rome = repository.addTrip("u1", "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17))
         val original = ForeignAmount(BigDecimal("1500"), "JPY", BigDecimal("0.02512"), LocalDate.of(2026, 10, 2))
         val id = expenses.addExpense(
-            rome, "u1", "Souvenirs", 3_768, ExpenseCategory.SHOPPING, LocalDate.of(2026, 11, 13), original,
+            rome, "u1",
+            ExpenseInput(
+                "Souvenirs", 3_768, ExpenseCategory.SHOPPING, LocalDate.of(2026, 11, 13), original,
+            ),
         )!!
         val stored = expenses.observeExpense(id, "u1").first()!!
         assertEquals(3_768L, stored.amountAgorot)
         assertEquals(original, stored.original) // BigDecimal text round-trips exactly
 
         // Switched to shekels in the form: the original is cleared.
-        expenses.updateExpense(id, "u1", "Souvenirs", 4_000, ExpenseCategory.SHOPPING, LocalDate.of(2026, 11, 13), null)
+        expenses.updateExpense(id, "u1", ExpenseInput("Souvenirs", 4_000, ExpenseCategory.SHOPPING, LocalDate.of(2026, 11, 13), null))
         assertNull(expenses.observeExpense(id, "u1").first()!!.original)
 
         // A shekel expense has no original.
-        val ils = expenses.addExpense(rome, "u1", "Taxi", 9_000, ExpenseCategory.TRANSPORT, LocalDate.of(2026, 11, 12))!!
+        val ils = expenses.addExpense(rome, "u1", ExpenseInput("Taxi", 9_000, ExpenseCategory.TRANSPORT, LocalDate.of(2026, 11, 12)))!!
         assertNull(expenses.observeExpense(ils, "u1").first()!!.original)
     }
 
@@ -272,7 +275,7 @@ class TripDaoTest {
     fun changes_arePendingUntilSynced_andDeletesAreRecordedForTheCloud() = runTest {
         val sync = RoomSyncLocalStore(db)
         val trip = repository.addTrip("u1", "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17))
-        val expense = expenses.addExpense(trip, "u1", "Dinner", 12_050, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13))!!
+        val expense = expenses.addExpense(trip, "u1", ExpenseInput("Dinner", 12_050, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13)))!!
         assertEquals(2, sync.pendingCount("u1").first())
         assertEquals(0, sync.pendingCount("u2").first())
 
@@ -518,8 +521,11 @@ class TripDaoTest {
             val noa = travelers.addTraveler(trip, "u1", "Noa")!!
             val noaKey = travelers.observeTravelers(trip, "u1").first().single { it.id == noa }.uuid
             expenses.addExpense(
-                trip, "u1", "Dinner", 12_050, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13),
-                paidBy = noaKey, splitBetween = listOf(ME, noaKey),
+                trip, "u1",
+                ExpenseInput(
+                    "Dinner", 12_050, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13),
+                    paidBy = noaKey, splitBetween = listOf(ME, noaKey),
+                ),
             )
             settlements.addSettlement(trip, "u1", ME, noaKey, 6_025, LocalDate.of(2026, 11, 14))
             activities.addActivity(trip, "u1", input("Museum", LocalDate.of(2026, 11, 13)))
@@ -566,10 +572,13 @@ class TripDaoTest {
     @Test
     fun expenses_storePayerAndSplit_andOldDefaultsArePaidByMeNotShared() = runTest {
         val rome = repository.addTrip("u1", "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17))
-        val plain = expenses.addExpense(rome, "u1", "SIM", 5_000, ExpenseCategory.OTHER, LocalDate.of(2026, 11, 12))!!
+        val plain = expenses.addExpense(rome, "u1", ExpenseInput("SIM", 5_000, ExpenseCategory.OTHER, LocalDate.of(2026, 11, 12)))!!
         val shared = expenses.addExpense(
-            rome, "u1", "Dinner", 18_000, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13),
-            paidBy = "r-noa", splitBetween = listOf(ME, "r-noa", "r-amit", ME),
+            rome, "u1",
+            ExpenseInput(
+                "Dinner", 18_000, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13),
+                paidBy = "r-noa", splitBetween = listOf(ME, "r-noa", "r-amit", ME),
+            ),
         )!!
         val list = expenses.observeExpenses(rome, "u1").first()
         assertEquals(ME, list.single { it.id == plain }.paidBy)
@@ -579,8 +588,11 @@ class TripDaoTest {
 
         // "Not shared" after an edit; an empty split means the payer only.
         expenses.updateExpense(
-            shared, "u1", "Dinner", 18_000, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13), null,
-            paidBy = "r-amit", splitBetween = emptyList(),
+            shared, "u1",
+            ExpenseInput(
+                "Dinner", 18_000, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13), null,
+                paidBy = "r-amit", splitBetween = emptyList(),
+            ),
         )
         val edited = expenses.observeExpense(shared, "u1").first()!!
         assertEquals("r-amit", edited.paidBy)
@@ -613,8 +625,11 @@ class TripDaoTest {
         val keys = travelers.observeTravelers(rome, "u1").first().map { it.uuid }
         val (noa, amit, dana, yoni) = keys
         expenses.addExpense(
-            rome, "u1", "Dinner", 9_000, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13),
-            paidBy = noa, splitBetween = listOf(ME, amit),
+            rome, "u1",
+            ExpenseInput(
+                "Dinner", 9_000, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13),
+                paidBy = noa, splitBetween = listOf(ME, amit),
+            ),
         )
         settlements.addSettlement(rome, "u1", dana, ME, 1_000, LocalDate.of(2026, 11, 14))
 

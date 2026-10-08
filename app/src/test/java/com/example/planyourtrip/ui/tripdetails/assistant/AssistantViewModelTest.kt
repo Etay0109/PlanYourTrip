@@ -13,6 +13,7 @@ import com.example.planyourtrip.data.assistant.ChatTurn
 import com.example.planyourtrip.data.auth.AuthUser
 import com.example.planyourtrip.data.trip.ActivityType
 import com.example.planyourtrip.data.trip.ExpenseCategory
+import com.example.planyourtrip.data.trip.ExpenseInput
 import com.example.planyourtrip.data.trip.ME
 import com.example.planyourtrip.data.trip.Traveler
 import com.example.planyourtrip.data.trip.TravelerColor
@@ -95,7 +96,7 @@ class AssistantViewModelTest {
 
     @Test
     fun send_includesTheCurrentTripContext() = runTest(dispatcher) {
-        expenses.addExpense(1, "u1", "Flights", 250_000, ExpenseCategory.FLIGHTS, nov(1))
+        expenses.addExpense(1, "u1", ExpenseInput("Flights", 250_000, ExpenseCategory.FLIGHTS, nov(1)))
         val assistant = FakeAssistantRepository(AssistantResponse.Answer("""{"reply":"Yes, ₪3,500 left."}"""))
         val vm = vm(assistant)
 
@@ -118,8 +119,11 @@ class AssistantViewModelTest {
     fun send_budgetLineCountsOnlyMyShare() = runTest(dispatcher) {
         // ₪2,500 split with Noa: ₪1,250 is mine, like on the Budget tab.
         expenses.addExpense(
-            1, "u1", "Flights", 250_000, ExpenseCategory.FLIGHTS, nov(1),
-            paidBy = "noa", splitBetween = listOf(ME, "noa"),
+            1, "u1",
+            ExpenseInput(
+                "Flights", 250_000, ExpenseCategory.FLIGHTS, nov(1),
+                paidBy = "noa", splitBetween = listOf(ME, "noa"),
+            ),
         )
         val travelers = FakeTravelerRepository(trips, initial = listOf(Traveler(1, 1, "noa", "Noa", TravelerColor.ROSE)))
         val assistant = FakeAssistantRepository(AssistantResponse.Answer("""{"reply":"Yes."}"""))

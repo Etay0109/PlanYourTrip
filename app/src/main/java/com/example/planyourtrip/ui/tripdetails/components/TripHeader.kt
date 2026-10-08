@@ -23,7 +23,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -38,6 +37,7 @@ import com.example.planyourtrip.ui.common.datesWithLength
 import com.example.planyourtrip.ui.common.statusLabel
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
+import com.example.planyourtrip.ui.theme.isLargeFontScale
 
 /**
  * Teal gradient header of the trip screen: back, countdown badge, edit, the three-dots menu ("Share trip"),
@@ -69,7 +69,7 @@ fun TripHeader(
                 .padding(start = Dimens.ScreenPadding, end = Dimens.ScreenPadding, top = 12.dp, bottom = 28.dp),
         ) {
             // Three buttons leave little room: on narrow screens or large fonts the badge gets its own line.
-            val badgeInline = maxWidth >= 300.dp && LocalDensity.current.fontScale <= 1.2f
+            val badgeInline = maxWidth >= Dimens.NarrowContentWidth && !isLargeFontScale()
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     HeaderButton(R.drawable.ic_arrow_back, stringResource(R.string.action_back), onBack)

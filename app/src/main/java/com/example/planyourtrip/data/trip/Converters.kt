@@ -20,16 +20,14 @@ class Converters {
 
     /** Unknown names (e.g. a removed palette entry) fall back to the first color instead of crashing. */
     @TypeConverter
-    fun nameToTripColor(name: String): TripColor =
-        TripColor.entries.firstOrNull { it.name == name } ?: TripColor.entries.first()
+    fun nameToTripColor(name: String): TripColor = TripColor.fromName(name)
 
     @TypeConverter
     fun expenseCategoryToName(category: ExpenseCategory): String = category.name
 
     /** Unknown names fall back to [ExpenseCategory.OTHER] instead of crashing. */
     @TypeConverter
-    fun nameToExpenseCategory(name: String): ExpenseCategory =
-        ExpenseCategory.entries.firstOrNull { it.name == name } ?: ExpenseCategory.OTHER
+    fun nameToExpenseCategory(name: String): ExpenseCategory = ExpenseCategory.fromName(name)
 
     /** Exact decimal text (e.g. "3.4408"), so exchange rates never pass through floating point. */
     @TypeConverter
@@ -56,24 +54,21 @@ class Converters {
 
     /** Unknown names fall back to [ActivityType.OTHER] instead of crashing. */
     @TypeConverter
-    fun nameToActivityType(name: String): ActivityType =
-        ActivityType.entries.firstOrNull { it.name == name } ?: ActivityType.OTHER
+    fun nameToActivityType(name: String): ActivityType = ActivityType.fromName(name)
 
     @TypeConverter
     fun checklistKindToName(kind: ChecklistKind): String = kind.name
 
     /** Unknown names fall back to [ChecklistKind.BEFORE_TRIP] instead of crashing. */
     @TypeConverter
-    fun nameToChecklistKind(name: String): ChecklistKind =
-        ChecklistKind.entries.firstOrNull { it.name == name } ?: ChecklistKind.BEFORE_TRIP
+    fun nameToChecklistKind(name: String): ChecklistKind = ChecklistKind.fromName(name)
 
     @TypeConverter
     fun documentTypeToName(type: DocumentType): String = type.name
 
     /** Unknown names fall back to [DocumentType.OTHER] instead of crashing. */
     @TypeConverter
-    fun nameToDocumentType(name: String): DocumentType =
-        DocumentType.entries.firstOrNull { it.name == name } ?: DocumentType.OTHER
+    fun nameToDocumentType(name: String): DocumentType = DocumentType.fromName(name)
 
     /** Traveler keys of an expense's split: uuids and "me" never contain a comma. */
     @TypeConverter

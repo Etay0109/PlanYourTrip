@@ -19,6 +19,7 @@ import com.example.planyourtrip.data.trip.Traveler
 import com.example.planyourtrip.data.trip.TravelerRepository
 import com.example.planyourtrip.data.trip.TripRepository
 import com.example.planyourtrip.ui.common.Money
+import com.example.planyourtrip.ui.common.WhileUiSubscribed
 import com.example.planyourtrip.ui.common.split.Transfer
 import com.example.planyourtrip.ui.common.split.balances
 import com.example.planyourtrip.ui.common.split.isTravelerUsed
@@ -31,7 +32,6 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
@@ -88,7 +88,7 @@ class SplitViewModel(
             }
         }
         .flowOn(computeDispatcher)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SplitUiState.Loading)
+        .stateIn(viewModelScope, WhileUiSubscribed, SplitUiState.Loading)
 
     private val ownerId: String? get() = authRepository.currentUser.value?.uid
 
@@ -264,9 +264,8 @@ class SplitViewModel(
 /** Null when [input] is a valid payment of at most [openAgorot] (the whole debt or a part of it). */
 fun validateSettleAmount(input: String, openAgorot: Long): SettleAmountError? {
     if (input.isBlank()) return SettleAmountError.EMPTY
-    val agorot = Money.parseAgorot(input) ?: return SettleAmountError.INVALID
+    val agorot = Money.parsePositiveAgorot(input) ?: return SettleAmountError.INVALID
     return when {
-        agorot <= 0 -> SettleAmountError.INVALID
         agorot > openAgorot -> SettleAmountError.TOO_MUCH
         else -> null
     }

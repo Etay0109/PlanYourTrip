@@ -1,14 +1,12 @@
 package com.example.planyourtrip
 
 import com.example.planyourtrip.data.trip.Expense
-import com.example.planyourtrip.data.trip.ExpenseCategory
+import com.example.planyourtrip.data.trip.ExpenseInput
 import com.example.planyourtrip.data.trip.ExpenseRepository
-import com.example.planyourtrip.data.trip.ForeignAmount
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
-import java.time.LocalDate
 
 /**
  * In-memory [ExpenseRepository] for unit tests. Mirrors RoomExpenseRepository: expenses are visible and
@@ -33,42 +31,25 @@ class FakeExpenseRepository(
     override fun observeExpense(id: Long, ownerId: String): Flow<Expense?> =
         combine(expenses, trips.trips) { list, _ -> list.find { it.id == id && owns(ownerId, it.tripId) } }
 
-    override suspend fun addExpense(
-        tripId: Long,
-        ownerId: String,
-        name: String,
-        amountAgorot: Long,
-        category: ExpenseCategory,
-        date: LocalDate,
-        original: ForeignAmount?,
-        paidBy: String,
-        splitBetween: List<String>,
-    ): Long? {
+    override suspend fun addExpense(tripId: Long, ownerId: String, input: ExpenseInput): Long? {
         if (!owns(ownerId, tripId)) return null
         val id = (expenses.value.maxOfOrNull { it.id } ?: 0) + 1
-        val split = splitBetween.distinct().ifEmpty { listOf(paidBy) }
+        val split = input.splitBetween.distinct().ifEmpty { listOf(input.paidBy) }
         expenses.update {
-            it + Expense(id, tripId, name.trim(), amountAgorot, category, date, original, paidBy, split)
+            it + with(input) {
+                Expense(id, tripId, name.trim(), amountAgorot, category, date, original, paidBy, split)
+            }
         }
         return id
     }
 
-    override suspend fun updateExpense(
-        id: Long,
-        ownerId: String,
-        name: String,
-        amountAgorot: Long,
-        category: ExpenseCategory,
-        date: LocalDate,
-        original: ForeignAmount?,
-        paidBy: String,
-        splitBetween: List<String>,
-    ) = expenses.update { list ->
+    override suspend fun updateExpense(id: Long, ownerId: String, input: ExpenseInput) = expenses.update { list ->
         list.map {
             if (it.id == id && owns(ownerId, it.tripId)) {
                 it.copy(
-                    name = name.trim(), amountAgorot = amountAgorot, category = category, date = date,
-                    original = original, paidBy = paidBy, splitBetween = splitBetween.distinct().ifEmpty { listOf(paidBy) },
+                    name = input.name.trim(), amountAgorot = input.amountAgorot, category = input.category,
+                    date = input.date, original = input.original, paidBy = input.paidBy,
+                    splitBetween = input.splitBetween.distinct().ifEmpty { listOf(input.paidBy) },
                 )
             } else it
         }

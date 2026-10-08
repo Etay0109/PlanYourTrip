@@ -21,6 +21,20 @@ data class Expense(
 )
 
 /**
+ * The values of an expense to add or update (no ids). The repositories trim [name] and store an empty
+ * [splitBetween] (or one with duplicates) as the payer only / without duplicates.
+ */
+data class ExpenseInput(
+    val name: String,
+    val amountAgorot: Long,
+    val category: ExpenseCategory,
+    val date: LocalDate,
+    val original: ForeignAmount? = null,
+    val paidBy: String = ME,
+    val splitBetween: List<String> = listOf(ME),
+)
+
+/**
  * What the user typed in a foreign currency and the rate used to convert it, fixed at save time:
  * `amountAgorot = amount × ilsPerUnit` rounded half-up to whole agorot.
  */

@@ -12,9 +12,9 @@ import com.example.planyourtrip.data.sync.SyncController
 import com.example.planyourtrip.data.sync.SyncStatus
 import com.example.planyourtrip.data.user.greetingName
 import com.example.planyourtrip.data.user.initials
+import com.example.planyourtrip.ui.common.WhileUiSubscribed
 import com.example.planyourtrip.ui.common.components.AccountActions
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
@@ -55,7 +55,7 @@ class AccountViewModel(
                     showSignOutWarning = warning,
                 )
             }
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+        }.stateIn(viewModelScope, WhileUiSubscribed, null)
 
     /** Set synchronously, so a double tap starts one sign out. */
     private var signingOut = false

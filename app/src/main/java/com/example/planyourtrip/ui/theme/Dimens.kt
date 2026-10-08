@@ -1,5 +1,7 @@
 package com.example.planyourtrip.ui.theme
 
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 
 /** Shared size and spacing values from the design. */
@@ -57,4 +59,17 @@ object Dimens {
 
     /** Avatars inside the expense form's "Paid by" / "Split between" chips (the chip's leading icon size). */
     val TravelerAvatarChipSize = 18.dp
+
+    /** Screens (or cards) narrower than this move side-by-side parts under each other (badges, currency selector). */
+    val CompactScreenWidth = 360.dp
+
+    /** Content narrower than this stacks the header pill, the converter rate pill and the category chart. */
+    val NarrowContentWidth = 300.dp
+
+    /** Font scales above this get the same stacked layouts as narrow screens. */
+    const val LargeFontScale = 1.2f
 }
+
+/** True when the user's font scale is above [Dimens.LargeFontScale]: layouts then stack like on narrow screens. */
+@Composable
+fun isLargeFontScale(): Boolean = LocalDensity.current.fontScale > Dimens.LargeFontScale

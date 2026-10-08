@@ -46,7 +46,7 @@ app/src/main/java/com/example/planyourtrip/
   data/auth/                   # AuthRepository (interface), AuthUser, AuthError/AuthException,
                                # FirebaseAuthRepository (the only Firebase Auth code)
   data/trip/                   # Trip, TripColor, TripEntity, TripDao, TripRepository + RoomTripRepository,
-                               # Expense, ExpenseCategory, ExpenseEntity, ExpenseDao,
+                               # Expense (+ ExpenseInput: the values to add/update), ExpenseCategory, ExpenseEntity, ExpenseDao,
                                # ExpenseRepository + RoomExpenseRepository, ActivityType, TripActivity (+ ActivityInput),
                                # ActivityEntity, ActivityDao, ActivityRepository + RoomActivityRepository,
                                # DeletedActivity (+ DeletedActivityStore: the "Undo" hand-over),
@@ -82,7 +82,10 @@ app/src/main/java/com/example/planyourtrip/
                                # components/ (NextTripCard, TripCards: upcoming + past list cards,
                                # SwipeToDeleteBox: swipe left → red "Delete" area)
   ui/tripform/                 # TripFormScreen/ViewModel/UiState, TripValidator — new trip AND edit trip
-  ui/tripdetails/              # the trip area: TripDetailsScreen (header + 4 tabs), TripDetailsViewModel,
+  ui/tripdetails/              # the trip area: TripDetailsScreen (scaffold, header, nav bar, FABs; EmptyMessage,
+                               # cardPadding), OverviewTab / BudgetTab (+ BudgetActions, AddExpenseFab) / PlanTab (the
+                               # tabs' LazyListScope builders), TripDetailsPreviews (all previews), TripDetailsViewModel
+                               # (+ expenseSplits: each row's ExpenseSplitInfo),
                                # TripDetailsUiState (+ TripTab, BudgetDialogState, CurrencyCardState, ItineraryState,
                                # PlanDayState, OverviewDayState),
                                # BudgetCalculations (pure), CurrencyConversion (pure: converter math + typing reducer),
@@ -90,7 +93,7 @@ app/src/main/java/com/example/planyourtrip/
                                # GoogleMaps (pure: googleMapsSearchUrl = the Overview Map card's link,
                                # googleMapsActivityUrl = a Plan card's "Open in Maps"),
                                # components/ (TripHeader, BudgetCard,
-                               # CurrencyCard, CategoryChartCard, ExpenseRow, BudgetDialog, FeatureCard,
+                               # CurrencyCard, CategoryChartCard, BudgetDialog, FeatureCard,
                                # IconChip/CategoryIcon, TravelerAvatar (+ avatarColors, personName),
                                # ExpenseRow (+ ExpenseSplitInfo), ActivityTimeline (TimelineRow, ActivityCard,
                                # CompactActivityCard, TagPill), ItineraryComponents (ItineraryActions, ItineraryHeader,
@@ -115,11 +118,13 @@ app/src/main/java/com/example/planyourtrip/
                                # suggestionInputs))
   ui/common/                   # code shared by several features:
                                #   AppLocale (the one app locale, Locale.US, default of every formatter),
+                               #   UiSharing (WhileUiSubscribed: every ViewModel's stateIn policy, 5 s),
                                #   TripFormatting (dates, cached formatters), TripTexts (datesWithLength,
                                #   statusLabel), TripStatus (tripStatus()), Money (agorot format/parse, percent,
                                #   shekels()), PickerDates (DatePicker UTC conversion), ErrorText (errorSupportingText),
                                #   CurrencyPicker (CurrencyPickerState, filterCurrencies, currencyName),
-                               #   TripDays (pure: tripDays, dayNumber, isWithinTrip, sortActivities, activitiesOn),
+                               #   TripDays (pure: tripDays, daysInclusive, dayNumber, isWithinTrip, sortActivities,
+                               #   activitiesOn),
                                #   CategoryTotals (pure: categoryTotals(amountOf, includeZeroCategories) + CategoryTotal),
                                #   ExpenseCategoryUi / ActivityTypeUi (iconRes()/labelRes())
   ui/common/split/             # expense splitting, pure: Split (travelerOrder, inListOrder, shares, myShare, myTotal,
@@ -140,7 +145,10 @@ ui/common/share/             # "Share trip" PDF: TripPdfContent (pure: model, bu
                                #   TripComponents (LetterSquare, Pill, TripDatesRow),
                                #   TripMoreMenu (+ TripMoreButton: the trip's three-dots menu, "Share trip", "Delete trip"),
                                #   CurrencyPickerSheet (searchable currency list, trip form + trip screen),
-                               #   TimeField (read-only time field + 24-hour TimePicker dialog; activity form)
+                               #   TimeField (read-only time field + 24-hour TimePicker dialog; activity form),
+                               #   EditFormScaffold (+ FormDelete: the expense/activity form shell: top bar with delete,
+                               #   loading gate, scrolling fields, Save), ConfirmDeleteDialog (title, body, red Delete,
+                               #   Cancel), TintedFilterChip (category/type chip in its TintedColor)
   ui/theme/                    # Color, ExtendedColors, Shape, Type (Inter + named styles), Dimens, Theme,
                                # PdfColors (ARGB ints for the shared PDF, built from Color/ExtendedColors)
 app/src/debug/.../AppCheckSetup.kt    # installAppCheck(): App Check debug provider
@@ -151,6 +159,7 @@ design/trip_overview.png       # visual reference for the trip screen (Overview 
 design/trip_plan.png           # visual reference for the Plan tab (see "Plan tab" for the deliberate differences)
 design/trip_prep.png           # visual reference for the Prep tab (see "Prep tab" for the deliberate differences)
 design/trip_budget.png         # visual reference for the Budget tab (see "Budget tab and expense splitting")
+design/trip_assistant.png      # visual reference for the trip assistant (see "AI trip assistant")
 third_party/inter/OFL.txt      # Inter font license
 firestore.rules                # Firestore security rules (paste into the console)
 app/src/main/res/xml/file_paths.xml  # FileProvider paths: cache/shared_pdfs/ and files/documents/
@@ -355,7 +364,8 @@ Deleting a settlement (`SettlementDao.deleteAndRecord`) records a `SETTLEMENT` d
 | `fetched_at` | INTEGER | epoch millis of when this device fetched it (drives the 12-hour refresh) |
 
 - **Money is whole agorot in `Long`** (100 agorot = ₪1), never `Float`/`Double`. Text input is parsed with
-  `Money.parseAgorot` (digits, one `.` or `,`, ≤ 2 decimals, ≤ ₪1,000,000,000); display goes through
+  `Money.parseAgorot` (digits, one `.` or `,`, ≤ 2 decimals, ≤ ₪1,000,000,000; `parsePositiveAgorot` when it must
+  be > 0: budget, activity cost, settle amount); display goes through
   `Money.formatAgorot` / `shekels()` ("₪2,550", "₪12.50"). Doubles are used only for displayed percentages.
 - `ExpenseCategory` = `FLIGHTS, HOTELS, FOOD, SHOPPING, TRANSPORT, ATTRACTIONS, OTHER`, same naming rules as `TripColor`.
   Icons/labels live in `ui/common/ExpenseCategoryUi.kt`, colors in `ExtendedColors.categories`.
@@ -371,7 +381,9 @@ Deleting a settlement (`SettlementDao.deleteAndRecord`) records a `SETTLEMENT` d
   round-robin by the number of the owner's existing trips (`TripColor.forIndex(dao.count(ownerId))`), so each
   account starts at the first color. Stored by name, so entries can be
   reordered or appended, but never renamed or removed without a migration (an unknown name falls back to the first
-  color). The actual colors live in the theme (`ExtendedColors.pastels`), with light and dark variants.
+  color). Every stored enum (`TripColor`, `ExpenseCategory`, `ActivityType`, `ChecklistKind`, `DocumentType`,
+  `TravelerColor`) has a `fromName(name)` companion with its fallback; Room `Converters` and `SyncDocuments` both use it.
+  The actual colors live in the theme (`ExtendedColors.pastels`), with light and dark variants.
 - **Every query is scoped to one owner** (`observeAll(ownerId)`, `observeById(id, ownerId)`, `count(ownerId)`,
   `update`/`setBudget` with `AND owner_id = :ownerId`), so an account never sees or changes another account's trips.
   Expense and activity queries join/sub-select `trips` on `owner_id`; `addExpense` / `addActivity` return null
@@ -416,7 +428,7 @@ and creates `travelers` and `settlements` empty (`MigrationTest.migrate12To13…
 backup that also carries changes between devices (travelers, settlements and the expenses' payer/split included). The exchange-rate cache, the assistant chat and the trip
 documents (Prep tab) are never synced.
 
-### Firestore layout (field names in `SyncDocuments`, must match `firestore.rules`)
+### Firestore layout (field names in `SyncDocuments` (its private `Field` constants), must match `firestore.rules`)
 ```
 users/{uid}/trips/{tripUuid}                   destination, startDate, endDate, budgetAgorot, currencyCode, color
 users/{uid}/trips/{tripUuid}/expenses/{uuid}   name, amountAgorot, category, date,
@@ -1021,13 +1033,16 @@ Reference: `design/home_screen.png`. Match it closely when adding or changing sc
   squares, `ButtonHeight` 52dp primary buttons, `IconChipSize` 44dp round icon chips, `CategoryIconSize` 40dp
   category squares, `TouchTarget` 48dp, `CardMenuIconSize` / `CardMenuIconInset` / `CardMenuEndPadding` (home card
   three-dots button), `MapPreviewMinHeight` 88dp (Overview Map card's picture), `SwipeRevealWidth` 96dp (Home card's red "Delete" area),
-  `TravelerAvatarSize` 56dp / `TravelerAvatarSmallSize` 32dp / `TravelerAvatarTinySize` 18dp / `TravelerAvatarChipSize` 18dp (traveler avatars). Add a value there instead of repeating a number in several files.
+  `TravelerAvatarSize` 56dp / `TravelerAvatarSmallSize` 32dp / `TravelerAvatarTinySize` 18dp / `TravelerAvatarChipSize` 18dp (traveler avatars).
+  Responsive breakpoints: `CompactScreenWidth` 360dp (home badge, expense currency selector, Map card pill icon),
+  `NarrowContentWidth` 300dp (header status pill, converter rate pill, category chart) and `LargeFontScale` 1.2
+  (`isLargeFontScale()`). Add a value there instead of repeating a number in several files.
 - **Spacing:** 16dp between cards, 16–24dp inside cards. The home list has an extra 104dp bottom padding so the FAB
   never covers the last card.
 - **Reuse the shared components** before writing new UI: `PrimaryButton` (pill button with optional loading
   spinner, optional leading icon), `BackTopAppBar` (optional actions), `BrandMark` (gradient circle with the plane),
   `DateField` (optional `minDate`/`maxDate`), `HeroWaves`, `LetterSquare`, `Pill`, `TripDatesRow`,
-  `TripMoreMenu`/`TripMoreButton`.
+  `TripMoreMenu`/`TripMoreButton`, `EditFormScaffold` (create/edit forms), `ConfirmDeleteDialog`, `TintedFilterChip`.
   Trip-area cards that need a gray fill (note box, day summary, compact activity cards, progress box, unselected
   day chips) use `surfaceContainerHighest`. The upcoming and past cards share one private `TripListCard` skeleton.
 - **Long text never gets cut off.** Dates have no `maxLines` and wrap; destinations wrap to at most 2–3 lines

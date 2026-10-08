@@ -19,11 +19,12 @@ import com.example.planyourtrip.data.auth.AuthRepository
 import com.example.planyourtrip.data.trip.ActivityRepository
 import com.example.planyourtrip.data.trip.ExpenseRepository
 import com.example.planyourtrip.data.trip.TravelerRepository
-import com.example.planyourtrip.ui.common.split.myTotal
-import com.example.planyourtrip.ui.common.split.travelerOrder
 import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.data.trip.TripActivity
 import com.example.planyourtrip.data.trip.TripRepository
+import com.example.planyourtrip.ui.common.WhileUiSubscribed
+import com.example.planyourtrip.ui.common.split.myTotal
+import com.example.planyourtrip.ui.common.split.travelerOrder
 import com.example.planyourtrip.ui.navigation.TripDetails
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -102,7 +103,7 @@ class AssistantViewModel(
                 data.trip.startDate, data.trip.endDate, data.activities, LocalDate.now(clock),
             ),
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AssistantUiState())
+    }.stateIn(viewModelScope, WhileUiSubscribed, AssistantUiState())
 
     /**
      * Sends [text] (a typed message or a suggestion chip). Returns false and does nothing while a request runs,

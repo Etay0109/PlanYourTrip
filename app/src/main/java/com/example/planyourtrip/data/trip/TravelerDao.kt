@@ -19,11 +19,12 @@ interface TravelerDao {
     )
     fun observeForTrip(tripId: Long, ownerId: String): Flow<List<TravelerEntity>>
 
+    /** How many travelers [ownerId]'s trip has (picks the next avatar color). */
     @Query(
-        "SELECT r.* FROM travelers r JOIN trips t ON t.id = r.trip_id " +
-            "WHERE r.trip_id = :tripId AND t.owner_id = :ownerId ORDER BY r.created_at, r.id"
+        "SELECT COUNT(*) FROM travelers r JOIN trips t ON t.id = r.trip_id " +
+            "WHERE r.trip_id = :tripId AND t.owner_id = :ownerId"
     )
-    suspend fun forTrip(tripId: Long, ownerId: String): List<TravelerEntity>
+    suspend fun count(tripId: Long, ownerId: String): Int
 
     @Query("SELECT MAX(created_at) FROM travelers WHERE trip_id = :tripId")
     suspend fun maxCreatedAt(tripId: Long): Long?

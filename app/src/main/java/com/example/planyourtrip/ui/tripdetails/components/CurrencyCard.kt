@@ -53,6 +53,7 @@ import com.example.planyourtrip.ui.theme.ConverterAmountStyles
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
 import com.example.planyourtrip.ui.theme.PlanYourTripTheme
+import com.example.planyourtrip.ui.theme.isLargeFontScale
 import com.example.planyourtrip.ui.tripdetails.ConverterInput
 import com.example.planyourtrip.ui.tripdetails.ConverterSide
 import com.example.planyourtrip.ui.tripdetails.ConverterState
@@ -135,7 +136,7 @@ private fun CodeWithMessage(code: String, onChoose: () -> Unit, message: @Compos
 private fun WithRate(state: CurrencyCardState.Rate, actions: CurrencyCardActions, initialConverter: ConverterInput) {
     BoxWithConstraints {
         // The date pill moves under the rate on narrow cards and large fonts.
-        val inline = maxWidth >= 300.dp && LocalDensity.current.fontScale <= 1.2f
+        val inline = maxWidth >= Dimens.NarrowContentWidth && !isLargeFontScale()
         if (inline) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 RateHeadline(state, actions.onChooseCurrency, Modifier.weight(1f))

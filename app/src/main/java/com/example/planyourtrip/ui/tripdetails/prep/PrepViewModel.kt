@@ -26,13 +26,13 @@ import com.example.planyourtrip.data.trip.ChecklistKind
 import com.example.planyourtrip.data.trip.ChecklistRepository
 import com.example.planyourtrip.data.trip.DeletedChecklistItem
 import com.example.planyourtrip.data.trip.TripRepository
+import com.example.planyourtrip.ui.common.WhileUiSubscribed
 import com.example.planyourtrip.ui.navigation.TripDetails
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
@@ -94,7 +94,7 @@ class PrepViewModel(
             }
         }
         .flowOn(computeDispatcher)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PrepUiState.Loading)
+        .stateIn(viewModelScope, WhileUiSubscribed, PrepUiState.Loading)
 
     private val ownerId: String? get() = authRepository.currentUser.value?.uid
 

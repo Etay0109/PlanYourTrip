@@ -14,6 +14,7 @@ import com.example.planyourtrip.data.currency.ILS
 import com.example.planyourtrip.data.currency.isStale
 import com.example.planyourtrip.data.trip.Expense
 import com.example.planyourtrip.data.trip.ExpenseCategory
+import com.example.planyourtrip.data.trip.ExpenseInput
 import com.example.planyourtrip.data.trip.ExpenseRepository
 import com.example.planyourtrip.data.trip.ME
 import com.example.planyourtrip.data.trip.TravelerRepository
@@ -197,19 +198,21 @@ class ExpenseFormViewModel(
         if (invalid || amount !is AmountResult.Ok) return
 
         val ownerId = authRepository.currentUser.value?.uid ?: return
-        val name = validated.name.trim()
+        val input = ExpenseInput(
+            name = validated.name.trim(),
+            amountAgorot = amount.agorot,
+            category = validated.category,
+            date = validated.date,
+            original = amount.original,
+            paidBy = validated.paidBy,
+            splitBetween = validated.splitBetween,
+        )
         _uiState.update { it.copy(isSaving = true) }
         viewModelScope.launch {
             if (expenseId == null) {
-                repository.addExpense(
-                    tripId, ownerId, name, amount.agorot, validated.category, validated.date, amount.original,
-                    validated.paidBy, validated.splitBetween,
-                )
+                repository.addExpense(tripId, ownerId, input)
             } else {
-                repository.updateExpense(
-                    expenseId, ownerId, name, amount.agorot, validated.category, validated.date, amount.original,
-                    validated.paidBy, validated.splitBetween,
-                )
+                repository.updateExpense(expenseId, ownerId, input)
             }
             _uiState.update { it.copy(isSaving = false, done = true) }
         }

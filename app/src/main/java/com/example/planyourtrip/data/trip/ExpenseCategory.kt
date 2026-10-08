@@ -5,5 +5,9 @@ package com.example.planyourtrip.data.trip
  * but never renamed or removed without a migration (an unknown name falls back to [OTHER]).
  */
 enum class ExpenseCategory {
-    FLIGHTS, HOTELS, FOOD, SHOPPING, TRANSPORT, ATTRACTIONS, OTHER,
+    FLIGHTS, HOTELS, FOOD, SHOPPING, TRANSPORT, ATTRACTIONS, OTHER;
+
+    companion object {
+        fun fromName(name: String?): ExpenseCategory = entries.firstOrNull { it.name == name } ?: OTHER
+    }
 }

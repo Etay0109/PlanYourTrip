@@ -49,6 +49,9 @@ object Money {
         return total.takeIf { it <= MAX_AGOROT }
     }
 
+    /** [parseAgorot] for amounts that must be greater than zero (budget, cost, payment); null otherwise. */
+    fun parsePositiveAgorot(text: String): Long? = parseAgorot(text)?.takeIf { it > 0 }
+
     /** Agorot as text for an input field, without grouping: "120", "12.50". */
     fun toInput(agorot: Long): String =
         if (agorot % 100 == 0L) (agorot / 100).toString()

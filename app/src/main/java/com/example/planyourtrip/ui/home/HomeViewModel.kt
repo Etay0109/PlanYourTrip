@@ -10,10 +10,10 @@ import com.example.planyourtrip.data.auth.AuthRepository
 import com.example.planyourtrip.data.trip.TripRepository
 import com.example.planyourtrip.data.user.firstName
 import com.example.planyourtrip.data.user.greetingName
+import com.example.planyourtrip.ui.common.WhileUiSubscribed
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
@@ -47,7 +47,7 @@ class HomeViewModel(
         }
         // Grouping and sorting run off the main thread.
         .flowOn(computeDispatcher)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState.Loading)
+        .stateIn(viewModelScope, WhileUiSubscribed, HomeUiState.Loading)
 
     companion object {
         val Factory: ViewModelProvider.Factory = viewModelFactory {

@@ -73,119 +73,49 @@ class RoomSyncLocalStore(private val db: AppDatabase) : SyncLocalStore {
             is ItemData.TripData -> {
                 val existing = dao.tripByUuid(item.uuid)
                 if (existing != null && (existing.ownerId != ownerId || existing.updatedAt > item.updatedAt)) return
-                val trip = TripEntity(
-                    id = existing?.id ?: 0,
-                    ownerId = ownerId,
-                    destination = data.destination,
-                    startDate = data.startDate,
-                    endDate = data.endDate,
-                    color = data.color,
-                    budgetAgorot = data.budgetAgorot,
-                    currencyCode = data.currencyCode,
-                    uuid = item.uuid,
-                    updatedAt = item.updatedAt,
-                    pendingSync = false,
-                )
+                val trip = data.toEntity(existing?.id ?: 0, ownerId, item)
                 if (existing == null) dao.insertTrip(trip) else dao.updateTrip(trip)
             }
             is ItemData.ExpenseData -> {
-                val tripId = ownedTripId(ownerId, item) ?: return
                 val existing = dao.expenseByUuid(item.uuid)
-                if (existing != null && existing.updatedAt > item.updatedAt) return
-                val expense = ExpenseEntity(
-                    id = existing?.id ?: 0,
-                    tripId = tripId,
-                    name = data.name,
-                    amountAgorot = data.amountAgorot,
-                    category = data.category,
-                    date = data.date,
-                    originalAmount = data.original?.amount,
-                    originalCurrency = data.original?.currencyCode,
-                    exchangeRate = data.original?.ilsPerUnit,
-                    rateDate = data.original?.rateDate,
-                    paidBy = data.paidBy,
-                    splitBetween = data.splitBetween,
-                    uuid = item.uuid,
-                    updatedAt = item.updatedAt,
-                    pendingSync = false,
-                )
+                val tripId = childTripId(ownerId, item, existing?.updatedAt) ?: return
+                val expense = data.toEntity(existing?.id ?: 0, tripId, item)
                 if (existing == null) dao.insertExpense(expense) else dao.updateExpense(expense)
             }
             is ItemData.ActivityData -> {
-                val tripId = ownedTripId(ownerId, item) ?: return
                 val existing = dao.activityByUuid(item.uuid)
-                if (existing != null && existing.updatedAt > item.updatedAt) return
-                val input = data.input
-                val activity = ActivityEntity(
-                    id = existing?.id ?: 0,
-                    tripId = tripId,
-                    date = input.date,
-                    startTime = input.startTime,
-                    title = input.title,
-                    note = input.note,
-                    type = input.type,
-                    location = input.location,
-                    estimatedCostAgorot = input.estimatedCostAgorot,
-                    booked = input.booked,
-                    uuid = item.uuid,
-                    updatedAt = item.updatedAt,
-                    pendingSync = false,
-                )
+                val tripId = childTripId(ownerId, item, existing?.updatedAt) ?: return
+                val activity = data.toEntity(existing?.id ?: 0, tripId, item)
                 if (existing == null) dao.insertActivity(activity) else dao.updateActivity(activity)
             }
             is ItemData.ChecklistData -> {
-                val tripId = ownedTripId(ownerId, item) ?: return
                 val existing = dao.checklistItemByUuid(item.uuid)
-                if (existing != null && existing.updatedAt > item.updatedAt) return
-                val checklistItem = ChecklistItemEntity(
-                    id = existing?.id ?: 0,
-                    tripId = tripId,
-                    list = data.list,
-                    text = data.text,
-                    checked = data.checked,
-                    dueDate = data.dueDate,
-                    createdAt = data.createdAt,
-                    uuid = item.uuid,
-                    updatedAt = item.updatedAt,
-                    pendingSync = false,
-                )
+                val tripId = childTripId(ownerId, item, existing?.updatedAt) ?: return
+                val checklistItem = data.toEntity(existing?.id ?: 0, tripId, item)
                 if (existing == null) dao.insertChecklistItem(checklistItem) else dao.updateChecklistItem(checklistItem)
             }
             is ItemData.TravelerData -> {
-                val tripId = ownedTripId(ownerId, item) ?: return
                 val existing = dao.travelerByUuid(item.uuid)
-                if (existing != null && existing.updatedAt > item.updatedAt) return
-                val traveler = TravelerEntity(
-                    id = existing?.id ?: 0,
-                    tripId = tripId,
-                    name = data.name,
-                    color = data.color,
-                    createdAt = data.createdAt,
-                    uuid = item.uuid,
-                    updatedAt = item.updatedAt,
-                    pendingSync = false,
-                )
+                val tripId = childTripId(ownerId, item, existing?.updatedAt) ?: return
+                val traveler = data.toEntity(existing?.id ?: 0, tripId, item)
                 if (existing == null) dao.insertTraveler(traveler) else dao.updateTraveler(traveler)
             }
             is ItemData.SettlementData -> {
-                val tripId = ownedTripId(ownerId, item) ?: return
                 val existing = dao.settlementByUuid(item.uuid)
-                if (existing != null && existing.updatedAt > item.updatedAt) return
-                val settlement = SettlementEntity(
-                    id = existing?.id ?: 0,
-                    tripId = tripId,
-                    fromKey = data.fromKey,
-                    toKey = data.toKey,
-                    amountAgorot = data.amountAgorot,
-                    date = data.date,
-                    createdAt = data.createdAt,
-                    uuid = item.uuid,
-                    updatedAt = item.updatedAt,
-                    pendingSync = false,
-                )
+                val tripId = childTripId(ownerId, item, existing?.updatedAt) ?: return
+                val settlement = data.toEntity(existing?.id ?: 0, tripId, item)
                 if (existing == null) dao.insertSettlement(settlement) else dao.updateSettlement(settlement)
             }
         }
+    }
+
+    /**
+     * Local id of a child item's trip, or null when the cloud version must not be stored: the trip isn't on this
+     * device for this owner, or the local row ([localUpdatedAt], null = none) has a newer change.
+     */
+    private suspend fun childTripId(ownerId: String, item: SyncItem, localUpdatedAt: Long?): Long? {
+        val tripId = ownedTripId(ownerId, item) ?: return null
+        return tripId.takeIf { localUpdatedAt == null || localUpdatedAt <= item.updatedAt }
     }
 
     /** Local id of the item's trip, or null when the trip isn't on this device for this owner. */
@@ -194,6 +124,95 @@ class RoomSyncLocalStore(private val db: AppDatabase) : SyncLocalStore {
         return trip.id.takeIf { trip.ownerId == ownerId }
     }
 }
+
+// ---------- Cloud versions → Room rows (stored as synced) ----------
+
+private fun ItemData.TripData.toEntity(id: Long, ownerId: String, item: SyncItem) = TripEntity(
+    id = id,
+    ownerId = ownerId,
+    destination = destination,
+    startDate = startDate,
+    endDate = endDate,
+    color = color,
+    budgetAgorot = budgetAgorot,
+    currencyCode = currencyCode,
+    uuid = item.uuid,
+    updatedAt = item.updatedAt,
+    pendingSync = false,
+)
+
+private fun ItemData.ExpenseData.toEntity(id: Long, tripId: Long, item: SyncItem) = ExpenseEntity(
+    id = id,
+    tripId = tripId,
+    name = name,
+    amountAgorot = amountAgorot,
+    category = category,
+    date = date,
+    originalAmount = original?.amount,
+    originalCurrency = original?.currencyCode,
+    exchangeRate = original?.ilsPerUnit,
+    rateDate = original?.rateDate,
+    paidBy = paidBy,
+    splitBetween = splitBetween,
+    uuid = item.uuid,
+    updatedAt = item.updatedAt,
+    pendingSync = false,
+)
+
+private fun ItemData.ActivityData.toEntity(id: Long, tripId: Long, item: SyncItem) = ActivityEntity(
+    id = id,
+    tripId = tripId,
+    date = input.date,
+    startTime = input.startTime,
+    title = input.title,
+    note = input.note,
+    type = input.type,
+    location = input.location,
+    estimatedCostAgorot = input.estimatedCostAgorot,
+    booked = input.booked,
+    uuid = item.uuid,
+    updatedAt = item.updatedAt,
+    pendingSync = false,
+)
+
+private fun ItemData.ChecklistData.toEntity(id: Long, tripId: Long, item: SyncItem) = ChecklistItemEntity(
+    id = id,
+    tripId = tripId,
+    list = list,
+    text = text,
+    checked = checked,
+    dueDate = dueDate,
+    createdAt = createdAt,
+    uuid = item.uuid,
+    updatedAt = item.updatedAt,
+    pendingSync = false,
+)
+
+private fun ItemData.TravelerData.toEntity(id: Long, tripId: Long, item: SyncItem) = TravelerEntity(
+    id = id,
+    tripId = tripId,
+    name = name,
+    color = color,
+    createdAt = createdAt,
+    uuid = item.uuid,
+    updatedAt = item.updatedAt,
+    pendingSync = false,
+)
+
+private fun ItemData.SettlementData.toEntity(id: Long, tripId: Long, item: SyncItem) = SettlementEntity(
+    id = id,
+    tripId = tripId,
+    fromKey = fromKey,
+    toKey = toKey,
+    amountAgorot = amountAgorot,
+    date = date,
+    createdAt = createdAt,
+    uuid = item.uuid,
+    updatedAt = item.updatedAt,
+    pendingSync = false,
+)
+
+// ---------- Room rows → sync items ----------
 
 private fun TripEntity.toSyncItem() = SyncItem(
     kind = SyncKind.TRIP,

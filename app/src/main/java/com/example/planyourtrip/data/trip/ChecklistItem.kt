@@ -6,7 +6,13 @@ import java.time.LocalDate
  * The two checklists of a trip (Prep tab). Stored by [name] in Room and Firestore, so entries can be reordered or
  * appended, but never renamed or removed without a migration (an unknown name falls back to [BEFORE_TRIP]).
  */
-enum class ChecklistKind { BEFORE_TRIP, PACKING }
+enum class ChecklistKind {
+    BEFORE_TRIP, PACKING;
+
+    companion object {
+        fun fromName(name: String?): ChecklistKind = entries.firstOrNull { it.name == name } ?: BEFORE_TRIP
+    }
+}
 
 /**
  * Domain model of one checklist item. [dueDate] is only ever set on [ChecklistKind.BEFORE_TRIP] items.

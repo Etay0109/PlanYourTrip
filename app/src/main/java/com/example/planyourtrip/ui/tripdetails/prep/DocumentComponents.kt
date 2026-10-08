@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.R
 import com.example.planyourtrip.data.document.DocumentKind
 import com.example.planyourtrip.data.document.DocumentType
+import com.example.planyourtrip.ui.common.components.ConfirmDeleteDialog
 import com.example.planyourtrip.ui.common.components.Pill
 import com.example.planyourtrip.ui.common.errorSupportingText
 import com.example.planyourtrip.ui.theme.Dimens
@@ -390,15 +391,10 @@ fun DocumentFormDialog(
 /** "Delete this document?" — the row and its file go. */
 @Composable
 fun DeleteDocumentDialog(name: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.prep_delete_document_title)) },
-        text = { Text(stringResource(R.string.prep_delete_document_body, name)) },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error)
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    ConfirmDeleteDialog(
+        title = stringResource(R.string.prep_delete_document_title),
+        body = stringResource(R.string.prep_delete_document_body, name),
+        onConfirm = onConfirm,
+        onDismiss = onDismiss,
     )
 }

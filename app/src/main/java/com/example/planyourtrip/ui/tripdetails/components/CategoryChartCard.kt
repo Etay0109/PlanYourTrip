@@ -25,7 +25,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -38,8 +37,10 @@ import com.example.planyourtrip.ui.common.CategoryTotal
 import com.example.planyourtrip.ui.common.Money
 import com.example.planyourtrip.ui.common.labelRes
 import com.example.planyourtrip.ui.common.shekels
+import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
 import com.example.planyourtrip.ui.theme.HeroLabelStyle
+import com.example.planyourtrip.ui.theme.isLargeFontScale
 
 /**
  * "By category" card: donut chart of my spending per category (my share of each expense) with "TOTAL" in the middle,
@@ -62,7 +63,7 @@ fun CategoryChartCard(totals: List<CategoryTotal>, modifier: Modifier = Modifier
             )
             Spacer(Modifier.height(20.dp))
             BoxWithConstraints {
-                val stacked = maxWidth < 300.dp || LocalDensity.current.fontScale > 1.2f
+                val stacked = maxWidth < Dimens.NarrowContentWidth || isLargeFontScale()
                 if (stacked) {
                     Column {
                         Donut(totals, Modifier.align(Alignment.CenterHorizontally).size(160.dp))

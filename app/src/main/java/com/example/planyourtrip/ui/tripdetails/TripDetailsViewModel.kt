@@ -16,22 +16,27 @@ import com.example.planyourtrip.data.currency.isStale
 import com.example.planyourtrip.data.trip.ActivityRepository
 import com.example.planyourtrip.data.trip.DeletedActivity
 import com.example.planyourtrip.data.trip.DeletedActivityStore
+import com.example.planyourtrip.data.trip.Expense
 import com.example.planyourtrip.data.trip.ExpenseRepository
+import com.example.planyourtrip.data.trip.Traveler
 import com.example.planyourtrip.data.trip.TravelerRepository
 import com.example.planyourtrip.data.trip.TripRepository
 import com.example.planyourtrip.ui.common.CurrencyPickerState
 import com.example.planyourtrip.ui.common.Money
+import com.example.planyourtrip.ui.common.WhileUiSubscribed
 import com.example.planyourtrip.ui.common.categoryTotals
+import com.example.planyourtrip.ui.common.split.inListOrder
 import com.example.planyourtrip.ui.common.split.myShare
+import com.example.planyourtrip.ui.common.split.personOf
 import com.example.planyourtrip.ui.common.split.travelerOrder
 import com.example.planyourtrip.ui.common.tripStatus
 import com.example.planyourtrip.ui.navigation.TripDetails
+import com.example.planyourtrip.ui.tripdetails.components.ExpenseSplitInfo
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
@@ -104,17 +109,18 @@ class TripDetailsViewModel(
                     expenses = expenses,
                     travelers = travelers,
                     myShares = myShares,
+                    expenseSplits = expenseSplits(expenses, travelers, myShares),
                     itinerary = itinerary,
                 )
             }
         }
         .flowOn(computeDispatcher)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TripDetailsUiState.Loading)
+        .stateIn(viewModelScope, WhileUiSubscribed, TripDetailsUiState.Loading)
 
     /** An activity of this trip that was just deleted: the screen shows "Activity deleted" with "Undo". */
     val deletedActivity: StateFlow<DeletedActivity?> = deletedActivities.last
         .map { it?.takeIf { deleted -> deleted.activity.tripId == tripId } }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+        .stateIn(viewModelScope, WhileUiSubscribed, null)
 
     /** "Undo": the activity comes back. */
     fun onUndoDelete(deleted: DeletedActivity) {
@@ -219,7 +225,7 @@ class TripDetailsViewModel(
                 }
             }
         }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+        .stateIn(viewModelScope, WhileUiSubscribed, null)
 
     private fun currentCurrency(): String? = (uiState.value as? TripDetailsUiState.Loaded)?.trip?.currencyCode
 
@@ -305,8 +311,7 @@ class TripDetailsViewModel(
         /** Null when [input] is a valid budget: a number of shekels greater than zero. */
         fun validateBudget(input: String): BudgetFieldError? {
             if (input.isBlank()) return BudgetFieldError.EMPTY
-            val agorot = Money.parseAgorot(input)
-            return if (agorot == null || agorot <= 0) BudgetFieldError.INVALID else null
+            return if (Money.parsePositiveAgorot(input) == null) BudgetFieldError.INVALID else null
         }
 
         val Factory: ViewModelProvider.Factory = viewModelFactory {
@@ -326,5 +331,25 @@ class TripDetailsViewModel(
                 )
             }
         }
+    }
+}
+
+/**
+ * What each expense row shows with other travelers: who paid, who shares it (in list order) and my share (from
+ * [myShares]). Empty when the trip has only me, so the rows show no split line.
+ */
+internal fun expenseSplits(
+    expenses: List<Expense>,
+    travelers: List<Traveler>,
+    myShares: Map<Long, Long>,
+): Map<Long, ExpenseSplitInfo> {
+    if (travelers.isEmpty()) return emptyMap()
+    val order = travelerOrder(travelers)
+    return expenses.associate { expense ->
+        expense.id to ExpenseSplitInfo(
+            payer = personOf(expense.paidBy, travelers),
+            splitWith = inListOrder(expense.splitBetween, order).map { personOf(it, travelers) },
+            myShareAgorot = myShares[expense.id] ?: 0L,
+        )
     }
 }

@@ -1,8 +1,8 @@
 package com.example.planyourtrip.ui.tripdetails
 
 import com.example.planyourtrip.ui.common.TripFormatting
+import com.example.planyourtrip.ui.common.daysInclusive
 import java.time.LocalDate
-import java.time.temporal.ChronoUnit
 
 // Pure budget math (no Android dependencies, unit-tested). All money is whole agorot.
 
@@ -69,5 +69,5 @@ private fun perDayAmount(left: Long, days: Int): Long {
 fun remainingBudgetDays(start: LocalDate, end: LocalDate, today: LocalDate): Int? = when {
     today.isAfter(end) -> null
     today.isBefore(start) -> TripFormatting.lengthInDays(start, end)
-    else -> ChronoUnit.DAYS.between(today, end).toInt() + 1
+    else -> daysInclusive(today, end)
 }
