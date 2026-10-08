@@ -4,9 +4,6 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.launch
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
@@ -25,10 +22,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FabPosition
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -47,10 +47,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -59,10 +61,18 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.planyourtrip.R
+import com.example.planyourtrip.data.document.DocumentKind
+import com.example.planyourtrip.data.document.DocumentType
 import com.example.planyourtrip.data.trip.ActivityType
+import com.example.planyourtrip.data.trip.ChecklistItem
+import com.example.planyourtrip.data.trip.ChecklistKind
 import com.example.planyourtrip.data.trip.Expense
 import com.example.planyourtrip.data.trip.ExpenseCategory
 import com.example.planyourtrip.data.trip.ForeignAmount
+import com.example.planyourtrip.data.trip.ME
+import com.example.planyourtrip.data.trip.Settlement
+import com.example.planyourtrip.data.trip.Traveler
+import com.example.planyourtrip.data.trip.TravelerColor
 import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.data.trip.TripActivity
 import com.example.planyourtrip.data.trip.TripColor
@@ -70,13 +80,19 @@ import com.example.planyourtrip.ui.common.categoryTotals
 import com.example.planyourtrip.ui.common.components.BackTopAppBar
 import com.example.planyourtrip.ui.common.components.BrandMark
 import com.example.planyourtrip.ui.common.components.CurrencyPickerSheet
-import com.example.planyourtrip.ui.common.components.PrimaryButton
-import com.example.planyourtrip.ui.common.iconRes
-import com.example.planyourtrip.ui.common.labelRes
 import com.example.planyourtrip.ui.common.delete.DeleteTripHost
 import com.example.planyourtrip.ui.common.delete.DeleteTripViewModel
+import com.example.planyourtrip.ui.common.iconRes
+import com.example.planyourtrip.ui.common.labelRes
 import com.example.planyourtrip.ui.common.share.ShareTripHost
 import com.example.planyourtrip.ui.common.share.ShareTripViewModel
+import com.example.planyourtrip.ui.common.split.balances
+import com.example.planyourtrip.ui.common.split.inListOrder
+import com.example.planyourtrip.ui.common.split.myShare
+import com.example.planyourtrip.ui.common.split.personOf
+import com.example.planyourtrip.ui.common.split.sharedExpenseCount
+import com.example.planyourtrip.ui.common.split.simplifyTransfers
+import com.example.planyourtrip.ui.common.split.travelerOrder
 import com.example.planyourtrip.ui.common.tripStatus
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.PlanYourTripTheme
@@ -92,16 +108,13 @@ import com.example.planyourtrip.ui.tripdetails.components.DayChipsRow
 import com.example.planyourtrip.ui.tripdetails.components.DayPreviewCard
 import com.example.planyourtrip.ui.tripdetails.components.DaySummaryCard
 import com.example.planyourtrip.ui.tripdetails.components.ExpenseRow
+import com.example.planyourtrip.ui.tripdetails.components.ExpenseSplitInfo
 import com.example.planyourtrip.ui.tripdetails.components.FeatureCard
 import com.example.planyourtrip.ui.tripdetails.components.ItineraryActions
 import com.example.planyourtrip.ui.tripdetails.components.ItineraryHeader
 import com.example.planyourtrip.ui.tripdetails.components.OverviewMapIllustration
 import com.example.planyourtrip.ui.tripdetails.components.PlanTimeline
 import com.example.planyourtrip.ui.tripdetails.components.TripHeader
-import com.example.planyourtrip.data.document.DocumentKind
-import com.example.planyourtrip.data.document.DocumentType
-import com.example.planyourtrip.data.trip.ChecklistItem
-import com.example.planyourtrip.data.trip.ChecklistKind
 import com.example.planyourtrip.ui.tripdetails.prep.ChecklistRowState
 import com.example.planyourtrip.ui.tripdetails.prep.ChecklistState
 import com.example.planyourtrip.ui.tripdetails.prep.DocumentCardState
@@ -116,6 +129,13 @@ import com.example.planyourtrip.ui.tripdetails.prep.prepProgress
 import com.example.planyourtrip.ui.tripdetails.prep.prepTab
 import com.example.planyourtrip.ui.tripdetails.prep.progressMessage
 import com.example.planyourtrip.ui.tripdetails.prep.rememberPrepActions
+import com.example.planyourtrip.ui.tripdetails.split.SplitActions
+import com.example.planyourtrip.ui.tripdetails.split.SplitDialogs
+import com.example.planyourtrip.ui.tripdetails.split.SplitUiState
+import com.example.planyourtrip.ui.tripdetails.split.SplitViewModel
+import com.example.planyourtrip.ui.tripdetails.split.TravelersSection
+import com.example.planyourtrip.ui.tripdetails.split.WhoOwesWhomCard
+import kotlinx.coroutines.launch
 import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.LocalTime
@@ -135,6 +155,7 @@ fun TripDetailsScreen(
     shareViewModel: ShareTripViewModel = viewModel(factory = ShareTripViewModel.Factory),
     deleteViewModel: DeleteTripViewModel = viewModel(factory = DeleteTripViewModel.Factory),
     prepViewModel: PrepViewModel = viewModel(factory = PrepViewModel.Factory),
+    splitViewModel: SplitViewModel = viewModel(factory = SplitViewModel.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val budgetDialog by viewModel.budgetDialog.collectAsStateWithLifecycle()
@@ -175,6 +196,16 @@ fun TripDetailsScreen(
 
     val prepState by prepViewModel.uiState.collectAsStateWithLifecycle()
     val prepActions = rememberPrepActions(prepViewModel, snackbarHostState)
+
+    val splitState by splitViewModel.uiState.collectAsStateWithLifecycle()
+    val splitActions = remember(splitViewModel) {
+        SplitActions(
+            onAddTraveler = splitViewModel::onAddTraveler,
+            onTravelerClick = splitViewModel::onTravelerClick,
+            onSettleUp = splitViewModel::onSettleUp,
+            onShowHistory = splitViewModel::onShowHistory,
+        )
+    }
 
     val currencyActions = remember(viewModel) {
         CurrencyCardActions(
@@ -221,6 +252,8 @@ fun TripDetailsScreen(
         onOpenMaps = { destination -> openUrl(googleMapsSearchUrl(destination)) },
         prep = prepState,
         prepActions = prepActions,
+        split = splitState,
+        splitActions = splitActions,
     )
 
     currencyPicker?.let { picker ->
@@ -236,6 +269,7 @@ fun TripDetailsScreen(
     // Confirmed here, deleted on Home (the trip screen would otherwise show "not found" for a moment).
     DeleteTripHost(deleteViewModel, onConfirm = { deleteViewModel.takeConfirmed()?.let(onTripDeleted) })
     PrepDialogs(prepViewModel)
+    SplitDialogs(splitViewModel)
 }
 
 /** Opens a Google Maps [url]; false when no app (not even a browser) can open it. */
@@ -274,6 +308,9 @@ fun TripDetailsContent(
     /** The Prep tab's checklists and documents (their own ViewModel). */
     prep: PrepUiState = PrepUiState.Loading,
     prepActions: PrepActions = PrepActions.None,
+    /** The Budget tab's travelers, "Who owes whom" and "Settle up" (their own ViewModel). */
+    split: SplitUiState = SplitUiState.Loading,
+    splitActions: SplitActions = SplitActions.None,
 ) {
     when (state) {
         // Nothing is drawn until Room answers, so no placeholder flashes.
@@ -286,8 +323,25 @@ fun TripDetailsContent(
             contentWindowInsets = WindowInsets(0),
             bottomBar = { TripNavigationBar(selectedTab, onTabSelected) },
             snackbarHost = { SnackbarHost(snackbarHostState) },
-            // On every tab, above the navigation bar.
-            floatingActionButton = { AssistantFab(onOpenAssistant) },
+            // On every tab, above the navigation bar; the Budget tab adds "Add expense" at the bottom left.
+            floatingActionButton = {
+                if (selectedTab == TripTab.BUDGET) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                    ) {
+                        AddExpenseFab(onAddExpense)
+                        Spacer(Modifier.weight(1f).widthIn(min = 16.dp))
+                        AssistantFab(onOpenAssistant)
+                    }
+                } else {
+                    AssistantFab(onOpenAssistant)
+                }
+            },
+            // Centered = the full-width row above lines the two buttons up with both edges.
+            floatingActionButtonPosition = if (selectedTab == TripTab.BUDGET) FabPosition.Center else FabPosition.End,
         ) { innerPadding ->
             // A fresh list per tab, so a newly selected tab opens at the top.
             key(selectedTab) {
@@ -313,7 +367,7 @@ fun TripDetailsContent(
                                 state, currencyCard, currencyActions, itineraryActions,
                                 onTabSelected, onEditBudget, onOpenMaps,
                             )
-                        TripTab.BUDGET -> budgetTab(state, onEditBudget, onAddExpense, onExpenseClick)
+                        TripTab.BUDGET -> budgetTab(state, split, splitActions, onEditBudget, onExpenseClick)
                         TripTab.PREP -> prepTab(prep, prepActions)
                         TripTab.PLAN -> planTab(state, itineraryActions)
                     }
@@ -470,8 +524,9 @@ private fun LazyListScope.planTab(
 
 private fun LazyListScope.budgetTab(
     state: TripDetailsUiState.Loaded,
+    split: SplitUiState,
+    splitActions: SplitActions,
     onEditBudget: () -> Unit,
-    onAddExpense: () -> Unit,
     onExpenseClick: (Long) -> Unit,
 ) {
     item(key = "budget") {
@@ -482,25 +537,37 @@ private fun LazyListScope.budgetTab(
             modifier = cardPadding.padding(top = 8.dp),
         )
     }
+    if (split is SplitUiState.Loaded) {
+        item(key = "travelers") {
+            TravelersSection(split, splitActions, modifier = Modifier.padding(top = 8.dp))
+        }
+        // Only me: nobody to owe or be owed.
+        if (split.hasOthers) {
+            item(key = "owes") {
+                WhoOwesWhomCard(split, splitActions, modifier = cardPadding)
+            }
+        }
+    }
     if (state.categoryTotals.isNotEmpty()) {
         item(key = "categories") {
             CategoryChartCard(state.categoryTotals, modifier = cardPadding)
         }
     }
     item(key = "expenses-header") {
-        Column(cardPadding.padding(top = 8.dp)) {
+        Row(cardPadding.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = stringResource(R.string.budget_expenses),
                 style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.weight(1f),
             )
-            Spacer(Modifier.height(12.dp))
-            PrimaryButton(
-                text = stringResource(R.string.budget_add_expense),
-                onClick = onAddExpense,
-                leadingIcon = R.drawable.ic_add,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            if (state.expenses.isNotEmpty()) {
+                Text(
+                    text = stringResource(R.string.budget_newest_first),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
     if (state.expenses.isEmpty()) {
@@ -513,7 +580,22 @@ private fun LazyListScope.budgetTab(
         }
     } else {
         items(state.expenses, key = { "expense-${it.id}" }) { expense ->
-            ExpenseRow(expense, onClick = { onExpenseClick(expense.id) }, modifier = cardPadding)
+            ExpenseRow(
+                expense,
+                onClick = { onExpenseClick(expense.id) },
+                modifier = cardPadding,
+                // With other travelers: who paid, who shares it and my share.
+                split = if (state.travelers.isEmpty()) {
+                    null
+                } else {
+                    ExpenseSplitInfo(
+                        payer = personOf(expense.paidBy, state.travelers),
+                        splitWith = inListOrder(expense.splitBetween, travelerOrder(state.travelers))
+                            .map { personOf(it, state.travelers) },
+                        myShareAgorot = state.myShares[expense.id] ?: 0L,
+                    )
+                },
+            )
         }
     }
 }
@@ -552,6 +634,19 @@ private fun EmptyMessage(@DrawableRes icon: Int, title: String, body: String) {
 
 /** Bottom list padding that keeps the last card clear of the assistant button. */
 private val FabClearance = 96.dp
+
+/** "+ Add expense" at the bottom left of the Budget tab (the assistant button stays at the right). */
+@Composable
+private fun AddExpenseFab(onClick: () -> Unit) {
+    ExtendedFloatingActionButton(
+        onClick = onClick,
+        shape = CircleShape,
+        containerColor = MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.onPrimary,
+        icon = { Icon(painterResource(R.drawable.ic_add), contentDescription = null) },
+        text = { Text(stringResource(R.string.budget_add_expense), maxLines = 1) },
+    )
+}
 
 /** Round button with a sparkle that opens the trip assistant. */
 @Composable
@@ -642,11 +737,28 @@ private val previewTrip = Trip(
     budgetAgorot = 600_000,
 )
 
+private val previewTravelers = listOf(
+    Traveler(1, 1, "noa", "Noa", TravelerColor.ROSE),
+    Traveler(2, 1, "amit", "Amit", TravelerColor.INDIGO),
+)
+
+private val everyone = listOf(ME, "noa", "amit")
+
 private val previewExpenses = listOf(
     Expense(1, 1, "Flights TLV–FCO", 180_000, ExpenseCategory.FLIGHTS, LocalDate.of(2026, 9, 1)),
-    Expense(2, 1, "Hotel Campo de' Fiori", 120_000, ExpenseCategory.HOTELS, LocalDate.of(2026, 9, 3)),
-    Expense(3, 1, "Colosseum guided tour", 25_000, ExpenseCategory.ATTRACTIONS, LocalDate.of(2026, 9, 20)),
-    Expense(4, 1, "Leonardo Express", 20_000, ExpenseCategory.TRANSPORT, LocalDate.of(2026, 9, 21)),
+    // Paid by Noa for everyone (3 ways), and by me for Noa only.
+    Expense(
+        2, 1, "Hotel Campo de' Fiori", 120_000, ExpenseCategory.HOTELS, LocalDate.of(2026, 9, 3),
+        paidBy = "noa", splitBetween = everyone,
+    ),
+    Expense(
+        3, 1, "Colosseum guided tour", 25_000, ExpenseCategory.ATTRACTIONS, LocalDate.of(2026, 9, 20),
+        splitBetween = listOf("noa"),
+    ),
+    Expense(
+        4, 1, "Leonardo Express", 20_000, ExpenseCategory.TRANSPORT, LocalDate.of(2026, 9, 21),
+        paidBy = "amit", splitBetween = everyone,
+    ),
     // Entered in the trip currency: 10.00 EUR × 4.02 = ₪40.20.
     Expense(
         5, 1, "Gelato", 4_020, ExpenseCategory.FOOD, LocalDate.of(2026, 9, 22),
@@ -698,14 +810,36 @@ private fun previewState(
     expenses: List<Expense> = previewExpenses,
     activities: List<TripActivity> = previewActivities,
     planDay: LocalDate? = null,
-) = TripDetailsUiState.Loaded(
-    trip = trip,
-    status = tripStatus(trip, previewToday),
-    summary = budgetSummary(trip.budgetAgorot, expenses, trip.startDate, trip.endDate, previewToday),
-    categoryTotals = categoryTotals(expenses),
-    expenses = expenses,
-    itinerary = itineraryState(trip.startDate, trip.endDate, activities, planDay, null, previewToday),
-)
+    travelers: List<Traveler> = previewTravelers,
+): TripDetailsUiState.Loaded {
+    val order = travelerOrder(travelers)
+    // Without travelers every expense is mine alone.
+    val shown = if (travelers.isEmpty()) expenses.map { it.copy(paidBy = ME, splitBetween = listOf(ME)) } else expenses
+    val myShares = shown.associate { it.id to it.myShare(order) }
+    return TripDetailsUiState.Loaded(
+        trip = trip,
+        status = tripStatus(trip, previewToday),
+        summary = budgetSummary(
+            trip.budgetAgorot, myShares.values.sum(), trip.startDate, trip.endDate, previewToday,
+        ),
+        categoryTotals = categoryTotals(shown, { myShares.getValue(it.id) }, includeZeroCategories = true),
+        expenses = shown,
+        travelers = travelers,
+        myShares = myShares,
+        itinerary = itineraryState(trip.startDate, trip.endDate, activities, planDay, null, previewToday),
+    )
+}
+
+/** The split section for [state], computed like SplitViewModel does. */
+private fun previewSplit(state: TripDetailsUiState.Loaded, settlements: List<Settlement> = emptyList()): SplitUiState {
+    val order = travelerOrder(state.travelers)
+    return SplitUiState.Loaded(
+        travelers = state.travelers,
+        transfers = simplifyTransfers(balances(state.expenses, settlements, order), order),
+        sharedExpenseCount = sharedExpenseCount(state.expenses),
+        settlements = settlements,
+    )
+}
 
 private val previewChecklist = listOf(
     ChecklistItem(1, 1, ChecklistKind.BEFORE_TRIP, "Check passport is valid", checked = true, createdAt = 1),
@@ -773,6 +907,7 @@ private fun Preview(
     darkTheme: Boolean = false,
     currency: CurrencyCardState = previewRate,
     prep: PrepUiState = previewPrep,
+    split: SplitUiState = (state as? TripDetailsUiState.Loaded)?.let { previewSplit(it) } ?: SplitUiState.Loading,
 ) {
     PlanYourTripTheme(darkTheme = darkTheme) {
         TripDetailsContent(
@@ -782,6 +917,7 @@ private fun Preview(
             onTabSelected = {}, onBack = {}, onEditTrip = {}, onEditBudget = {}, onBudgetInputChange = {},
             onSaveBudget = {}, onDismissBudget = {}, onAddExpense = {}, onExpenseClick = {}, onOpenAssistant = {},
             prep = prep,
+            split = split,
         )
     }
 }
@@ -837,6 +973,22 @@ private fun BudgetNarrowPreview() = Preview(previewState(), TripTab.BUDGET)
 @Preview(name = "Budget – no expenses", widthDp = 411, heightDp = 891)
 @Composable
 private fun BudgetEmptyPreview() = Preview(previewState(expenses = emptyList()), TripTab.BUDGET)
+
+@Preview(name = "Budget – only me", widthDp = 411, heightDp = 1900)
+@Composable
+private fun BudgetOnlyMePreview() = Preview(previewState(travelers = emptyList()), TripTab.BUDGET)
+
+@Preview(name = "Budget – all settled up", widthDp = 411, heightDp = 1900)
+@Composable
+private fun BudgetSettledPreview() {
+    val state = previewState()
+    val order = travelerOrder(state.travelers)
+    // Pay every open debt.
+    val settlements = simplifyTransfers(balances(state.expenses, emptyList(), order), order).mapIndexed { i, t ->
+        Settlement(i + 1L, 1, "s$i", t.fromKey, t.toKey, t.amountAgorot, LocalDate.of(2026, 9, 30))
+    }
+    Preview(state, TripTab.BUDGET, split = previewSplit(state, settlements))
+}
 
 @Preview(name = "Overview – narrow, large font", widthDp = 320, heightDp = 1000, fontScale = 1.5f)
 @Composable

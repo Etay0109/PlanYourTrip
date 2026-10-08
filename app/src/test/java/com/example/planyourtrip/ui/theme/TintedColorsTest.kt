@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import com.example.planyourtrip.data.trip.ActivityType
 import com.example.planyourtrip.data.trip.ExpenseCategory
+import com.example.planyourtrip.data.trip.TravelerColor
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -78,6 +79,20 @@ class TintedColorsTest {
                     val ratio = contrast(color.content, background)
                     assertTrue("$palette $key in $mode: contrast $ratio < 3 on the background", ratio >= 3f)
                 }
+            }
+        }
+    }
+
+    @Test
+    fun travelerAvatars_haveColorsInBothModes_readableInitials_noRepeats_andNeverOrange() {
+        schemes.forEach { (mode, colors) ->
+            assertEquals(TravelerColor.entries.toSet(), colors.travelers.keys)
+            val fills = colors.travelers.values.map { it.container } + colors.removedTraveler.container
+            assertEquals("traveler colors repeat in $mode", fills.size, fills.toSet().size)
+            assertFalse("a traveler is orange in $mode", colors.budgetWarning in fills)
+            (colors.travelers + (null to colors.removedTraveler)).forEach { (key, color) ->
+                val ratio = contrast(color.content, color.container)
+                assertTrue("traveler $key in $mode: initials contrast $ratio < 4.5", ratio >= 4.5f)
             }
         }
     }

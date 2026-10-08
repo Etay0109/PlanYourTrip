@@ -5,6 +5,8 @@ import com.example.planyourtrip.data.trip.ActivityType
 import com.example.planyourtrip.data.trip.ChecklistKind
 import com.example.planyourtrip.data.trip.ExpenseCategory
 import com.example.planyourtrip.data.trip.ForeignAmount
+import com.example.planyourtrip.data.trip.ME
+import com.example.planyourtrip.data.trip.TravelerColor
 import com.example.planyourtrip.data.trip.TripColor
 import java.math.BigDecimal
 import java.time.LocalDate
@@ -44,6 +46,8 @@ object SyncDocuments {
                 "originalCurrency" to data.original?.currencyCode,
                 "exchangeRate" to data.original?.ilsPerUnit?.toPlainString(),
                 "rateDate" to data.original?.rateDate?.toString(),
+                "paidBy" to data.paidBy,
+                "splitBetween" to data.splitBetween,
             )
             is ItemData.ActivityData -> with(data.input) {
                 mapOf(
@@ -64,13 +68,26 @@ object SyncDocuments {
                 "dueDate" to data.dueDate?.toString(),
                 "createdAt" to data.createdAt,
             )
+            is ItemData.TravelerData -> mapOf(
+                "name" to data.name,
+                "color" to data.color.name,
+                "createdAt" to data.createdAt,
+            )
+            is ItemData.SettlementData -> mapOf(
+                "fromTraveler" to data.fromKey,
+                "toTraveler" to data.toKey,
+                "amountAgorot" to data.amountAgorot,
+                "date" to data.date.toString(),
+                "createdAt" to data.createdAt,
+            )
         }
         return fields + mapOf(DELETED to false, UPDATED_AT to item.updatedAt)
     }
 
     /**
      * Reads a cloud document; null when it can't be read (missing or wrong fields), so one bad document never
-     * stops a sync. Unknown enum names fall back like in Room (first color, OTHER, BEFORE_TRIP).
+     * stops a sync. Unknown enum names fall back like in Room (first color, OTHER, BEFORE_TRIP). An expense without
+     * `paidBy` / `splitBetween` (written before expense splitting) is "paid by me, not shared".
      */
     fun fromDocument(kind: SyncKind, uuid: String, tripUuid: String?, doc: Map<String, Any?>): SyncItem? =
         runCatching {
@@ -84,13 +101,22 @@ object SyncDocuments {
                     budgetAgorot = doc.long("budgetAgorot"),
                     currencyCode = doc.string("currencyCode"),
                 )
-                SyncKind.EXPENSE -> ItemData.ExpenseData(
-                    name = doc.string("name")!!,
-                    amountAgorot = doc.long("amountAgorot")!!,
-                    category = ExpenseCategory.entries.firstOrNull { it.name == doc["category"] } ?: ExpenseCategory.OTHER,
-                    date = LocalDate.parse(doc.string("date")),
-                    original = foreignAmount(doc),
-                )
+                SyncKind.EXPENSE -> {
+                    // Documents written before expense splitting have no payer or split: paid by me, not shared.
+                    val paidBy = doc.string("paidBy")?.takeIf { it.isNotEmpty() } ?: ME
+                    val split = (doc["splitBetween"] as List<*>?).orEmpty()
+                        .filterIsInstance<String>().filter { it.isNotEmpty() }.distinct()
+                    ItemData.ExpenseData(
+                        name = doc.string("name")!!,
+                        amountAgorot = doc.long("amountAgorot")!!,
+                        category = ExpenseCategory.entries.firstOrNull { it.name == doc["category"] }
+                            ?: ExpenseCategory.OTHER,
+                        date = LocalDate.parse(doc.string("date")),
+                        original = foreignAmount(doc),
+                        paidBy = paidBy,
+                        splitBetween = split.ifEmpty { listOf(paidBy) },
+                    )
+                }
                 SyncKind.ACTIVITY -> ItemData.ActivityData(
                     ActivityInput(
                         date = LocalDate.parse(doc.string("date")),
@@ -109,6 +135,18 @@ object SyncDocuments {
                     text = doc.string("text")!!,
                     checked = doc["checked"] as Boolean,
                     dueDate = doc.string("dueDate")?.let { LocalDate.parse(it) },
+                    createdAt = doc.long("createdAt")!!,
+                )
+                SyncKind.TRAVELER -> ItemData.TravelerData(
+                    name = doc.string("name")!!,
+                    color = TravelerColor.fromName(doc.string("color")),
+                    createdAt = doc.long("createdAt")!!,
+                )
+                SyncKind.SETTLEMENT -> ItemData.SettlementData(
+                    fromKey = doc.string("fromTraveler")!!,
+                    toKey = doc.string("toTraveler")!!,
+                    amountAgorot = doc.long("amountAgorot")!!,
+                    date = LocalDate.parse(doc.string("date")),
                     createdAt = doc.long("createdAt")!!,
                 )
             }

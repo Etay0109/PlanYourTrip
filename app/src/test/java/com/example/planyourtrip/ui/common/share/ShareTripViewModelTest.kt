@@ -3,12 +3,16 @@ package com.example.planyourtrip.ui.common.share
 import com.example.planyourtrip.FakeActivityRepository
 import com.example.planyourtrip.FakeAuthRepository
 import com.example.planyourtrip.FakeExpenseRepository
+import com.example.planyourtrip.FakeTravelerRepository
 import com.example.planyourtrip.FakeTripPdfExporter
 import com.example.planyourtrip.FakeTripRepository
 import com.example.planyourtrip.data.auth.AuthUser
 import com.example.planyourtrip.data.trip.ActivityType
 import com.example.planyourtrip.data.trip.Expense
 import com.example.planyourtrip.data.trip.ExpenseCategory
+import com.example.planyourtrip.data.trip.ME
+import com.example.planyourtrip.data.trip.Traveler
+import com.example.planyourtrip.data.trip.TravelerColor
 import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.data.trip.TripActivity
 import com.example.planyourtrip.data.trip.TripColor
@@ -43,12 +47,14 @@ class ShareTripViewModelTest {
     private val exporter = FakeTripPdfExporter()
     private lateinit var trips: FakeTripRepository
     private lateinit var viewModel: ShareTripViewModel
+    private lateinit var travelers: FakeTravelerRepository
+    private lateinit var expenses: FakeExpenseRepository
 
     @Before
     fun setUp() {
         Dispatchers.setMain(dispatcher)
         trips = FakeTripRepository(listOf("u1" to rome, "u2" to othersTrip))
-        val expenses = FakeExpenseRepository(
+        expenses = FakeExpenseRepository(
             trips,
             listOf(Expense(1, 1, "Hotel", 250_000, ExpenseCategory.HOTELS, nov(12))),
         )
@@ -56,7 +62,8 @@ class ShareTripViewModelTest {
             trips,
             listOf(TripActivity(1, 1, nov(12), LocalTime.of(10, 0), "Colosseum", ActivityType.ACTIVITY)),
         )
-        viewModel = ShareTripViewModel(auth, trips, expenses, activities, exporter, dispatcher)
+        travelers = FakeTravelerRepository(trips, expenses)
+        viewModel = ShareTripViewModel(auth, trips, expenses, activities, exporter, travelers, dispatcher)
     }
 
     @After
@@ -77,6 +84,18 @@ class ShareTripViewModelTest {
         viewModel.onDismiss()
         assertNull(state.dialog)
         assertTrue(exporter.exports.isEmpty())
+    }
+
+    @Test
+    fun `costs in the PDF count only my share of shared expenses`() = runTest(dispatcher) {
+        travelers.travelers.value = listOf(Traveler(1, 1, "noa", "Noa", TravelerColor.ROSE))
+        // The hotel (₪2,500) is split with Noa: ₪1,250 is mine.
+        expenses.expenses.value = expenses.expenses.value.map { it.copy(paidBy = "noa", splitBetween = listOf(ME, "noa")) }
+
+        viewModel.onShareTrip(1)
+        viewModel.onCreatePdf()
+
+        assertEquals(125_000L, exporter.exports.single().first.costs!!.spentAgorot)
     }
 
     @Test

@@ -2,12 +2,15 @@ package com.example.planyourtrip.ui.common.share
 
 import com.example.planyourtrip.data.trip.ActivityType
 import com.example.planyourtrip.data.trip.Expense
+import com.example.planyourtrip.data.trip.Traveler
 import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.data.trip.TripActivity
 import com.example.planyourtrip.ui.common.CategoryTotal
 import com.example.planyourtrip.ui.common.TripFormatting
 import com.example.planyourtrip.ui.common.activitiesOn
 import com.example.planyourtrip.ui.common.categoryTotals
+import com.example.planyourtrip.ui.common.split.myShare
+import com.example.planyourtrip.ui.common.split.travelerOrder
 import com.example.planyourtrip.ui.common.dayNumber
 import com.example.planyourtrip.ui.common.tripDays
 import java.time.LocalDate
@@ -65,7 +68,8 @@ data class PdfActivity(
 )
 
 /**
- * Builds the PDF content. With [includeCosts] off there is no money information at all. Activities outside the
+ * Builds the PDF content. With [includeCosts] off there is no money information at all; with it on, the cost section
+ * counts only my share of each expense (like the Budget tab), split with [travelers]. Activities outside the
  * trip dates are left out; each day lists its activities in timeline order (untimed last).
  */
 fun buildTripPdfContent(
@@ -73,6 +77,7 @@ fun buildTripPdfContent(
     expenses: List<Expense>,
     activities: List<TripActivity>,
     includeCosts: Boolean,
+    travelers: List<Traveler> = emptyList(),
 ): TripPdfContent {
     val days = tripDays(trip.startDate, trip.endDate).map { day ->
         PdfDay(
@@ -86,14 +91,15 @@ fun buildTripPdfContent(
         startDate = trip.startDate,
         endDate = trip.endDate,
         lengthDays = TripFormatting.lengthInDays(trip.startDate, trip.endDate),
-        costs = if (includeCosts) costSummary(trip.budgetAgorot, expenses) else null,
+        costs = if (includeCosts) costSummary(trip.budgetAgorot, expenses, travelerOrder(travelers)) else null,
         days = days.takeIf { list -> list.any { it.activities.isNotEmpty() } },
     )
 }
 
-private fun costSummary(budgetAgorot: Long?, expenses: List<Expense>): CostSummary? {
+private fun costSummary(budgetAgorot: Long?, expenses: List<Expense>, order: List<String>): CostSummary? {
     if (expenses.isEmpty()) return null
-    val spent = expenses.sumOf { it.amountAgorot }
+    val myShares = expenses.associate { it.id to it.myShare(order) }
+    val spent = myShares.values.sum()
     val budget = budgetAgorot?.takeIf { it > 0 }
     val difference = budget?.let {
         val left = it - spent
@@ -103,7 +109,7 @@ private fun costSummary(budgetAgorot: Long?, expenses: List<Expense>): CostSumma
             else -> BudgetDifference.OnBudget
         }
     }
-    return CostSummary(spent, budget, difference, categoryTotals(expenses))
+    return CostSummary(spent, budget, difference, categoryTotals(expenses, amountOf = { myShares.getValue(it.id) }))
 }
 
 private fun TripActivity.toPdfActivity() = PdfActivity(

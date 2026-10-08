@@ -39,6 +39,8 @@ class TripDaoTest {
     private lateinit var activities: RoomActivityRepository
     private lateinit var checklist: RoomChecklistRepository
     private lateinit var documents: RoomDocumentRepository
+    private lateinit var travelers: RoomTravelerRepository
+    private lateinit var settlements: RoomSettlementRepository
 
     /**
      * The checklist's clock stands still: every item is added in the same millisecond, the case where the order used
@@ -74,6 +76,8 @@ class TripDaoTest {
         activities = RoomActivityRepository(db.activityDao(), db.tripDao())
         checklist = RoomChecklistRepository(db.checklistDao(), db.tripDao(), fixedClock)
         documents = RoomDocumentRepository(db.documentDao(), db.tripDao(), files)
+        travelers = RoomTravelerRepository(db.travelerDao(), db.tripDao(), fixedClock)
+        settlements = RoomSettlementRepository(db.settlementDao(), db.tripDao(), fixedClock)
     }
 
     @After
@@ -511,7 +515,13 @@ class TripDaoTest {
         val rome = repository.addTrip("u1", "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17))
         val oslo = repository.addTrip("u1", "Oslo", LocalDate.of(2026, 12, 1), LocalDate.of(2026, 12, 3))
         for (trip in listOf(rome, oslo)) {
-            expenses.addExpense(trip, "u1", "Dinner", 12_050, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13))
+            val noa = travelers.addTraveler(trip, "u1", "Noa")!!
+            val noaKey = travelers.observeTravelers(trip, "u1").first().single { it.id == noa }.uuid
+            expenses.addExpense(
+                trip, "u1", "Dinner", 12_050, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13),
+                paidBy = noaKey, splitBetween = listOf(ME, noaKey),
+            )
+            settlements.addSettlement(trip, "u1", ME, noaKey, 6_025, LocalDate.of(2026, 11, 14))
             activities.addActivity(trip, "u1", input("Museum", LocalDate.of(2026, 11, 13)))
             checklist.addItem(trip, "u1", ChecklistKind.PACKING, "Charger")
             documents.addDocument(trip, "u1", DocumentInput("Ticket", DocumentType.TICKET, null), "c$trip", "application/pdf")
@@ -532,6 +542,8 @@ class TripDaoTest {
         assertEquals(0, count("SELECT COUNT(*) FROM expenses WHERE trip_id = ?", rome))
         assertEquals(0, count("SELECT COUNT(*) FROM activities WHERE trip_id = ?", rome))
         assertEquals(0, count("SELECT COUNT(*) FROM checklist_items WHERE trip_id = ?", rome))
+        assertEquals(0, count("SELECT COUNT(*) FROM travelers WHERE trip_id = ?", rome))
+        assertEquals(0, count("SELECT COUNT(*) FROM settlements WHERE trip_id = ?", rome))
         assertEquals(0, count("SELECT COUNT(*) FROM documents WHERE trip_uuid = ?", romeUuid))
         assertEquals(setOf(osloFile), storedFiles.keys) // Rome's file is gone, Oslo's stays
 
@@ -539,6 +551,8 @@ class TripDaoTest {
         assertEquals(1, count("SELECT COUNT(*) FROM expenses WHERE trip_id = ?", oslo))
         assertEquals(1, count("SELECT COUNT(*) FROM activities WHERE trip_id = ?", oslo))
         assertEquals(1, count("SELECT COUNT(*) FROM checklist_items WHERE trip_id = ?", oslo))
+        assertEquals(1, count("SELECT COUNT(*) FROM travelers WHERE trip_id = ?", oslo))
+        assertEquals(1, count("SELECT COUNT(*) FROM settlements WHERE trip_id = ?", oslo))
         assertEquals(1, documents.observeDocuments(oslo, "u1").first().size)
 
         // Only the trip's delete waits to upload; the cloud tombstones its children.
@@ -547,5 +561,127 @@ class TripDaoTest {
         assertEquals(SyncKind.TRIP, pending.single().kind)
         assertEquals(romeUuid, pending.single().uuid)
         assertTrue(pending.single().isDeleted)
+    }
+
+    @Test
+    fun expenses_storePayerAndSplit_andOldDefaultsArePaidByMeNotShared() = runTest {
+        val rome = repository.addTrip("u1", "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17))
+        val plain = expenses.addExpense(rome, "u1", "SIM", 5_000, ExpenseCategory.OTHER, LocalDate.of(2026, 11, 12))!!
+        val shared = expenses.addExpense(
+            rome, "u1", "Dinner", 18_000, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13),
+            paidBy = "r-noa", splitBetween = listOf(ME, "r-noa", "r-amit", ME),
+        )!!
+        val list = expenses.observeExpenses(rome, "u1").first()
+        assertEquals(ME, list.single { it.id == plain }.paidBy)
+        assertEquals(listOf(ME), list.single { it.id == plain }.splitBetween)
+        assertEquals("r-noa", list.single { it.id == shared }.paidBy)
+        assertEquals(listOf(ME, "r-noa", "r-amit"), list.single { it.id == shared }.splitBetween) // no duplicates
+
+        // "Not shared" after an edit; an empty split means the payer only.
+        expenses.updateExpense(
+            shared, "u1", "Dinner", 18_000, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13), null,
+            paidBy = "r-amit", splitBetween = emptyList(),
+        )
+        val edited = expenses.observeExpense(shared, "u1").first()!!
+        assertEquals("r-amit", edited.paidBy)
+        assertEquals(listOf("r-amit"), edited.splitBetween)
+    }
+
+    @Test
+    fun travelers_scopedToOwner_inTheOrderAdded_withRoundRobinColors_andRenamable() = runTest {
+        val rome = repository.addTrip("u1", "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17))
+        // Same millisecond (fixed clock): the order still follows the adds.
+        val noa = travelers.addTraveler(rome, "u1", " Noa ")!!
+        travelers.addTraveler(rome, "u1", "Amit")
+        assertNull(travelers.addTraveler(rome, "u2", "Mallory"))
+        assertNull(travelers.addTraveler(rome, "u1", "  "))
+
+        val list = travelers.observeTravelers(rome, "u1").first()
+        assertEquals(listOf("Noa", "Amit"), list.map { it.name })
+        assertEquals(listOf(TravelerColor.forIndex(0), TravelerColor.forIndex(1)), list.map { it.color })
+        assertTrue(travelers.observeTravelers(rome, "u2").first().isEmpty())
+
+        travelers.renameTraveler(noa, "u2", "Hacked")
+        travelers.renameTraveler(noa, "u1", " Noa B ")
+        assertEquals("Noa B", travelers.observeTravelers(rome, "u1").first().first().name)
+    }
+
+    @Test
+    fun removingATraveler_isBlockedWhilePayerSplitOrSettlementUseThem_andRecordedOtherwise() = runTest {
+        val rome = repository.addTrip("u1", "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17))
+        val ids = listOf("Noa", "Amit", "Dana", "Yoni").map { travelers.addTraveler(rome, "u1", it)!! }
+        val keys = travelers.observeTravelers(rome, "u1").first().map { it.uuid }
+        val (noa, amit, dana, yoni) = keys
+        expenses.addExpense(
+            rome, "u1", "Dinner", 9_000, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13),
+            paidBy = noa, splitBetween = listOf(ME, amit),
+        )
+        settlements.addSettlement(rome, "u1", dana, ME, 1_000, LocalDate.of(2026, 11, 14))
+
+        assertEquals(RemoveTravelerResult.IN_USE, travelers.removeTraveler(ids[0], "u1")) // paid
+        assertEquals(RemoveTravelerResult.IN_USE, travelers.removeTraveler(ids[1], "u1")) // in a split
+        assertEquals(RemoveTravelerResult.IN_USE, travelers.removeTraveler(ids[2], "u1")) // in a settlement
+        assertEquals(RemoveTravelerResult.NOT_FOUND, travelers.removeTraveler(ids[3], "u2"))
+        assertEquals(RemoveTravelerResult.REMOVED, travelers.removeTraveler(ids[3], "u1"))
+
+        assertEquals(listOf(noa, amit, dana), travelers.observeTravelers(rome, "u1").first().map { it.uuid })
+        val tombstone = RoomSyncLocalStore(db).snapshot("u1", pendingOnly = true).map { it.item }
+            .single { it.isDeleted }
+        assertEquals(SyncKind.TRAVELER, tombstone.kind)
+        assertEquals(yoni, tombstone.uuid)
+
+        // Once the settlement is deleted, Dana can go.
+        val paid = settlements.observeSettlements(rome, "u1").first().single()
+        settlements.deleteSettlement(paid.id, "u1")
+        assertEquals(RemoveTravelerResult.REMOVED, travelers.removeTraveler(ids[2], "u1"))
+    }
+
+    @Test
+    fun settlements_newestFirst_scopedToOwner_validated_andDeletesAreRecorded() = runTest {
+        val rome = repository.addTrip("u1", "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17))
+        settlements.addSettlement(rome, "u1", ME, "r-noa", 3_000, LocalDate.of(2026, 11, 13))
+        settlements.addSettlement(rome, "u1", "r-amit", ME, 1_500, LocalDate.of(2026, 11, 15))
+        assertNull(settlements.addSettlement(rome, "u2", ME, "r-noa", 100, LocalDate.of(2026, 11, 15)))
+        assertNull(settlements.addSettlement(rome, "u1", ME, "r-noa", 0, LocalDate.of(2026, 11, 15)))
+        assertNull(settlements.addSettlement(rome, "u1", ME, ME, 100, LocalDate.of(2026, 11, 15)))
+
+        val list = settlements.observeSettlements(rome, "u1").first()
+        assertEquals(listOf(1_500L, 3_000L), list.map { it.amountAgorot })
+        assertTrue(settlements.observeSettlements(rome, "u2").first().isEmpty())
+
+        val sync = RoomSyncLocalStore(db)
+        assertEquals(2, sync.snapshot("u1", pendingOnly = true).count { it.item.kind == SyncKind.SETTLEMENT })
+        settlements.deleteSettlement(list.first().id, "u2") // not theirs: nothing happens
+        settlements.deleteSettlement(list.first().id, "u1")
+        assertEquals(listOf(3_000L), settlements.observeSettlements(rome, "u1").first().map { it.amountAgorot })
+        assertTrue(
+            sync.snapshot("u1", pendingOnly = true).any { it.item.isDeleted && it.item.kind == SyncKind.SETTLEMENT }
+        )
+    }
+
+    @Test
+    fun travelersSettlementsAndSplitsFromTheCloud_areStored_andUploadedBackUnchanged() = runTest {
+        val sync = RoomSyncLocalStore(db)
+        val trip = SyncItem(
+            SyncKind.TRIP, "t-1", null, 10,
+            ItemData.TripData("Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17), TripColor.SKY, null, null),
+        )
+        val noa = SyncItem(SyncKind.TRAVELER, "r-1", "t-1", 10, ItemData.TravelerData("Noa", TravelerColor.SKY, 3))
+        val dinner = SyncItem(
+            SyncKind.EXPENSE, "e-1", "t-1", 10,
+            ItemData.ExpenseData(
+                "Dinner", 18_000, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13), null,
+                paidBy = "r-1", splitBetween = listOf(ME, "r-1"),
+            ),
+        )
+        val paid = SyncItem(
+            SyncKind.SETTLEMENT, "s-1", "t-1", 10,
+            ItemData.SettlementData(ME, "r-1", 9_000, LocalDate.of(2026, 11, 14), 4),
+        )
+        sync.apply("u1", planMerge(emptyList(), listOf(paid, dinner, noa, trip)))
+
+        val local = sync.snapshot("u1", pendingOnly = false)
+        assertTrue(local.none { it.pending })
+        assertEquals(setOf(trip, noa, dinner, paid), local.map { it.item }.toSet())
     }
 }

@@ -15,7 +15,8 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.tasks.await
 
 /**
- * Cloud Firestore: users/{uid}/trips/{tripUuid}, …/expenses/{uuid}, …/activities/{uuid}, …/checklist/{uuid}.
+ * Cloud Firestore: users/{uid}/trips/{tripUuid}, …/expenses/{uuid}, …/activities/{uuid}, …/checklist/{uuid},
+ * …/travelers/{uuid}, …/settlements/{uuid}.
  * The only class in the app that imports Firestore. Field names and tombstones come from [SyncDocuments] (see firestore.rules).
  */
 class FirestoreCloudStore private constructor(private val firestore: FirebaseFirestore) : CloudStore {
@@ -31,10 +32,14 @@ class FirestoreCloudStore private constructor(private val firestore: FirebaseFir
                     val expenses = doc.reference.collection(EXPENSES).get(Source.SERVER)
                     val activities = doc.reference.collection(ACTIVITIES).get(Source.SERVER)
                     val checklist = doc.reference.collection(CHECKLIST).get(Source.SERVER)
+                    val travelers = doc.reference.collection(TRAVELERS).get(Source.SERVER)
+                    val settlements = doc.reference.collection(SETTLEMENTS).get(Source.SERVER)
                     listOf(trip) +
+                        travelers.await().documents.mapNotNull { read(SyncKind.TRAVELER, it, doc.id) } +
                         expenses.await().documents.mapNotNull { read(SyncKind.EXPENSE, it, doc.id) } +
                         activities.await().documents.mapNotNull { read(SyncKind.ACTIVITY, it, doc.id) } +
-                        checklist.await().documents.mapNotNull { read(SyncKind.CHECKLIST, it, doc.id) }
+                        checklist.await().documents.mapNotNull { read(SyncKind.CHECKLIST, it, doc.id) } +
+                        settlements.await().documents.mapNotNull { read(SyncKind.SETTLEMENT, it, doc.id) }
                 }
             }.awaitAll().flatten()
         }
@@ -56,9 +61,9 @@ class FirestoreCloudStore private constructor(private val firestore: FirebaseFir
         for (item in items) {
             writes += ref(uid, item) to SyncDocuments.toDocument(item)
             if (item.kind == SyncKind.TRIP && item.isDeleted) {
-                // Other devices must also drop the trip's expenses, activities and checklist items.
+                // Other devices must also drop the trip's children.
                 val trip = trips(uid).document(item.uuid)
-                for (child in listOf(EXPENSES, ACTIVITIES, CHECKLIST)) {
+                for (child in listOf(TRAVELERS, EXPENSES, ACTIVITIES, CHECKLIST, SETTLEMENTS)) {
                     trip.collection(child).get(Source.SERVER).await().documents
                         .filter { it.getBoolean(SyncDocuments.DELETED) != true }
                         .forEach { writes += it.reference to SyncDocuments.toDocument(item.copy(data = null)) }
@@ -95,6 +100,9 @@ class FirestoreCloudStore private constructor(private val firestore: FirebaseFir
         SyncKind.EXPENSE -> trips(uid).document(checkNotNull(item.tripUuid)).collection(EXPENSES).document(item.uuid)
         SyncKind.ACTIVITY -> trips(uid).document(checkNotNull(item.tripUuid)).collection(ACTIVITIES).document(item.uuid)
         SyncKind.CHECKLIST -> trips(uid).document(checkNotNull(item.tripUuid)).collection(CHECKLIST).document(item.uuid)
+        SyncKind.TRAVELER -> trips(uid).document(checkNotNull(item.tripUuid)).collection(TRAVELERS).document(item.uuid)
+        SyncKind.SETTLEMENT ->
+            trips(uid).document(checkNotNull(item.tripUuid)).collection(SETTLEMENTS).document(item.uuid)
     }
 
     private fun read(kind: SyncKind, doc: DocumentSnapshot, tripUuid: String?): SyncItem? =
@@ -121,6 +129,8 @@ class FirestoreCloudStore private constructor(private val firestore: FirebaseFir
         private const val LEGACY_PLACES = "places"
         private const val ACTIVITIES = "activities"
         private const val CHECKLIST = "checklist"
+        private const val TRAVELERS = "travelers"
+        private const val SETTLEMENTS = "settlements"
 
         /** Firestore allows at most 500 writes per batch. */
         private const val MAX_BATCH = 450

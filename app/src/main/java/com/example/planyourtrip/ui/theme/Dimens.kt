@@ -45,4 +45,16 @@ object Dimens {
 
     /** The round check of a Prep checklist row. */
     val ChecklistCheckSize = 26.dp
+
+    /** Round traveler avatars in the Budget tab's Travelers row (and the dashed "+ Add" circle). */
+    val TravelerAvatarSize = 56.dp
+
+    /** Traveler avatars in the "Who owes whom" rows. */
+    val TravelerAvatarSmallSize = 32.dp
+
+    /** The payer's avatar on an expense row. */
+    val TravelerAvatarTinySize = 18.dp
+
+    /** Avatars inside the expense form's "Paid by" / "Split between" chips (the chip's leading icon size). */
+    val TravelerAvatarChipSize = 18.dp
 }

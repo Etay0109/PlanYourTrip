@@ -12,6 +12,8 @@ enum class ExpenseFieldError {
     NO_RATE,
     /** The date is after the trip's last day. */
     DATE_AFTER_TRIP,
+    /** Nobody is selected in "Split between". */
+    SPLIT_EMPTY,
 }
 
 /**
@@ -25,6 +27,9 @@ object ExpenseValidator {
     /** No minimum: flights and hotels are often paid before the trip starts. Null [tripEnd] = no limit. */
     fun validateDate(date: LocalDate, tripEnd: LocalDate?): ExpenseFieldError? =
         if (tripEnd != null && date > tripEnd) ExpenseFieldError.DATE_AFTER_TRIP else null
+
+    fun validateSplit(splitBetween: List<String>): ExpenseFieldError? =
+        if (splitBetween.isEmpty()) ExpenseFieldError.SPLIT_EMPTY else null
 
     /** A new expense is dated today, or the trip's last day when the trip has already ended. */
     fun defaultDate(today: LocalDate, tripEnd: LocalDate?): LocalDate =

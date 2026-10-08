@@ -17,10 +17,13 @@ import com.example.planyourtrip.data.trip.ActivityRepository
 import com.example.planyourtrip.data.trip.DeletedActivity
 import com.example.planyourtrip.data.trip.DeletedActivityStore
 import com.example.planyourtrip.data.trip.ExpenseRepository
+import com.example.planyourtrip.data.trip.TravelerRepository
 import com.example.planyourtrip.data.trip.TripRepository
 import com.example.planyourtrip.ui.common.CurrencyPickerState
 import com.example.planyourtrip.ui.common.Money
 import com.example.planyourtrip.ui.common.categoryTotals
+import com.example.planyourtrip.ui.common.split.myShare
+import com.example.planyourtrip.ui.common.split.travelerOrder
 import com.example.planyourtrip.ui.common.tripStatus
 import com.example.planyourtrip.ui.navigation.TripDetails
 import kotlinx.coroutines.CoroutineDispatcher
@@ -49,6 +52,7 @@ class TripDetailsViewModel(
     private val tripId: Long,
     private val tripRepository: TripRepository,
     expenseRepository: ExpenseRepository,
+    travelerRepository: TravelerRepository,
     private val activityRepository: ActivityRepository,
     private val authRepository: AuthRepository,
     private val currencyRepository: CurrencyRepository,
@@ -71,12 +75,19 @@ class TripDetailsViewModel(
             if (user == null) return@flatMapLatest flowOf(TripDetailsUiState.NotFound)
             combine(
                 tripRepository.observeTrip(tripId, user.uid),
-                expenseRepository.observeExpenses(tripId, user.uid),
+                combine(
+                    expenseRepository.observeExpenses(tripId, user.uid),
+                    travelerRepository.observeTravelers(tripId, user.uid),
+                    ::Pair,
+                ),
                 activityRepository.observeActivities(tripId, user.uid),
                 planDay,
                 overviewDay,
-            ) { trip, expenses, activities, planSelection, overviewSelection ->
+            ) { trip, (expenses, travelers), activities, planSelection, overviewSelection ->
                 if (trip == null) return@combine TripDetailsUiState.NotFound
+                // The budget counts only my share of each expense.
+                val order = travelerOrder(travelers)
+                val myShares = expenses.associate { it.id to it.myShare(order) }
                 val today = LocalDate.now(clock)
                 val itinerary = itineraryState(
                     trip.startDate, trip.endDate, activities, planSelection, overviewSelection, today,
@@ -84,9 +95,15 @@ class TripDetailsViewModel(
                 TripDetailsUiState.Loaded(
                     trip = trip,
                     status = tripStatus(trip, today),
-                    summary = budgetSummary(trip.budgetAgorot, expenses, trip.startDate, trip.endDate, today),
-                    categoryTotals = categoryTotals(expenses),
+                    summary = budgetSummary(
+                        trip.budgetAgorot, myShares.values.sum(), trip.startDate, trip.endDate, today,
+                    ),
+                    categoryTotals = categoryTotals(
+                        expenses, amountOf = { myShares.getValue(it.id) }, includeZeroCategories = true,
+                    ),
                     expenses = expenses,
+                    travelers = travelers,
+                    myShares = myShares,
                     itinerary = itinerary,
                 )
             }
@@ -300,6 +317,7 @@ class TripDetailsViewModel(
                     tripId = handle.toRoute<TripDetails>().tripId,
                     tripRepository = container.tripRepository,
                     expenseRepository = container.expenseRepository,
+                    travelerRepository = container.travelerRepository,
                     activityRepository = container.activityRepository,
                     authRepository = container.authRepository,
                     currencyRepository = container.currencyRepository,

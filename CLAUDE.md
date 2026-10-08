@@ -1,14 +1,16 @@
 # Plan Your Trip — Android app
 
 Trip-planning app. Kotlin + Jetpack Compose + Material 3, single Activity (`MainActivity`) hosting a
-Navigation Compose graph. Firebase Authentication (email/password); trips, budgets, expenses and itinerary activities
+Navigation Compose graph. Firebase Authentication (email/password); trips, budgets, expenses, travelers, settlements and itinerary activities
 are stored locally with Room, per account, and backed up to Cloud Firestore (Room stays the only source for the screens,
 see "Cloud sync"). Exchange rates come from the free Frankfurter API and are cached in Room.
 An AI trip assistant (Gemini through Firebase AI Logic, protected by Firebase App Check) chats about the trip and can
 add suggested day plans to the itinerary. "Share trip" creates a PDF summary (Android `PdfDocument`) and opens the
 share sheet. The trip screen's third tab, **Prep**, holds two checklists ("Before the trip", "Packing"; synced like the
 other items) and travel documents (PDFs/images copied into private storage, **on this device only**). A trip is deleted
-by swiping its Home card to the left or with "Delete trip" in its three-dots menus (see "Deleting a trip"). Maps are links only: the
+by swiping its Home card to the left or with "Delete trip" in its three-dots menus (see "Deleting a trip"). Expenses
+can be split between travelers (names only, not accounts); the budget counts only the user's own share (see "Budget tab
+and expense splitting"). Maps are links only: the
 Overview's Map card (a drawn illustration) opens Google Maps on the destination and each Plan activity with a location
 has an "Open in Maps" button (a URL, no SDK, no key, no location permission).
 Package: `com.example.planyourtrip`. minSdk 26, targetSdk 36.
@@ -39,6 +41,7 @@ app/src/main/java/com/example/planyourtrip/
   AppContainer.kt              # manual DI: AuthRepository, AppDatabase, TripRepository, ExpenseRepository,
                                # ActivityRepository, CurrencyRepository, AssistantRepository, Clock,
                                # SyncManager (+ syncController, SyncFlags), TripPdfExporter, ChecklistRepository,
+                               # TravelerRepository, SettlementRepository,
                                # DocumentFileStore, DocumentRepository (+ cleanUpDocumentFiles()), app-wide CoroutineScope
   data/auth/                   # AuthRepository (interface), AuthUser, AuthError/AuthException,
                                # FirebaseAuthRepository (the only Firebase Auth code)
@@ -49,7 +52,10 @@ app/src/main/java/com/example/planyourtrip/
                                # DeletedActivity (+ DeletedActivityStore: the "Undo" hand-over),
                                # ChecklistKind + ChecklistItem (+ DeletedChecklistItem), ChecklistItemEntity, ChecklistDao,
                                # ChecklistRepository + RoomChecklistRepository,
-                               # Converters, AppDatabase (v12), Migrations (MIGRATION_6_7, MIGRATION_10_11)
+                               # Travelers (ME = "me", Traveler, Settlement, RemoveTravelerResult), TravelerColor,
+                               # TravelerEntity/TravelerDao, SettlementEntity/SettlementDao, TravelerRepository +
+                               # SettlementRepository (+ RoomTravelerRepository, RoomSettlementRepository),
+                               # Converters, AppDatabase (v13), Migrations (MIGRATION_6_7, MIGRATION_10_11)
   data/document/               # Prep tab documents (this device only): DocumentType, TripDocument, DocumentInput, ViewFile,
                                # DocumentEntity, DocumentDao, DocumentRepository + RoomDocumentRepository (also the sync's
                                # TripCleanup), DocumentFileStore (interface) + AndroidDocumentFileStore (the only code that
@@ -85,7 +91,8 @@ app/src/main/java/com/example/planyourtrip/
                                # googleMapsActivityUrl = a Plan card's "Open in Maps"),
                                # components/ (TripHeader, BudgetCard,
                                # CurrencyCard, CategoryChartCard, ExpenseRow, BudgetDialog, FeatureCard,
-                               # IconChip/CategoryIcon, ActivityTimeline (TimelineRow, ActivityCard,
+                               # IconChip/CategoryIcon, TravelerAvatar (+ avatarColors, personName),
+                               # ExpenseRow (+ ExpenseSplitInfo), ActivityTimeline (TimelineRow, ActivityCard,
                                # CompactActivityCard, TagPill), ItineraryComponents (ItineraryActions, ItineraryHeader,
                                # DayChipsRow, DaySummaryCard, AddActivityButton, PlanTimeline, DailyPlanProgress,
                                # DayPreviewCard), OverviewMapIllustration (the Map card's drawn map + pill)),
@@ -95,6 +102,10 @@ app/src/main/java/com/example/planyourtrip/
                                # DocumentComponents (cards, form + delete dialogs, DocumentType icons/labels),
                                # ChecklistComponents (chips, rows, "Add item…", edit-text dialog),
                                # PrepHost (rememberPrepActions: file picker, viewer, snackbars; PrepDialogs)),
+                               # split/ (SplitViewModel (+ validateSettleAmount), SplitUiState (+ TravelerDialogState,
+                               # SettleSheetState, SettlePage, SettleAmountError), SplitComponents (SplitActions,
+                               # TravelersSection, WhoOwesWhomCard, TransferRow), SplitDialogs (TravelerDialog,
+                               # SettleUpSheet, delete-payment dialog)),
                                # expense/ (ExpenseFormScreen/ViewModel/UiState (+ ForeignRateState), ExpenseValidator,
                                # ExpenseCurrency (pure: per-currency parsing, conversion to agorot, save rule)),
                                # activity/ (ActivityFormScreen/ViewModel/UiState, ActivityValidator),
@@ -109,9 +120,13 @@ app/src/main/java/com/example/planyourtrip/
                                #   shekels()), PickerDates (DatePicker UTC conversion), ErrorText (errorSupportingText),
                                #   CurrencyPicker (CurrencyPickerState, filterCurrencies, currencyName),
                                #   TripDays (pure: tripDays, dayNumber, isWithinTrip, sortActivities, activitiesOn),
-                               #   CategoryTotals (pure: categoryTotals + CategoryTotal),
+                               #   CategoryTotals (pure: categoryTotals(amountOf, includeZeroCategories) + CategoryTotal),
                                #   ExpenseCategoryUi / ActivityTypeUi (iconRes()/labelRes())
-  ui/common/share/             # "Share trip" PDF: TripPdfContent (pure: model, buildTripPdfContent, pdfFileName),
+  ui/common/split/             # expense splitting, pure: Split (travelerOrder, inListOrder, shares, myShare, myTotal,
+                               #   isShared, sharedExpenseCount, balances, simplifyTransfers + Transfer,
+                               #   isTravelerUsed), People (Person: You / Named / Removed, people, personOf,
+                               #   avatarLetter, validateTravelerName + TravelerNameError)
+ui/common/share/             # "Share trip" PDF: TripPdfContent (pure: model, buildTripPdfContent, pdfFileName),
                                #   PdfPagination (pure: paginate), TripPdfExporter (interface, SharedPdf),
                                #   AndroidTripPdfExporter (the only PdfDocument/FileProvider code), ShareTripViewModel,
                                #   ShareTripUiState, ShareTripDialog (+ ShareTripHost: dialog + share sheet)
@@ -135,6 +150,7 @@ design/home_screen.png         # visual reference for the home screen and the ap
 design/trip_overview.png       # visual reference for the trip screen (Overview tab)
 design/trip_plan.png           # visual reference for the Plan tab (see "Plan tab" for the deliberate differences)
 design/trip_prep.png           # visual reference for the Prep tab (see "Prep tab" for the deliberate differences)
+design/trip_budget.png         # visual reference for the Budget tab (see "Budget tab and expense splitting")
 third_party/inter/OFL.txt      # Inter font license
 firestore.rules                # Firestore security rules (paste into the console)
 app/src/main/res/xml/file_paths.xml  # FileProvider paths: cache/shared_pdfs/ and files/documents/
@@ -207,7 +223,7 @@ other RTL language. There are no translations (`res/values` only).
 - Money stays "₪2,550" (`money_shekels` = "₪%1$s", grouping from `AppLocale`).
 
 ## Data model (Room)
-Database `plan_your_trip.db`, `AppDatabase` version 12, seven tables:
+Database `plan_your_trip.db`, `AppDatabase` version 13, nine tables:
 
 | `trips` column | Type | Notes |
 |---|---|---|
@@ -235,9 +251,12 @@ Database `plan_your_trip.db`, `AppDatabase` version 12, seven tables:
 | `original_currency` | TEXT, nullable | ISO 4217 code of that amount |
 | `exchange_rate` | TEXT, nullable | shekels per 1 unit used for the conversion, exact `BigDecimal` text |
 | `rate_date` | INTEGER, nullable | epoch day of that rate (from the rates service) |
+| `paid_by` | TEXT, default `'me'` | traveler key of the payer: `ME` (`"me"`, the account owner, "You") or a traveler `uuid` |
+| `split_between` | TEXT, default `'me'` | traveler keys sharing it equally, joined by `,` (`Converters`), never empty; `'me'` = "not shared" |
 
 The four `original_*`/`exchange_rate`/`rate_date` columns are all set or all null (null = entered in shekels);
-they map to `Expense.original: ForeignAmount?`.
+they map to `Expense.original: ForeignAmount?`. `paid_by`/`split_between` map to `Expense.paidBy`/`splitBetween`
+(an empty split reads as the payer only); the repositories drop duplicates and store an empty split as `[paidBy]`.
 
 **Sync columns:** `trips`, `expenses` and `activities` all have `uuid` (TEXT NOT NULL, unique index, a random UUID
 made at insert), `updated_at` (INTEGER, epoch millis, set from the injected `Clock` on every insert/update) and
@@ -248,8 +267,8 @@ interfaces use it); it differs between devices and is never synced.
 |---|---|---|
 | `uuid` | TEXT PK | the deleted item's uuid |
 | `owner_id` | TEXT, indexed | the account that deleted it |
-| `kind` | TEXT | `SyncKind` name: `TRIP`, `EXPENSE`, `ACTIVITY`, `CHECKLIST` |
-| `trip_uuid` | TEXT, nullable | the trip of an expense/activity/checklist item (the cloud path needs it); null for a trip |
+| `kind` | TEXT | `SyncKind` name: `TRIP`, `TRAVELER`, `EXPENSE`, `ACTIVITY`, `CHECKLIST`, `SETTLEMENT` |
+| `trip_uuid` | TEXT, nullable | the trip of a child item (the cloud path needs it); null for a trip |
 | `deleted_at` | INTEGER | epoch millis of the delete |
 
 A row exists only while the delete waits to upload (local tombstone).
@@ -301,6 +320,33 @@ A row exists only while the delete waits to upload (local tombstone).
 
 Documents are **never synced** (no sync columns). `DocumentDao.observeForTrip` joins `trips` on uuid **and** owner.
 
+| `travelers` column | Type | Notes |
+|---|---|---|
+| `id` | INTEGER PK | auto-generated |
+| `trip_id` | INTEGER, indexed | FK → `trips.id`, **`ON DELETE CASCADE`** |
+| `name` | TEXT | trimmed, never blank, unique in the trip ignoring case, never "You" (checked in the UI) |
+| `color` | TEXT | `TravelerColor` name (`ROSE, INDIGO, PURPLE, SKY, GREEN, GREEN_TEAL`; unknown → first), round-robin by the trip's traveler count |
+| `created_at` | INTEGER | epoch millis; the list order (`created_at, id`), always after the trip's last traveler (`max(now, latest + 1)`) |
+| + `uuid`, `updated_at`, `pending_sync` | | sync columns; `uuid` is also the traveler's **key** in expenses and settlements |
+
+"You" is **not** a row: it is the fixed key `ME` (`data/trip/Travelers.kt`), always first in the list order, never
+renamed or removed, so no trip needs a "You" row (new, migrated or downloaded). `TravelerDao.removeIfUnused`
+(one transaction) returns `IN_USE` when an expense of the trip has `paid_by` = the uuid or the uuid in
+`split_between` (`instr` on `,list,`) or a settlement uses it; otherwise records a `TRAVELER` deletion and deletes.
+
+| `settlements` column | Type | Notes |
+|---|---|---|
+| `id` | INTEGER PK | auto-generated |
+| `trip_id` | INTEGER, indexed | FK → `trips.id`, **`ON DELETE CASCADE`** |
+| `from_traveler` | TEXT | key of who paid (`me` or a traveler uuid) |
+| `to_traveler` | TEXT | key of who received it; never equal to `from_traveler` |
+| `amount_agorot` | INTEGER | > 0 |
+| `date` | INTEGER | epoch day (today when marked as paid) |
+| `created_at` | INTEGER | epoch millis; history is `date DESC, created_at DESC, id DESC` |
+| + `uuid`, `updated_at`, `pending_sync` | | sync columns |
+
+Deleting a settlement (`SettlementDao.deleteAndRecord`) records a `SETTLEMENT` deletion; the debt it paid reopens.
+
 | `exchange_rates` column | Type | Notes |
 |---|---|---|
 | `currency_code` | TEXT PK | one cached rate per currency, shared by all accounts (rates are public) |
@@ -350,37 +396,44 @@ the text uploads; activities that already had a location are untouched); then `a
 `place_id`/`place_lookup` (SQLite can't drop an FK column), `places` is dropped and `PLACE` rows are removed from
 `deletions`. Every trip, expense and activity is kept (`MigrationTest.migrate10To11…`). v11 → v12 is an
 `AutoMigration` that creates `checklist_items` and `documents` empty; all existing data is kept
-(`MigrationTest.migrate11To12…`). Room turns on
+(`MigrationTest.migrate11To12…`). v12 → v13 is an `AutoMigration` (expense splitting) that adds
+`expenses.paid_by` / `split_between` with the default `'me'` (every existing expense becomes "paid by me, not
+shared", so every trip keeps exactly its numbers; rows keep their `updated_at`/`pending_sync`, nothing re-uploads)
+and creates `travelers` and `settlements` empty (`MigrationTest.migrate12To13…`). Room turns on
 `PRAGMA foreign_keys` itself (the cascade is covered in `TripDaoTest`).
 - **Never seed sample trips into the database.** Sample data belongs only in previews and tests.
 - **Changing the schema:** bump `version`, add a `Migration` or `AutoMigration`, build, and commit the new JSON in
   `app/schemas/`. Do not use `fallbackToDestructiveMigration` — users would lose their trips.
 - **Deleting a trip** (`TripRepository.deleteTrip` → `TripDao.deleteAndRecord`, one transaction): records a `TRIP`
-  row in `deletions`, deletes the trip (the FK cascade removes its expenses, activities and checklist items) and
-  returns the trip's uuid; then `DocumentRepository.deleteForTrip(tripUuid, ownerId)` deletes its documents and their
+  row in `deletions`, deletes the trip (the FK cascade removes its expenses, activities, checklist items, travelers
+  and settlements) and returns the trip's uuid; then `DocumentRepository.deleteForTrip(tripUuid, ownerId)` deletes its documents and their
   files (no FK). Not `removeOrphans`: right after a sign-in, before the first full sync brings the trips back, it would
   also wipe the documents of trips that aren't back yet. If the app dies between the two steps, the next full sync's
   orphan cleanup removes the rest. `DeleteTripViewModel` runs both steps (see "Deleting a trip").
 
 ## Cloud sync (`data/sync`)
 **Room is the only source for the screens**; the app works offline exactly as before. Firestore is a per-account
-backup that also carries changes between devices. The exchange-rate cache, the assistant chat and the trip
+backup that also carries changes between devices (travelers, settlements and the expenses' payer/split included). The exchange-rate cache, the assistant chat and the trip
 documents (Prep tab) are never synced.
 
 ### Firestore layout (field names in `SyncDocuments`, must match `firestore.rules`)
 ```
 users/{uid}/trips/{tripUuid}                   destination, startDate, endDate, budgetAgorot, currencyCode, color
 users/{uid}/trips/{tripUuid}/expenses/{uuid}   name, amountAgorot, category, date,
-                                               originalAmount, originalCurrency, exchangeRate, rateDate
+                                               originalAmount, originalCurrency, exchangeRate, rateDate,
+                                               paidBy (string key), splitBetween (array of keys)
 users/{uid}/trips/{tripUuid}/activities/{uuid} date, startTime, title, note, type, location, estimatedCostAgorot, booked
 users/{uid}/trips/{tripUuid}/checklist/{uuid}  list, text, checked, dueDate, createdAt
+users/{uid}/trips/{tripUuid}/travelers/{uuid}  name, color, createdAt
+users/{uid}/trips/{tripUuid}/settlements/{uuid} fromTraveler, toTraveler, amountAgorot, date, createdAt
 every live document also has                   updatedAt (epoch millis, int), deleted: false
 ```
 - Money is whole agorot (int), dates ISO strings ("2026-11-12"), `startTime` "HH:mm", rates and foreign amounts exact
   decimal strings (`toPlainString()`), enums by name (unknown → same fallback as Room). Every key is written, null
   when empty. A document that can't be read is skipped and logged, never fatal. Activity documents written while
   places were synced may still hold `placeId` / `placeLookup`; reading ignores them, and the next upload of that
-  activity replaces the whole document without them.
+  activity replaces the whole document without them. An expense document without `paidBy`/`splitBetween` (written
+  before expense splitting) reads as paid by `"me"`, not shared; an empty `splitBetween` reads as `[paidBy]`.
 - **Old place documents** (`…/places/{uuid}`, synced until the Map tab was removed) are deleted once per account:
   after the first successful full sync, `SyncManager` calls `CloudStore.deleteLegacyPlaces(uid)` (real deletes of every
   document in every trip's `places`, tombstones included, batches of 450) and then sets
@@ -388,7 +441,7 @@ every live document also has                   updatedAt (epoch millis, int), de
   failure never fails the sync; the flag stays unset and the next full sync tries again. Quick syncs never run it.
 - **Deletes are tombstones:** the document is replaced (no merge) by `{deleted: true, updatedAt}`, so the data is
   gone but other devices learn about the delete and a delete-vs-edit conflict is decided by time. A trip tombstone
-  also turns its expenses and activities into tombstones.
+  also turns all its children (travelers, expenses, activities, checklist items, settlements) into tombstones.
 
 ### Write path
 - `RoomTripRepository` / `RoomExpenseRepository` / `RoomActivityRepository` take the `Clock` and a
@@ -426,8 +479,8 @@ every live document also has                   updatedAt (epoch millis, int), de
 | tombstone | missing / tombstone | drop the local tombstone |
 
 Children of a trip that ends up deleted are deleted here and never saved or uploaded. Cloud versions are saved in
-`SyncKind` order (`TRIP, EXPENSE, ACTIVITY, CHECKLIST`, stored by name so it may be reordered), trips first;
-checklist items in `createdAt` order, ties by uuid, so their rows are inserted in list order (the `id` tie-break then
+`SyncKind` order (`TRIP, TRAVELER, EXPENSE, ACTIVITY, CHECKLIST, SETTLEMENT`, stored by name so it may be reordered),
+trips first; checklist items and travelers in `createdAt` order, ties by uuid, so their rows are inserted in list order (the `id` tie-break then
 matches) whatever order Firestore returned them in. `RoomSyncLocalStore.apply`
 re-checks `updated_at` so a cloud version never replaces a newer local change made while the sync ran.
 Timestamps are device clocks (no server time), so a device with a very wrong clock can win conflicts it shouldn't.
@@ -448,12 +501,17 @@ Timestamps are device clocks (no server time), so a device with a very wrong clo
   `backgroundScope` and advances virtual time (`advanceUntilIdle` stops when only background work is left).
 
 ### Security rules (`firestore.rules`)
-Only `users/{uid}/trips/{tripId}` and its `expenses`/`activities`/`checklist` subcollections are matched for writing; a signed-in
+Only `users/{uid}/trips/{tripId}` and its `expenses`/`activities`/`checklist`/`travelers`/`settlements` subcollections
+are matched for writing; a signed-in
 user may read/delete their own documents and create/update them only with valid fields (`hasOnly` key lists, ISO
 dates, end ≥ start, amount > 0, budget/cost null or > 0, decimal strings for rates, "HH:mm" times, checklist text
-not empty, `checked` bool, `dueDate` null or ISO, `createdAt`/`updatedAt` int) or
-as a tombstone. `places` is **read/delete only** (for the one-time cleanup above). Everything else is denied. Change the
+not empty, `checked` bool, `dueDate` null or ISO, `createdAt`/`updatedAt` int; expense `paidBy` a non-empty string
+≤ 64 and `splitBetween` a list of 1–50, both **optional** so older app versions can still write; traveler `name`
+1–100 chars; settlement keys non-empty and different, `amountAgorot` > 0, ISO `date`) or as a tombstone. `places` is **read/delete only** (for the one-time cleanup above). Everything else is denied. Change the
 rules together with `SyncDocuments`.
+- Known limit: a device still running an app version from before expense splitting rewrites an expense it edits
+  without `paidBy`/`splitBetween`, so that expense becomes "paid by me, not shared" on every device. Travelers and
+  settlements are unknown to such a version (it never reads them).
 - Known limit: a device still running an app version from before the Map tab's removal writes places and activity
   `placeId`/`placeLookup` keys, which these rules reject, so that device's sync fails until it is updated.
 
@@ -522,10 +580,13 @@ TripDetails ──("Delete trip" confirmed)──▶ pop to Home with Home's sav
   Cancel, `AccountState.showSignOutWarning`); it also says the trip documents stay on the device either way. `HomeViewModel` only provides the greeting and the trips.
 
 ## Trip screen (`ui/tripdetails`)
-Reference: `design/trip_overview.png` (there is no separate Budget design; the Budget tab reuses the Overview style).
+Reference: `design/trip_overview.png` (Overview) and `design/trip_budget.png` (Budget tab, see "Budget tab and expense
+splitting").
 - `Scaffold` with a Material 3 `NavigationBar`: **Overview, Budget, Prep, Plan** (Prep: `ic_checklist`, see "Prep tab").
   A round `secondary` FAB with a sparkle (`AssistantFab`) sits above the navigation bar on all four tabs and opens
-  the assistant; the list has `FabClearance` bottom padding so it never covers the last card.
+  the assistant; the list has `FabClearance` bottom padding so it never covers the last card. On the Budget tab the
+  FAB slot holds a full-width row (`FabPosition.Center`): the primary pill "+ Add expense" (`AddExpenseFab`,
+  `ExtendedFloatingActionButton`) at the bottom left and the sparkle at the right, never overlapping.
 - **Prep tab:** see "Prep tab" below. `TripTab.PREP` replaced `TripTab.MAP` in the same (third) position.
 - **Header** (`TripHeader`, on every tab, scrolls with the list): hero gradient + `HeroWaves`, only bottom corners
   rounded (`extraLarge`), drawn behind the status bar (`contentWindowInsets = WindowInsets(0)` +
@@ -547,9 +608,7 @@ Reference: `design/trip_overview.png` (there is no separate Budget design; the B
   `https://www.google.com/maps/search/?api=1&query=` + the trimmed destination percent-encoded as UTF-8 (spaces `%20`)
   with `ACTION_VIEW`: the Google Maps app when installed, else the browser; `ActivityNotFoundException` → snackbar
   "No maps app found" (`openGoogleMaps` in `TripDetailsScreen`, shared with the Plan cards' "Open in Maps").
-- **Budget:** `BudgetCard` with an edit icon next to the total (opens the dialog), "By category" donut + legend (only
-  categories with spending, largest first), "Expenses" title + "+ Add expense" button + rows newest first (tap →
-  edit), or an empty state.
+- **Budget:** see "Budget tab and expense splitting" below.
 - `TripDetailsUiState`: `Loading` (nothing drawn) / `NotFound` (not the user's trip or deleted) / `Loaded`.
 - **Budget dialog** state lives in the ViewModel (`budgetDialog: BudgetDialogState?`): prefilled with the current
   budget; empty → `EMPTY`, unparseable or ≤ 0 → `INVALID`; Save stores it with `setBudget`.
@@ -560,10 +619,68 @@ Reference: `design/trip_overview.png` (there is no separate Budget design; the B
   "Expense currency"; date not after the trip's end (`DATE_AFTER_TRIP`, "The date can't be after the last day of
   the trip", under the date field). An existing expense dated after the trip (dates shortened later) is kept as it
   is in the list; opening it shows that error right away, and it can't be saved until the date is fixed. Editing a
-  field clears only its error. In edit mode the top bar has a delete icon → confirmation dialog → delete.
-- **Expense row:** round category icon, name, date, category label (`TagPill` in the category colors); right side
-  the shekel amount in bold and, for a foreign expense, the original ("€10.00", `ExpenseCurrency.formatOriginal`)
-  in small gray text.
+  field clears only its error. In edit mode the top bar has a delete icon → confirmation dialog → delete. With other
+  travelers, "Paid by" and "Split between" sit under the amount (see "Budget tab and expense splitting").
+- **Expense row** (`ExpenseRow`): round category icon, name, then the date and the category label (`TagPill` in the
+  category colors) on one `FlowRow`; right side the shekel amount in bold and, for a foreign expense, the original
+  ("€10.00", `ExpenseCurrency.formatOriginal`) in small gray text. With other travelers (`ExpenseSplitInfo`) a gray
+  line with the payer's 18dp avatar ("Paid by Noa · split 3 ways", "Paid by you · not shared", "Paid by you · for
+  Noa") and "Your share ₪60" in `primary` under the amounts. With only me neither is shown.
+
+### Budget tab and expense splitting (`ui/common/split`, `ui/tripdetails/split`)
+Reference: `design/trip_budget.png`, **with these deliberate differences**: the usual hero `TripHeader`, bottom bar and
+sparkle FAB stay as on every tab; "Newest first" is a plain gray label (there is only one order, so no dropdown arrow);
+the By category legend uses round dots, ₪0 rows (expenses I'm not part of) come **after** the others, not first.
+- **Layout** (top → bottom): `TripHeader`; `BudgetCard` (my share; on this tab without the wallet chip, edit icon next
+  to the total); **Travelers** (title + count `Pill`, a sideways-scrolling row of 56dp round avatars with the name under
+  each, "You" first and not tappable, then the dashed "+ Add" circle); **Who owes whom** (only with other travelers);
+  **By category** (`CategoryChartCard`: donut left with "TOTAL ₪X" inside, legend right with dots; stacked below
+  300dp or above font scale 1.2; categories with spending of mine largest first, then the ones with only ₪0 for me as
+  "₪0 0%" without a slice; nothing at all of mine → an empty `budgetTrack` ring); "Expenses" + "Newest first"; rows (or
+  the empty state). The "+ Add expense" pill is in the FAB row (see above).
+- **Travelers are names only**, not accounts. "You" is the virtual key `ME`, never a row (see the `travelers` table).
+  List order: You, then travelers by `created_at, id` (`travelerOrder`). Avatars (`TravelerAvatar`): "YOU" on
+  `primary`/`onPrimary`, otherwise the first letter or digit of the name on the traveler's `ExtendedColors.travelers`
+  fill; initials sized by `travelerAvatarTextStyle` (fits the circle at any font scale; decorative, the name is always
+  next to it and in the a11y text). A key no traveler has (removed on another device while used here) shows as
+  "Removed traveler" with a gray "?" (`Person.Removed`), and the numbers stay exact.
+- **Add / rename / remove** (`TravelerDialog`, state in `SplitViewModel`): "+ Add" → name field; tapping a traveler →
+  same dialog prefilled with "Remove". Names: trimmed, not blank (`EMPTY`), not another traveler's name ignoring case
+  (`DUPLICATE`), not "You" (`RESERVED`) — `validateTravelerName`. A traveler who paid for or shares an expense or
+  appears in a settlement (`isTravelerUsed`, checked when the dialog opens and again by the DAO in the delete
+  transaction) can't be removed: "Remove" is disabled and the dialog says "Noa paid for or shares an expense, or
+  appears in a settlement, so they can't be removed." `isSaving` is set synchronously (double taps save once).
+- **Shares** (`shares`, pure): equal split of the shekel `amountAgorot` in whole agorot; the remainder goes one agora
+  each to the first travelers in **list order** (keys sorted by list order, unknown keys last by key), so the shares
+  always add up exactly to the amount. `myShare` = my entry (0 when I'm not in the split).
+- **Budget counts my share only:** `TripDetailsViewModel` computes `myShares` (expense id → my share) and feeds
+  `budgetSummary(spentAgorot = sum)` (left, spent + percent, per-day line) and `categoryTotals(amountOf = my share,
+  includeZeroCategories = true)`. The Overview `BudgetCard`, the PDF cost section (`buildTripPdfContent(…, travelers)`,
+  categories > 0 only) and the assistant's "spent" (`myTotal`) use the same numbers. An expense I'm not part of counts
+  0 but is still listed. Settlements never touch the budget.
+- **Balances** (`balances`): per key, paid − shares, + settlements paid, − settlements received; always sum to 0.
+  **Transfers** (`simplifyTransfers`): the smallest number of payments: the non-zero balances are split into as many
+  zero-sum groups as possible (bitmask DP over subsets, ≤ 16 people with a balance; above that one greedy group), each
+  group of k settles with k − 1 transfers (largest debtor pays largest creditor). Sorted: rows with "You" first, then
+  the larger amount, then list order.
+- **Who owes whom** (`WhoOwesWhomCard`): "Based on N shared expenses" (`sharedExpenseCount`: split ≠ `[payer]`);
+  rows on `surfaceContainerHighest`: 32dp avatar → arrow → avatar, "Noa owes you" / "You owe Amit" / "Amit owes Noa",
+  the amount (teal when owed to me); tonal full-width "Settle up" (`primaryContainer`). No open debt → check icon +
+  "All settled up", plus a "History" link when payments exist. Hidden when the trip has only me.
+- **Settle up** (`SettleUpSheet`, `ModalBottomSheet`, state `SettleSheetState`): radio rows of the open transfers (a
+  single one is picked already); the amount field starts at the full amount (`Money.toInput`) and may be lowered for a
+  partial payment (`validateSettleAmount`: `EMPTY`, `INVALID` (≤ 0 / unparseable), `TOO_MUCH` (> the open amount));
+  "Mark as paid" saves `Settlement(from, to, amount, today)` and closes the sheet; `isSaving` is synchronous. "History"
+  switches the sheet to the payments, newest first ("Noa paid you · ₪100", date), each with a delete icon →
+  confirmation → delete (the debt reopens).
+- **Expense form:** with other travelers, under the amount: "Paid by" (`FilterChip`s with 18dp avatars, single) and
+  "Split between" (a "Not shared" chip = `[payer]`, then one chip per person, multi). New expense: paid by me, split
+  between everyone. Changing the payer while "Not shared" keeps it not shared (the split moves to the new payer); an
+  empty split → `SPLIT_EMPTY` ("Choose at least one person to split with") on Save. Editing keeps the stored payer and
+  split (unknown keys stay, shown as "Removed traveler"). With only me both fields are hidden and the expense saves
+  as `me` / `[me]`.
+- **One traveler only:** the Travelers section shows "You" and "+ Add"; no Who owes whom card; no split line or
+  "Your share" on rows; no split fields in the form. Every number is the same as before splitting existed.
 
 ### Expense currency (`expense/ExpenseCurrency.kt`, pure + unit-tested)
 - The selector (`SingleChoiceSegmentedButtonRow`) offers **ILS** and one foreign currency: the trip currency (none
@@ -729,8 +846,8 @@ distances, weather, plan photo, microphone or like/dislike buttons; **no orange*
   `FakeAssistantRepository` in unit tests; the developer tests on the device.
 - **Trip context** (`buildTripContext`, English + ISO dates whatever the device language): destination, today, dates +
   length + whether the trip is before/now/after, every day's activities in timeline order ("nothing planned" for empty
-  days), activities outside the dates, trip currency (or "not chosen"), budget total/spent/remaining in ₪ (or "no
-  budget set", or "over budget by"). Built from the latest Room data for **every** request.
+  days), activities outside the dates, trip currency (or "not chosen"), budget total/spent/remaining in ₪ (spent = my
+  share of each expense, like the Budget tab; or "no budget set", or "over budget by"). Built from the latest Room data for **every** request.
 - **Rules in the instructions:** answer in the language of the user's message; respect the remaining budget; never
   repeat planned activities; say when unsure about opening hours, prices etc.; plain text, no markdown.
 - **Structured answer** (`responseMimeType = "application/json"` + `responseSchema`):
@@ -785,7 +902,10 @@ distances, weather, plan photo, microphone or like/dislike buttons; **no orange*
 - "About ₪X per day for N days": before the trip N = trip length; during it N = days left **including today**;
   after the trip the line is hidden. Also hidden when nothing is left (≤ 0). X = left / N, rounded **down** to whole
   shekels (exact agorot below ₪1).
-- `categoryTotals` (`ui/common/CategoryTotals.kt`, shared with the PDF) = per-category sums > 0, largest first (ties by enum order), percent of total spending.
+- spent = **my share** of every expense (`myTotal`, see "Budget tab and expense splitting"), never the full amounts.
+- `categoryTotals` (`ui/common/CategoryTotals.kt`, shared with the PDF) = per-category sums of `amountOf` (my share) > 0,
+  largest first (ties by enum order), percent of the total; with `includeZeroCategories` (Budget tab) the categories
+  whose expenses count 0 follow as ₪0 / 0%.
 
 ## Share trip (PDF) (`ui/common/share`)
 - **Entry points:** the three-dots menu of every Home trip card and of the trip header → `ShareTripViewModel.onShareTrip
@@ -796,10 +916,10 @@ distances, weather, plan photo, microphone or like/dislike buttons; **no orange*
   open with "Couldn't create the PDF." and the button reads "Try again". On success the dialog closes and
   `pendingShare` is set; `ShareTripHost` starts `ACTION_SEND` in a chooser (`EXTRA_STREAM` + `ClipData` +
   `FLAG_GRANT_READ_URI_PERMISSION`) and calls `onShareLaunched()`.
-- **Data:** the ViewModel reads the trip, its expenses (only when costs are included) and activities once with
+- **Data:** the ViewModel reads the trip, its expenses and travelers (only when costs are included) and activities once with
   `.first()` for the current uid; another account's trip or no user → failure, nothing exported.
 - **Content** (`buildTripPdfContent`, pure, `TripPdfContent`): header (destination, dates, inclusive length); cost
-  section only when costs are included **and** there are expenses: total spent, budget and `BudgetDifference`
+  section only when costs are included **and** there are expenses: total spent (my share), budget and `BudgetDifference`
   (Under / Over / OnBudget) only when there is a budget, `categoryTotals` (largest first, only > 0, amount +
   percent); then one `PdfDay` per trip day ("Day 1 · Thu 12 Nov") with `activitiesOn` order (untimed last) and
   time, title, type, location, note (blank → null). An empty day says "Nothing planned". When no activity falls
@@ -853,7 +973,7 @@ Reference: `design/home_screen.png`. Match it closely when adding or changing sc
 - **Use theme tokens, never hard-coded colors in screens.** Material roles come from `MaterialTheme.colorScheme`;
   brand colors without a Material role come from `ExtendedTheme.colors` (hero gradient and its overlay, wave and glow
   colors, mint dot, badge, past-card colors, pastel letter squares, `budgetWarning` orange (also overdue due dates), `budgetTrack`,
-  `iconChip`, `categories` and `activityTypes`). Raw color values live only in `ui/theme/Color.kt` and
+  `iconChip`, `categories`, `activityTypes`, `travelers` and `removedTraveler`). Raw color values live only in `ui/theme/Color.kt` and
   `ExtendedColors.kt` — no exceptions.
 - **Activity type and category colors** (`ExtendedColors.activityTypes` / `categories`, both
   `Map<…, TintedColor>`): each entry has a `content` color (icon, label text, chart slice, timeline dot) and a
@@ -876,6 +996,10 @@ Reference: `design/home_screen.png`. Match it closely when adding or changing sc
   category labels, expense form chips. `TintedColorsTest` checks, for both maps in both modes, ≥ 4.5:1
   content-on-tint contrast, ≥ 3:1 on the background, no repeated colors, no `budgetWarning`, and that shared
   meanings share their hue — keep it passing when changing them.
+- **Traveler avatar colors** (`ExtendedColors.travelers`, `TintedColor(container = fill, content = initials)`): the
+  same `Hue*` constants as above (rose, indigo, purple, sky, green, green-teal), saturated fill + white initials in
+  light mode, the light `…Dark` hue + `Night` initials in dark mode; `removedTraveler` = gray. "You" is
+  `primary`/`onPrimary`. Never orange; `TintedColorsTest` checks ≥ 4.5:1 initials contrast, no repeats, both modes.
 - **Colors:** brand teal (`primary` #0F6E86, darker `secondary` #0B5A6E for the FAB), warm off-white background
   #FBF8FA, white cards (`surfaceContainerLowest`), gray secondary text (`onSurfaceVariant`). A dark scheme exists for
   every token.
@@ -896,7 +1020,8 @@ Reference: `design/home_screen.png`. Match it closely when adding or changing sc
 - **Sizes** (`ui/theme/Dimens.kt`): `ScreenPadding` 20dp screen side padding, `AvatarSize` 56dp avatar and letter
   squares, `ButtonHeight` 52dp primary buttons, `IconChipSize` 44dp round icon chips, `CategoryIconSize` 40dp
   category squares, `TouchTarget` 48dp, `CardMenuIconSize` / `CardMenuIconInset` / `CardMenuEndPadding` (home card
-  three-dots button), `MapPreviewMinHeight` 88dp (Overview Map card's picture), `SwipeRevealWidth` 96dp (Home card's red "Delete" area). Add a value there instead of repeating a number in several files.
+  three-dots button), `MapPreviewMinHeight` 88dp (Overview Map card's picture), `SwipeRevealWidth` 96dp (Home card's red "Delete" area),
+  `TravelerAvatarSize` 56dp / `TravelerAvatarSmallSize` 32dp / `TravelerAvatarTinySize` 18dp / `TravelerAvatarChipSize` 18dp (traveler avatars). Add a value there instead of repeating a number in several files.
 - **Spacing:** 16dp between cards, 16–24dp inside cards. The home list has an extra 104dp bottom padding so the FAB
   never covers the last card.
 - **Reuse the shared components** before writing new UI: `PrimaryButton` (pill button with optional loading
@@ -990,7 +1115,16 @@ Reference: `design/home_screen.png`. Match it closely when adding or changing sc
   ("incompatible version of Kotlin ... metadata is 2.3.0"), so upgrading Firebase requires upgrading Kotlin first. `firebase-ai` 17.11.0 (in BoM 34.12.0) is built
   with Kotlin 2.0.21 + serialization 1.7.3; check its POM before upgrading the BoM. Only declare dependencies that code actually uses (`androidx.test:runner` is declared
   explicitly because `AndroidJUnitRunner` needs it).
-- Keep pure logic in plain Kotlin and unit-test it: validators, `groupTrips`, `tripStatus`, `TripFormatting`,
+- Keep pure logic in plain Kotlin and unit-test it: expense splitting (`SplitTest`: uneven split with the extra agorot
+  in list order, an expense I'm not part of, not shared, paid for someone else, three travelers with crossing debts,
+  independent pairs and zero-sum groups (minimum transfers), partial settlement, deleted settlement, everything
+  settled, settlements never change my share, single traveler, unknown/removed key, empty split, a random property
+  test that shares, category totals and balances always add up, `isTravelerUsed`, name rules, avatar letters;
+  `SplitViewModelTest`: add/rename/duplicate/blank/"You", double taps, remove blocked by payer/split/settlement or
+  used meanwhile, settle full/partial/single debt/invalid amounts, history delete with confirmation, another account's
+  trip; `ExpenseFormTest`: only me, defaults with travelers, not shared + payer change, empty split, editing keeps the
+  split, removed traveler; `TripDetailsViewModelTest`: my share in the summary and chart, an existing trip keeps its
+  numbers; `TripPdfContentTest`/`ShareTripViewModelTest`/`AssistantViewModelTest`: my share), validators, `groupTrips`, `tripStatus`, `TripFormatting`,
   `PickerDates`, `Money`, `BudgetCalculations`, `AppLocaleTest` (formatters stay English under an RTL default locale), `Itinerary` (`ItineraryTest`: one-day, past and current trips,
   untimed activities, activities outside the dates),
   `CurrencyConversion` (incl. digit-by-digit typing tests), activity type and category color contrast (`TintedColorsTest`), `ExpenseCurrency` (no-decimal currency, no rate, editing with/without changing the amount, switching currency), the expense date limit (`ExpenseFormTest`: default after the trip ended, date after the trip on save, editing an expense already dated after the trip), deleting an activity (`ActivityFormTest`: delete offers Undo, every type saves without a location; `TripDetailsViewModelTest`: Undo restores the activity, only this trip's message, dismiss keeps the delete), `CurrencyPicker`, `FrankfurterJson`, `isStale`, the assistant (`AssistantJsonTest`: malformed answer, unknown type,
@@ -1001,10 +1135,11 @@ planned, untimed activities; `PdfFileNameTest`: special characters, emoji, Hebre
 `PdfPaginationTest`; `ShareTripViewModelTest`: double tap, failure + try again, costs off, another account's trip),
 the sync (`SyncMergeTest`: edited on two devices,
 deleted on one and edited on another, first upload, children of a deleted trip, checklist items saved in creation
-order; `SyncDocumentsTest`: field formats,
-tombstones, fallbacks; `SyncManagerTest`: second account on the same device, offline in the middle of a sync,
+order, travelers/settlements of a deleted trip, save order with travelers; `SyncDocumentsTest`: field formats,
+tombstones, fallbacks, payer/split, an expense document from before splitting, travelers, settlements; `SyncManagerTest`: second account on the same device, offline in the middle of a sync,
 reconnect, quick sync, edits during an upload, sign-out paths, the one-time removal of old place documents (once per
-account, retried after a failure, never in a quick sync or offline), checklist items, the documents cleanup (only after a
+account, retried after a failure, never in a quick sync or offline), checklist items, travelers + settlements + shared
+expenses up and down, a deleted trip tombstoning its travelers and settlements, the documents cleanup (only after a
 successful full sync); `SyncDocumentsTest` also reads an older activity document with `placeId`/`placeLookup` and
 covers checklist fields), the Prep tab (`PrepProgressTest`: no items, all done, 12 of 20, rounding down, overdue / due
 today / checked, toggling, insertion order, suggested items; `DocumentFilesTest`: PDF/images, unsupported types, the
@@ -1017,6 +1152,7 @@ user, failure, confirmed on the trip screen and deleted on Home; `HomeViewModelT
 the Next trip, the last trip → empty; `SyncManagerTest`: deleted offline, uploaded with its children's tombstones when
 the connection returns), `firstName`/`initials`/`greetingName`, `TripColor`, and every
   ViewModel (with `FakeTripRepository`, `FakeExpenseRepository`, `FakeActivityRepository`,
+  `FakeTravelerRepository` + `FakeSettlementRepository` (`gate`, `added`; removal checks the fake expenses/settlements),
   `FakeCurrencyRepository`, `FakeChecklistRepository`, `FakeDocumentRepository` + `FakeDocumentFileStore` (`picked`,
   `actualSizes`, `failCopy`), `FakeAssistantRepository` (scripted responses, recorded requests, `gate`), `FakeTripRepository` (`failDelete`, `deleteGate`, `deletes`, trip uuid = `uuidOf(id)`), `FakeTripPdfExporter` (`exports`,
   `fail`, `gate`), `FakeSyncController`, `FakeCloudStore`,
@@ -1026,7 +1162,11 @@ the connection returns), `firstName`/`initials`/`greetingName`, `TripColor`, and
   activities, cascades, sync columns, recorded deletes, restore as a new pending row, checklist order/scoping/due
   dates/restore, documents scoped by owner, kept after sign-out and shown again when the trip returns, orphans and the
   file sweep, suggested items keeping their order with a fixed clock (same millisecond, delete + Undo, clock set
-  back), checklist items from the cloud stored in creation order, a deleted trip leaving no expenses/activities/checklist items/documents/files behind and only its
-  `TRIP` tombstone pending); `MigrationTest` covers v6 → v7, v7 → v8, v8 → v9, v9 → v10, v10 → v11 (place names copied into empty
+  back), checklist items from the cloud stored in creation order, payer/split columns, travelers (order, colors, owner,
+  rename), removal blocked by payer/split/settlement and recorded otherwise, settlements (order, validation, recorded
+  deletes), travelers/settlements/splits from the cloud, a deleted trip leaving no expenses/activities/checklist
+  items/travelers/settlements/documents/files behind and only its `TRIP` tombstone pending); `MigrationTest` covers v6 → v7, v7 → v8, v8 → v9, v9 → v10, v10 → v11 (place names copied into empty
   locations as pending edits, own locations untouched, places and `PLACE` deletions gone, all trips/expenses/activities
-  kept, cascade still works) and v11 → v12 (all data kept, new tables empty, checklist cascade, documents without FK).
+  kept, cascade still works), v11 → v12 (all data kept, new tables empty, checklist cascade, documents without FK) and
+  v12 → v13 (all data kept with the same amounts, existing expenses `paid_by`/`split_between` = `me` and not re-uploaded,
+  travelers/settlements empty, cascade).

@@ -6,6 +6,8 @@ import com.example.planyourtrip.data.trip.ActivityInput
 import com.example.planyourtrip.data.trip.AppDatabase
 import com.example.planyourtrip.data.trip.ChecklistItemEntity
 import com.example.planyourtrip.data.trip.ExpenseEntity
+import com.example.planyourtrip.data.trip.SettlementEntity
+import com.example.planyourtrip.data.trip.TravelerEntity
 import com.example.planyourtrip.data.trip.TripEntity
 import com.example.planyourtrip.data.trip.toExpense
 import kotlinx.coroutines.flow.Flow
@@ -18,6 +20,8 @@ class RoomSyncLocalStore(private val db: AppDatabase) : SyncLocalStore {
             dao.expenses(ownerId, pendingOnly).map { LocalItem(it.toSyncItem(), it.expense.pendingSync) } +
             dao.activities(ownerId, pendingOnly).map { LocalItem(it.toSyncItem(), it.activity.pendingSync) } +
             dao.checklistItems(ownerId, pendingOnly).map { LocalItem(it.toSyncItem(), it.item.pendingSync) } +
+            dao.travelers(ownerId, pendingOnly).map { LocalItem(it.toSyncItem(), it.traveler.pendingSync) } +
+            dao.settlements(ownerId, pendingOnly).map { LocalItem(it.toSyncItem(), it.settlement.pendingSync) } +
             dao.deletions(ownerId).map { LocalItem(it.toSyncItem(), pending = true) }
     }
 
@@ -29,6 +33,8 @@ class RoomSyncLocalStore(private val db: AppDatabase) : SyncLocalStore {
                 SyncKind.EXPENSE -> dao.deleteExpense(item.uuid, ownerId, item.updatedAt)
                 SyncKind.ACTIVITY -> dao.deleteActivity(item.uuid, ownerId, item.updatedAt)
                 SyncKind.CHECKLIST -> dao.deleteChecklistItem(item.uuid, ownerId, item.updatedAt)
+                SyncKind.TRAVELER -> dao.deleteTraveler(item.uuid, ownerId, item.updatedAt)
+                SyncKind.SETTLEMENT -> dao.deleteSettlement(item.uuid, ownerId, item.updatedAt)
             }
         }
         plan.dropTombstones.forEach { dao.dropDeletion(it.uuid, ownerId, it.updatedAt) }
@@ -41,13 +47,15 @@ class RoomSyncLocalStore(private val db: AppDatabase) : SyncLocalStore {
             SyncKind.EXPENSE -> dao.markExpenseSynced(item.uuid, ownerId, item.updatedAt)
             SyncKind.ACTIVITY -> dao.markActivitySynced(item.uuid, ownerId, item.updatedAt)
             SyncKind.CHECKLIST -> dao.markChecklistItemSynced(item.uuid, ownerId, item.updatedAt)
+            SyncKind.TRAVELER -> dao.markTravelerSynced(item.uuid, ownerId, item.updatedAt)
+            SyncKind.SETTLEMENT -> dao.markSettlementSynced(item.uuid, ownerId, item.updatedAt)
         }
     }
 
     override fun pendingCount(ownerId: String): Flow<Int> = dao.pendingCount(ownerId)
 
     override suspend fun deleteAllFor(ownerId: String) = db.withTransaction {
-        // Expenses, activities and checklist items go with their trips (foreign key CASCADE). Documents are not
+        // Travelers, expenses, activities, checklist items and settlements go with their trips (foreign key CASCADE). Documents are not
         // synced and stay on the device (hidden by owner), so they are not deleted here.
         dao.deleteTripsOf(ownerId)
         dao.deleteDeletionsOf(ownerId)
@@ -95,6 +103,8 @@ class RoomSyncLocalStore(private val db: AppDatabase) : SyncLocalStore {
                     originalCurrency = data.original?.currencyCode,
                     exchangeRate = data.original?.ilsPerUnit,
                     rateDate = data.original?.rateDate,
+                    paidBy = data.paidBy,
+                    splitBetween = data.splitBetween,
                     uuid = item.uuid,
                     updatedAt = item.updatedAt,
                     pendingSync = false,
@@ -141,6 +151,40 @@ class RoomSyncLocalStore(private val db: AppDatabase) : SyncLocalStore {
                 )
                 if (existing == null) dao.insertChecklistItem(checklistItem) else dao.updateChecklistItem(checklistItem)
             }
+            is ItemData.TravelerData -> {
+                val tripId = ownedTripId(ownerId, item) ?: return
+                val existing = dao.travelerByUuid(item.uuid)
+                if (existing != null && existing.updatedAt > item.updatedAt) return
+                val traveler = TravelerEntity(
+                    id = existing?.id ?: 0,
+                    tripId = tripId,
+                    name = data.name,
+                    color = data.color,
+                    createdAt = data.createdAt,
+                    uuid = item.uuid,
+                    updatedAt = item.updatedAt,
+                    pendingSync = false,
+                )
+                if (existing == null) dao.insertTraveler(traveler) else dao.updateTraveler(traveler)
+            }
+            is ItemData.SettlementData -> {
+                val tripId = ownedTripId(ownerId, item) ?: return
+                val existing = dao.settlementByUuid(item.uuid)
+                if (existing != null && existing.updatedAt > item.updatedAt) return
+                val settlement = SettlementEntity(
+                    id = existing?.id ?: 0,
+                    tripId = tripId,
+                    fromKey = data.fromKey,
+                    toKey = data.toKey,
+                    amountAgorot = data.amountAgorot,
+                    date = data.date,
+                    createdAt = data.createdAt,
+                    uuid = item.uuid,
+                    updatedAt = item.updatedAt,
+                    pendingSync = false,
+                )
+                if (existing == null) dao.insertSettlement(settlement) else dao.updateSettlement(settlement)
+            }
         }
     }
 
@@ -166,7 +210,10 @@ private fun ExpenseRow.toSyncItem(): SyncItem {
         uuid = expense.uuid,
         tripUuid = tripUuid,
         updatedAt = expense.updatedAt,
-        data = ItemData.ExpenseData(domain.name, domain.amountAgorot, domain.category, domain.date, domain.original),
+        data = ItemData.ExpenseData(
+            domain.name, domain.amountAgorot, domain.category, domain.date, domain.original,
+            domain.paidBy, domain.splitBetween,
+        ),
     )
 }
 
@@ -186,6 +233,22 @@ private fun ChecklistRow.toSyncItem() = SyncItem(
     tripUuid = tripUuid,
     updatedAt = item.updatedAt,
     data = with(item) { ItemData.ChecklistData(list, text, checked, dueDate, createdAt) },
+)
+
+private fun TravelerRow.toSyncItem() = SyncItem(
+    kind = SyncKind.TRAVELER,
+    uuid = traveler.uuid,
+    tripUuid = tripUuid,
+    updatedAt = traveler.updatedAt,
+    data = with(traveler) { ItemData.TravelerData(name, color, createdAt) },
+)
+
+private fun SettlementRow.toSyncItem() = SyncItem(
+    kind = SyncKind.SETTLEMENT,
+    uuid = settlement.uuid,
+    tripUuid = tripUuid,
+    updatedAt = settlement.updatedAt,
+    data = with(settlement) { ItemData.SettlementData(fromKey, toKey, amountAgorot, date, createdAt) },
 )
 
 private fun DeletionEntity.toSyncItem() =

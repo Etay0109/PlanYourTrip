@@ -4,6 +4,7 @@ import com.example.planyourtrip.FakeActivityRepository
 import com.example.planyourtrip.FakeAuthRepository
 import com.example.planyourtrip.FakeCurrencyRepository
 import com.example.planyourtrip.FakeExpenseRepository
+import com.example.planyourtrip.FakeTravelerRepository
 import com.example.planyourtrip.FakeTripRepository
 import com.example.planyourtrip.data.auth.AuthUser
 import com.example.planyourtrip.data.currency.ExchangeRate
@@ -12,6 +13,9 @@ import com.example.planyourtrip.data.trip.DeletedActivity
 import com.example.planyourtrip.data.trip.DeletedActivityStore
 import com.example.planyourtrip.data.trip.Expense
 import com.example.planyourtrip.data.trip.ExpenseCategory
+import com.example.planyourtrip.data.trip.ME
+import com.example.planyourtrip.data.trip.Traveler
+import com.example.planyourtrip.data.trip.TravelerColor
 import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.data.trip.TripActivity
 import com.example.planyourtrip.data.trip.TripColor
@@ -52,6 +56,7 @@ class TripDetailsViewModelTest {
     private lateinit var expenses: FakeExpenseRepository
     private lateinit var currencies: FakeCurrencyRepository
     private lateinit var activities: FakeActivityRepository
+    private lateinit var travelers: FakeTravelerRepository
 
     @Before
     fun setUp() {
@@ -60,6 +65,7 @@ class TripDetailsViewModelTest {
         expenses = FakeExpenseRepository(trips)
         currencies = FakeCurrencyRepository(now = clock::instant)
         activities = FakeActivityRepository(trips)
+        travelers = FakeTravelerRepository(trips, expenses)
     }
 
     @After
@@ -68,7 +74,7 @@ class TripDetailsViewModelTest {
     private val deleted = DeletedActivityStore()
 
     private fun vm(tripId: Long = 1) =
-        TripDetailsViewModel(tripId, trips, expenses, activities, auth, currencies, clock, dispatcher, deleted)
+        TripDetailsViewModel(tripId, trips, expenses, travelers, activities, auth, currencies, clock, dispatcher, deleted)
 
     private suspend fun TripDetailsViewModel.loaded() =
         uiState.filterIsInstance<TripDetailsUiState.Loaded>().first()
@@ -96,6 +102,53 @@ class TripDetailsViewModelTest {
         assertEquals(255_000L, state.summary?.leftAgorot)
         assertEquals(PerDay(42_500, 6), state.summary?.perDay)
         assertEquals(listOf(ExpenseCategory.FLIGHTS, ExpenseCategory.FOOD), state.categoryTotals.map { it.category })
+    }
+
+    @Test
+    fun budget_countsOnlyMyShare_andExpensesWithoutMeAreStillListed() = runTest(dispatcher) {
+        trips.trips.value = listOf("u1" to rome.copy(budgetAgorot = 100_000))
+        travelers.travelers.value = listOf(
+            Traveler(1, 1, "noa", "Noa", TravelerColor.ROSE),
+            Traveler(2, 1, "amit", "Amit", TravelerColor.INDIGO),
+        )
+        expenses.expenses.value = listOf(
+            // ₪100 three ways: my share is ₪33.34 (the extra agora goes to "You", first in the list).
+            Expense(
+                1, 1, "Dinner", 10_000, ExpenseCategory.FOOD, LocalDate.of(2026, 9, 20),
+                paidBy = "noa", splitBetween = listOf(ME, "noa", "amit"),
+            ),
+            // Not mine at all: ₪0 for me, but still in the list and in the legend as ₪0.
+            Expense(
+                2, 1, "Hotel", 50_000, ExpenseCategory.HOTELS, LocalDate.of(2026, 9, 21),
+                paidBy = "amit", splitBetween = listOf("noa", "amit"),
+            ),
+            // Mine, not shared.
+            Expense(3, 1, "SIM", 2_000, ExpenseCategory.OTHER, LocalDate.of(2026, 9, 22)),
+        )
+        val state = vm().loaded()
+
+        assertEquals(3, state.expenses.size)
+        assertEquals(mapOf(1L to 3_334L, 2L to 0L, 3L to 2_000L), state.myShares)
+        assertEquals(5_334L, state.summary?.spentAgorot)
+        assertEquals(94_666L, state.summary?.leftAgorot)
+        assertEquals(
+            listOf(ExpenseCategory.FOOD to 3_334L, ExpenseCategory.OTHER to 2_000L, ExpenseCategory.HOTELS to 0L),
+            state.categoryTotals.map { it.category to it.amountAgorot },
+        )
+    }
+
+    @Test
+    fun existingTrip_withoutTravelers_keepsExactlyTheSameNumbers() = runTest(dispatcher) {
+        trips.trips.value = listOf("u1" to rome.copy(budgetAgorot = 600_000))
+        // What the v13 migration makes of every existing expense: paid by me, not shared (the defaults).
+        expenses.expenses.value = listOf(
+            Expense(1, 1, "Flights", 300_000, ExpenseCategory.FLIGHTS, LocalDate.of(2026, 9, 1)),
+            Expense(2, 1, "Dinner", 45_000, ExpenseCategory.FOOD, LocalDate.of(2026, 9, 20)),
+        )
+        val state = vm().loaded()
+        assertEquals(345_000L, state.summary?.spentAgorot)
+        assertEquals(255_000L, state.summary?.leftAgorot)
+        assertTrue(state.travelers.isEmpty())
     }
 
     @Test

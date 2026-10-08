@@ -40,8 +40,8 @@ import com.example.planyourtrip.ui.tripdetails.BudgetSummary
  * "TRIP BUDGET" card shared by Overview and Budget.
  * - No budget ([summary] null): a short message and a "Set budget" button ([onSetBudget]).
  * - With a budget: amount left (or over budget), progress bar, spent with percentage, total, per-day line.
- * [onClick] makes the whole card tappable (Overview opens the Budget tab). [showEditButton] adds an edit
- * icon next to the total (Budget tab) that calls [onSetBudget].
+ * Amounts count only my share of each expense. [onClick] makes the whole card tappable (Overview opens the Budget
+ * tab). [showEditButton] adds an edit icon next to the total (Budget tab) that calls [onSetBudget].
  */
 @Composable
 fun BudgetCard(
@@ -120,8 +120,11 @@ private fun WithBudget(summary: BudgetSummary, showEditButton: Boolean, onEdit: 
                 }
             }
         }
-        Spacer(Modifier.width(12.dp))
-        IconChip(R.drawable.ic_wallet)
+        // The Budget tab (with the edit button) is the design's plain card; the Overview keeps the wallet chip.
+        if (!showEditButton) {
+            Spacer(Modifier.width(12.dp))
+            IconChip(R.drawable.ic_wallet)
+        }
     }
 
     Spacer(Modifier.height(20.dp))

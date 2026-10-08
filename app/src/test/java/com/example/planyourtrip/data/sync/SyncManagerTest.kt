@@ -10,6 +10,9 @@ import com.example.planyourtrip.data.sync.SyncTestData.activity
 import com.example.planyourtrip.data.sync.SyncTestData.checklistItem
 import com.example.planyourtrip.data.sync.SyncTestData.deletedAt
 import com.example.planyourtrip.data.sync.SyncTestData.expense
+import com.example.planyourtrip.data.sync.SyncTestData.settlement
+import com.example.planyourtrip.data.sync.SyncTestData.traveler
+import com.example.planyourtrip.data.trip.ME
 import com.example.planyourtrip.data.sync.SyncTestData.renamed
 import com.example.planyourtrip.data.sync.SyncTestData.trip
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -386,6 +389,44 @@ class SyncManagerTest {
         assertEquals(passport, cloud.docsOf("alice")["c1"])
         assertEquals("Charger", (local.liveOf("alice")["c2"]?.data as ItemData.ChecklistData).text)
         assertEquals(0, pendingOf("alice"))
+    }
+
+    @Test
+    fun travelersSettlementsAndSharedExpenses_uploadAndDownloadLikeTheOtherItems() = runTest {
+        val noa = traveler("r1", "t1", updatedAt = 100, name = "Noa")
+        val shared = dinner.copy(
+            updatedAt = 110,
+            data = (dinner.data as ItemData.ExpenseData).copy(paidBy = "r1", splitBetween = listOf(ME, "r1")),
+        )
+        local.edit("alice", rome)
+        local.edit("alice", noa)
+        local.edit("alice", shared)
+        cloud.put("alice", settlement("s1", "t1", updatedAt = 50, from = ME, to = "r1"))
+
+        assertTrue(manager().sync("alice", full = true))
+
+        assertEquals(noa, cloud.docsOf("alice")["r1"])
+        assertEquals(shared, cloud.docsOf("alice")["e1"])
+        assertEquals(ME, (local.liveOf("alice")["s1"]?.data as ItemData.SettlementData).fromKey)
+        assertEquals(0, pendingOf("alice"))
+    }
+
+    @Test
+    fun aDeletedTrip_tombstonesItsTravelersAndSettlementsInTheCloud() = runTest {
+        val noa = traveler("r1", "t1", updatedAt = 100)
+        val paid = settlement("s1", "t1", updatedAt = 100)
+        cloud.put("alice", rome, noa, paid)
+        val sync = manager()
+        assertTrue(sync.sync("alice", full = true))
+        assertEquals(setOf("t1", "r1", "s1"), local.liveOf("alice").keys)
+
+        local.delete("alice", rome, at = 500)
+        assertTrue(sync.sync("alice", full = false))
+
+        val docs = cloud.docsOf("alice")
+        assertEquals(noa.deletedAt(500), docs["r1"])
+        assertEquals(paid.deletedAt(500), docs["s1"])
+        assertTrue(local.rowsOf("alice").isEmpty())
     }
 
     @Test

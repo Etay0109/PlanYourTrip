@@ -41,10 +41,15 @@ class FakeExpenseRepository(
         category: ExpenseCategory,
         date: LocalDate,
         original: ForeignAmount?,
+        paidBy: String,
+        splitBetween: List<String>,
     ): Long? {
         if (!owns(ownerId, tripId)) return null
         val id = (expenses.value.maxOfOrNull { it.id } ?: 0) + 1
-        expenses.update { it + Expense(id, tripId, name.trim(), amountAgorot, category, date, original) }
+        val split = splitBetween.distinct().ifEmpty { listOf(paidBy) }
+        expenses.update {
+            it + Expense(id, tripId, name.trim(), amountAgorot, category, date, original, paidBy, split)
+        }
         return id
     }
 
@@ -56,10 +61,15 @@ class FakeExpenseRepository(
         category: ExpenseCategory,
         date: LocalDate,
         original: ForeignAmount?,
+        paidBy: String,
+        splitBetween: List<String>,
     ) = expenses.update { list ->
         list.map {
             if (it.id == id && owns(ownerId, it.tripId)) {
-                it.copy(name = name.trim(), amountAgorot = amountAgorot, category = category, date = date, original = original)
+                it.copy(
+                    name = name.trim(), amountAgorot = amountAgorot, category = category, date = date,
+                    original = original, paidBy = paidBy, splitBetween = splitBetween.distinct().ifEmpty { listOf(paidBy) },
+                )
             } else it
         }
     }

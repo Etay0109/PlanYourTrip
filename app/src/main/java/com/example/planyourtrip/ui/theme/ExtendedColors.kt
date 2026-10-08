@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import com.example.planyourtrip.data.trip.ActivityType
 import com.example.planyourtrip.data.trip.ExpenseCategory
+import com.example.planyourtrip.data.trip.TravelerColor
 import com.example.planyourtrip.data.trip.TripColor
 
 /** Background + letter color for a trip's letter square. */
@@ -54,6 +55,13 @@ data class ExtendedColors(
     val categories: Map<ExpenseCategory, TintedColor>,
     /** Itinerary types: one clearly different hue each (teal, rose, indigo, purple, gray; never orange). */
     val activityTypes: Map<ActivityType, TintedColor>,
+    /**
+     * Traveler avatars: [TintedColor.container] is the round fill, [TintedColor.content] the initials on it. "You"
+     * uses the brand `primary` / `onPrimary`; never orange.
+     */
+    val travelers: Map<TravelerColor, TintedColor>,
+    /** Avatar of a traveler that no longer exists (removed on another device while still used here). */
+    val removedTraveler: TintedColor,
 ) {
     val heroGradient: Brush
         get() = Brush.linearGradient(listOf(heroGradientStart, heroGradientEnd))
@@ -63,6 +71,8 @@ data class ExtendedColors(
     fun category(category: ExpenseCategory): TintedColor = categories.getValue(category)
 
     fun activityType(type: ActivityType): TintedColor = activityTypes.getValue(type)
+
+    fun traveler(color: TravelerColor): TintedColor = travelers.getValue(color)
 }
 
 val LightExtendedColors = ExtendedColors(
@@ -111,6 +121,15 @@ val LightExtendedColors = ExtendedColors(
         ActivityType.OTHER to TintedColor(HueGrayContainer, HueGray),
         ActivityType.SHOPPING to TintedColor(HueGreenContainer, HueGreen),
     ),
+    travelers = mapOf(
+        TravelerColor.ROSE to TintedColor(HueRose, Color.White),
+        TravelerColor.INDIGO to TintedColor(HueIndigo, Color.White),
+        TravelerColor.PURPLE to TintedColor(HuePurple, Color.White),
+        TravelerColor.SKY to TintedColor(HueSky, Color.White),
+        TravelerColor.GREEN to TintedColor(HueGreen, Color.White),
+        TravelerColor.GREEN_TEAL to TintedColor(HueGreenTeal, Color.White),
+    ),
+    removedTraveler = TintedColor(HueGray, Color.White),
 )
 
 val DarkExtendedColors = ExtendedColors(
@@ -159,6 +178,15 @@ val DarkExtendedColors = ExtendedColors(
         ActivityType.OTHER to TintedColor(HueGrayContainerDark, HueGrayDark),
         ActivityType.SHOPPING to TintedColor(HueGreenContainerDark, HueGreenDark),
     ),
+    travelers = mapOf(
+        TravelerColor.ROSE to TintedColor(HueRoseDark, Night),
+        TravelerColor.INDIGO to TintedColor(HueIndigoDark, Night),
+        TravelerColor.PURPLE to TintedColor(HuePurpleDark, Night),
+        TravelerColor.SKY to TintedColor(HueSkyDark, Night),
+        TravelerColor.GREEN to TintedColor(HueGreenDark, Night),
+        TravelerColor.GREEN_TEAL to TintedColor(HueGreenTealDark, Night),
+    ),
+    removedTraveler = TintedColor(HueGrayDark, Night),
 )
 
 val LocalExtendedColors = staticCompositionLocalOf { LightExtendedColors }

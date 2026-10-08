@@ -27,7 +27,11 @@ import com.example.planyourtrip.data.trip.RoomChecklistRepository
 import com.example.planyourtrip.data.trip.ExpenseRepository
 import com.example.planyourtrip.data.trip.RoomActivityRepository
 import com.example.planyourtrip.data.trip.RoomExpenseRepository
+import com.example.planyourtrip.data.trip.RoomSettlementRepository
+import com.example.planyourtrip.data.trip.RoomTravelerRepository
 import com.example.planyourtrip.data.trip.RoomTripRepository
+import com.example.planyourtrip.data.trip.SettlementRepository
+import com.example.planyourtrip.data.trip.TravelerRepository
 import com.example.planyourtrip.data.trip.TripRepository
 import com.example.planyourtrip.ui.common.share.AndroidTripPdfExporter
 import com.example.planyourtrip.ui.common.share.TripPdfExporter
@@ -84,6 +88,16 @@ class AppContainer(context: Context) {
 
     val checklistRepository: ChecklistRepository by lazy {
         RoomChecklistRepository(database.checklistDao(), database.tripDao(), clock, syncManager)
+    }
+
+    /** The trip's travelers other than "You" (expense splitting). */
+    val travelerRepository: TravelerRepository by lazy {
+        RoomTravelerRepository(database.travelerDao(), database.tripDao(), clock, syncManager)
+    }
+
+    /** Payments between travelers ("Settle up"). */
+    val settlementRepository: SettlementRepository by lazy {
+        RoomSettlementRepository(database.settlementDao(), database.tripDao(), clock, syncManager)
     }
 
     /** The documents' files in private storage (picked files are copied there; FileProvider for viewing). */

@@ -26,7 +26,7 @@ class BudgetCalculationsTest {
         Expense(nextId++, 1, "e", shekels * 100 + agorot, category, start)
 
     private fun summary(budgetShekels: Long?, expenses: List<Expense>, today: LocalDate, s: LocalDate = start, e: LocalDate = end) =
-        budgetSummary(budgetShekels?.times(100), expenses, s, e, today)
+        budgetSummary(budgetShekels?.times(100), expenses.sumOf { it.amountAgorot }, s, e, today)
 
     @Test
     fun noBudget_givesNoSummary() {
@@ -144,5 +144,22 @@ class BudgetCalculationsTest {
     fun categoryTotals_tiesKeepCategoryOrder_andEmptyGivesNothing() {
         assertEquals(listOf(HOTELS, FOOD), categoryTotals(listOf(expense(10, FOOD), expense(10, HOTELS))).map { it.category })
         assertTrue(categoryTotals(emptyList()).isEmpty())
+    }
+
+    @Test
+    fun categoryTotals_ofMyShare_listZeroCategoriesLastWhenAsked() {
+        val food = expense(100, FOOD)
+        val hotel = expense(500, HOTELS)
+        // Only the hotel isn't mine (amountOf = 0).
+        val mine: (Expense) -> Long = { if (it.id == hotel.id) 0L else it.amountAgorot }
+        assertEquals(listOf(FOOD), categoryTotals(listOf(food, hotel), mine).map { it.category })
+        val withZero = categoryTotals(listOf(food, hotel), mine, includeZeroCategories = true)
+        assertEquals(listOf(FOOD to 10_000L, HOTELS to 0L), withZero.map { it.category to it.amountAgorot })
+        assertEquals(0.0, withZero[1].percent, 0.0)
+        // Nothing is mine: only ₪0 rows.
+        assertEquals(
+            listOf(HOTELS to 0L),
+            categoryTotals(listOf(hotel), { 0L }, includeZeroCategories = true).map { it.category to it.amountAgorot },
+        )
     }
 }

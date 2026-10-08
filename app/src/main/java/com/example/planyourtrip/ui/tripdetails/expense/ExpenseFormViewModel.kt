@@ -15,7 +15,12 @@ import com.example.planyourtrip.data.currency.isStale
 import com.example.planyourtrip.data.trip.Expense
 import com.example.planyourtrip.data.trip.ExpenseCategory
 import com.example.planyourtrip.data.trip.ExpenseRepository
+import com.example.planyourtrip.data.trip.ME
+import com.example.planyourtrip.data.trip.TravelerRepository
 import com.example.planyourtrip.data.trip.TripRepository
+import com.example.planyourtrip.ui.common.split.inListOrder
+import com.example.planyourtrip.ui.common.split.personOf
+import com.example.planyourtrip.ui.common.split.travelerOrder
 import com.example.planyourtrip.ui.navigation.ExpenseForm
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,6 +34,7 @@ import java.time.LocalDate
 /**
  * New expense of [tripId] when [expenseId] is null; otherwise edits (or deletes) that expense. The amount can be
  * typed in shekels or in the trip currency; a foreign amount is converted with the latest cached rate on save.
+ * With other travelers, "Paid by" and "Split between" say who paid and who shares it (equally).
  */
 class ExpenseFormViewModel(
     private val tripId: Long,
@@ -38,6 +44,7 @@ class ExpenseFormViewModel(
     private val currencyRepository: CurrencyRepository,
     private val authRepository: AuthRepository,
     private val clock: Clock,
+    private val travelerRepository: TravelerRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -58,7 +65,12 @@ class ExpenseFormViewModel(
         viewModelScope.launch {
             val trip = tripRepository.observeTrip(tripId, ownerId).first()
             val expense = expenseId?.let { repository.observeExpense(it, ownerId).first() }
+            val travelers = travelerRepository.observeTravelers(tripId, ownerId).first()
             stored = expense
+            val order = travelerOrder(travelers)
+            // An edited expense keeps its payer and split, even a traveler removed on another device since.
+            val usedKeys = expense?.let { listOf(it.paidBy) + it.splitBetween }.orEmpty()
+            val people = inListOrder(order + usedKeys, order).map { personOf(it, travelers) }
             // Editing keeps the expense's own currency even if the trip currency changed since.
             val foreignCode = expense?.original?.currencyCode ?: trip?.currencyCode?.takeIf { it != ILS }
             _uiState.update { state ->
@@ -69,9 +81,15 @@ class ExpenseFormViewModel(
                     foreignRate = if (foreignCode != null) ForeignRateState.Loading else null,
                     // A new expense starts in the trip currency when there is one.
                     currencyCode = foreignCode ?: ILS,
+                    people = people,
                 )
                 if (expense == null) {
-                    base.copy(date = ExpenseValidator.defaultDate(state.date, trip?.endDate))
+                    // Paid by me, split between everyone.
+                    base.copy(
+                        date = ExpenseValidator.defaultDate(state.date, trip?.endDate),
+                        paidBy = ME,
+                        splitBetween = order,
+                    )
                 } else {
                     val entered = ExpenseCurrency.entered(expense)
                     base.copy(
@@ -82,6 +100,8 @@ class ExpenseFormViewModel(
                         date = expense.date,
                         // Dated after the trip (its dates were shortened later): kept, but flagged to fix.
                         dateError = ExpenseValidator.validateDate(expense.date, trip?.endDate),
+                        paidBy = expense.paidBy,
+                        splitBetween = inListOrder(expense.splitBetween, order),
                     )
                 }.withPreview()
             }
@@ -142,6 +162,24 @@ class ExpenseFormViewModel(
 
     fun onDateChange(date: LocalDate) = _uiState.update { it.copy(date = date, dateError = null) }
 
+    /** "Paid by". A "Not shared" expense stays not shared: its split moves to the new payer. */
+    fun onPaidByChange(key: String) = _uiState.update { state ->
+        if (state.people.none { it.key == key }) return@update state
+        val split = if (state.isNotShared) listOf(key) else state.splitBetween
+        state.copy(paidBy = key, splitBetween = split, splitError = null)
+    }
+
+    /** Adds or removes one person from "Split between". */
+    fun onSplitToggle(key: String) = _uiState.update { state ->
+        val order = state.people.map { it.key }
+        if (key !in order) return@update state
+        val split = if (key in state.splitBetween) state.splitBetween - key else state.splitBetween + key
+        state.copy(splitBetween = inListOrder(split, order), splitError = null)
+    }
+
+    /** "Not shared": the split becomes the payer only. */
+    fun onNotShared() = _uiState.update { it.copy(splitBetween = listOf(it.paidBy), splitError = null) }
+
     fun onSave() {
         val state = _uiState.value
         if (state.isBusy) return
@@ -152,9 +190,11 @@ class ExpenseFormViewModel(
             nameError = ExpenseValidator.validateName(state.name),
             amountError = (amount as? AmountResult.Invalid)?.error,
             dateError = ExpenseValidator.validateDate(state.date, state.tripEnd),
+            splitError = ExpenseValidator.validateSplit(state.splitBetween),
         )
         _uiState.value = validated
-        if (validated.nameError != null || validated.dateError != null || amount !is AmountResult.Ok) return
+        val invalid = validated.nameError != null || validated.dateError != null || validated.splitError != null
+        if (invalid || amount !is AmountResult.Ok) return
 
         val ownerId = authRepository.currentUser.value?.uid ?: return
         val name = validated.name.trim()
@@ -163,10 +203,12 @@ class ExpenseFormViewModel(
             if (expenseId == null) {
                 repository.addExpense(
                     tripId, ownerId, name, amount.agorot, validated.category, validated.date, amount.original,
+                    validated.paidBy, validated.splitBetween,
                 )
             } else {
                 repository.updateExpense(
                     expenseId, ownerId, name, amount.agorot, validated.category, validated.date, amount.original,
+                    validated.paidBy, validated.splitBetween,
                 )
             }
             _uiState.update { it.copy(isSaving = false, done = true) }
@@ -200,6 +242,7 @@ class ExpenseFormViewModel(
                     currencyRepository = container.currencyRepository,
                     authRepository = container.authRepository,
                     clock = container.clock,
+                    travelerRepository = container.travelerRepository,
                 )
             }
         }

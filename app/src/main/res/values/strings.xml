@@ -195,6 +195,73 @@
     <string name="budget_no_expenses_title">No expenses yet</string>
     <string name="budget_no_expenses_body">Add what you spend on this trip to keep track of your budget.</string>
     <string name="budget_chart_description">Spending by category</string>
+    <string name="budget_newest_first">Newest first</string>
+    <string name="budget_chart_total">TOTAL</string>
+
+    <!-- Expense splitting: travelers, who owes whom, settle up -->
+    <string name="traveler_you">You</string>
+    <string name="traveler_you_initials">YOU</string>
+    <string name="traveler_removed">Removed traveler</string>
+    <string name="travelers_title">Travelers</string>
+    <string name="travelers_add">Add</string>
+    <plurals name="travelers_count_description">
+        <item quantity="one">%1$d traveler</item>
+        <item quantity="other">%1$d travelers</item>
+    </plurals>
+    <string name="travelers_add_description">Add traveler</string>
+    <string name="traveler_edit_description">%1$s, rename or remove</string>
+    <string name="traveler_add_title">Add traveler</string>
+    <string name="traveler_edit_title">Edit traveler</string>
+    <string name="traveler_name">Name</string>
+    <string name="traveler_name_placeholder">e.g. Noa</string>
+    <string name="traveler_remove">Remove</string>
+    <string name="traveler_in_use">%1$s paid for or shares an expense, or appears in a settlement, so they can\'t be removed.</string>
+    <string name="error_traveler_name_empty">Please enter a name</string>
+    <string name="error_traveler_name_duplicate">There\'s already a traveler with this name</string>
+    <string name="error_traveler_name_reserved">“You” is already on the trip. Please choose another name.</string>
+    <string name="owes_title">Who owes whom</string>
+    <plurals name="owes_subtitle">
+        <item quantity="one">Based on %1$d shared expense</item>
+        <item quantity="other">Based on %1$d shared expenses</item>
+    </plurals>
+    <string name="owes_settled">All settled up</string>
+    <string name="owes_they_owe_you">%1$s owes you</string>
+    <string name="owes_you_owe">You owe %1$s</string>
+    <string name="owes_they_owe">%1$s owes %2$s</string>
+    <string name="owes_row_description">%1$s %2$s</string>
+    <string name="settle_up">Settle up</string>
+    <string name="settle_history">History</string>
+    <string name="settle_back">Open debts</string>
+    <string name="settle_pick">Pick a debt to mark as paid</string>
+    <string name="settle_amount">Amount paid</string>
+    <string name="settle_amount_hint">Lower the amount for a partial payment.</string>
+    <string name="settle_mark_paid">Mark as paid</string>
+    <string name="settle_nothing_open">Nothing to settle: everyone is even.</string>
+    <string name="settle_history_empty">No payments recorded yet.</string>
+    <string name="settle_paid_you">%1$s paid you</string>
+    <string name="settle_you_paid">You paid %1$s</string>
+    <string name="settle_paid">%1$s paid %2$s</string>
+    <string name="settle_history_row">%1$s · %2$s</string>
+    <string name="settle_delete">Delete payment</string>
+    <string name="settle_delete_title">Delete this payment?</string>
+    <string name="settle_delete_body">\u200E“%1$s” will be removed, and that amount will be owed again.</string>
+    <string name="error_settle_empty">Please enter an amount</string>
+    <string name="error_settle_invalid">Please enter an amount greater than zero</string>
+    <string name="error_settle_too_much">The amount can\'t be more than %1$s</string>
+    <string name="expense_paid_by">Paid by</string>
+    <string name="expense_split_between">Split between</string>
+    <string name="expense_not_shared">Not shared</string>
+    <string name="error_split_empty">Choose at least one person to split with</string>
+    <string name="expense_row_paid_by_you">Paid by you</string>
+    <string name="expense_row_paid_by">Paid by %1$s</string>
+    <string name="expense_row_not_shared">%1$s · not shared</string>
+    <plurals name="expense_row_split">
+        <item quantity="one">%1$s · split %2$d way</item>
+        <item quantity="other">%1$s · split %2$d ways</item>
+    </plurals>
+    <string name="expense_row_for">%1$s · for %2$s</string>
+    <string name="expense_row_you_lowercase">you</string>
+    <string name="expense_row_your_share">Your share %1$s</string>
     <string name="error_empty_budget">Please enter a budget</string>
     <string name="error_invalid_budget">Enter an amount greater than 0</string>
 

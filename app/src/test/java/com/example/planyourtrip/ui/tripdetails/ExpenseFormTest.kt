@@ -3,15 +3,20 @@ package com.example.planyourtrip.ui.tripdetails
 import com.example.planyourtrip.FakeAuthRepository
 import com.example.planyourtrip.FakeCurrencyRepository
 import com.example.planyourtrip.FakeExpenseRepository
+import com.example.planyourtrip.FakeTravelerRepository
 import com.example.planyourtrip.FakeTripRepository
 import com.example.planyourtrip.data.auth.AuthUser
 import com.example.planyourtrip.data.currency.ExchangeRate
 import com.example.planyourtrip.data.currency.ILS
 import com.example.planyourtrip.data.trip.Expense
 import com.example.planyourtrip.data.trip.ExpenseCategory
+import com.example.planyourtrip.data.trip.ME
+import com.example.planyourtrip.data.trip.Traveler
+import com.example.planyourtrip.data.trip.TravelerColor
 import com.example.planyourtrip.data.trip.ForeignAmount
 import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.data.trip.TripColor
+import com.example.planyourtrip.ui.common.split.Person
 import com.example.planyourtrip.ui.tripdetails.expense.ConversionPreview
 import com.example.planyourtrip.ui.tripdetails.expense.ExpenseFieldError
 import com.example.planyourtrip.ui.tripdetails.expense.ExpenseFormViewModel
@@ -51,6 +56,7 @@ class ExpenseFormTest {
     private lateinit var trips: FakeTripRepository
     private lateinit var repo: FakeExpenseRepository
     private lateinit var currencies: FakeCurrencyRepository
+    private lateinit var travelers: FakeTravelerRepository
 
     @Before
     fun setUp() {
@@ -58,13 +64,14 @@ class ExpenseFormTest {
         trips = FakeTripRepository(listOf("u1" to rome))
         repo = FakeExpenseRepository(trips, listOf(dinner))
         currencies = FakeCurrencyRepository(now = clock::instant)
+        travelers = FakeTravelerRepository(trips, repo)
     }
 
     @After
     fun tearDown() = Dispatchers.resetMain()
 
     private fun vm(expenseId: Long? = null, user: FakeAuthRepository = auth) =
-        ExpenseFormViewModel(1, expenseId, repo, trips, currencies, user, clock)
+        ExpenseFormViewModel(1, expenseId, repo, trips, currencies, user, clock, travelers)
 
     private fun tripInEuro() {
         trips.trips.value = listOf("u1" to rome.copy(currencyCode = "EUR"))
@@ -431,5 +438,120 @@ class ExpenseFormTest {
         stranger.onDelete()
         advanceUntilIdle()
         assertEquals(listOf(dinner), repo.expenses.value)
+    }
+
+    // ---- Paid by / Split between ----
+
+    private val noa = Traveler(1, 1, "noa", "Noa", TravelerColor.ROSE)
+    private val amit = Traveler(2, 1, "amit", "Amit", TravelerColor.INDIGO)
+
+    private fun withTravelers() {
+        travelers.travelers.value = listOf(noa, amit)
+    }
+
+    @Test
+    fun onlyMe_hidesTheSplit_andSavesPaidByMeNotShared() = runTest(dispatcher) {
+        val vm = vm()
+        advanceUntilIdle()
+        assertFalse(vm.uiState.value.showSplit)
+        vm.onNameChange("Taxi")
+        vm.onAmountChange("40")
+        vm.onSave()
+        advanceUntilIdle()
+        val saved = repo.expenses.value.last()
+        assertEquals(ME, saved.paidBy)
+        assertEquals(listOf(ME), saved.splitBetween)
+    }
+
+    @Test
+    fun newExpense_withTravelers_isPaidByMeAndSplitWithEveryone() = runTest(dispatcher) {
+        withTravelers()
+        val vm = vm()
+        advanceUntilIdle()
+        val s = vm.uiState.value
+        assertTrue(s.showSplit)
+        assertEquals(listOf(ME, "noa", "amit"), s.people.map { it.key })
+        assertEquals(ME, s.paidBy)
+        assertEquals(listOf(ME, "noa", "amit"), s.splitBetween)
+        assertFalse(s.isNotShared)
+    }
+
+    @Test
+    fun notShared_setsTheSplitToThePayer_andFollowsAPayerChange() = runTest(dispatcher) {
+        withTravelers()
+        val vm = vm()
+        advanceUntilIdle()
+        vm.onNotShared()
+        assertEquals(listOf(ME), vm.uiState.value.splitBetween)
+        assertTrue(vm.uiState.value.isNotShared)
+        vm.onPaidByChange("noa")
+        assertEquals(listOf("noa"), vm.uiState.value.splitBetween)
+        assertTrue(vm.uiState.value.isNotShared)
+    }
+
+    @Test
+    fun changingThePayer_keepsASharedSplit() = runTest(dispatcher) {
+        withTravelers()
+        val vm = vm()
+        advanceUntilIdle()
+        vm.onPaidByChange("amit")
+        assertEquals("amit", vm.uiState.value.paidBy)
+        assertEquals(listOf(ME, "noa", "amit"), vm.uiState.value.splitBetween)
+    }
+
+    @Test
+    fun splitToggle_keepsListOrder_andAnEmptySplitCantBeSaved() = runTest(dispatcher) {
+        withTravelers()
+        val vm = vm()
+        advanceUntilIdle()
+        vm.onNameChange("Pizza")
+        vm.onAmountChange("90")
+        listOf(ME, "noa", "amit").forEach(vm::onSplitToggle)
+        assertTrue(vm.uiState.value.splitBetween.isEmpty())
+        vm.onSave()
+        advanceUntilIdle()
+        assertEquals(ExpenseFieldError.SPLIT_EMPTY, vm.uiState.value.splitError)
+        assertEquals(listOf(dinner), repo.expenses.value)
+
+        vm.onSplitToggle("amit")
+        vm.onSplitToggle(ME)
+        assertNull(vm.uiState.value.splitError)
+        assertEquals(listOf(ME, "amit"), vm.uiState.value.splitBetween)
+        vm.onPaidByChange("noa")
+        vm.onSave()
+        advanceUntilIdle()
+        val saved = repo.expenses.value.last()
+        assertEquals("noa", saved.paidBy)
+        assertEquals(listOf(ME, "amit"), saved.splitBetween)
+        assertEquals(9_000L, saved.amountAgorot)
+    }
+
+    @Test
+    fun editing_keepsTheStoredPayerAndSplit() = runTest(dispatcher) {
+        withTravelers()
+        repo.expenses.value = listOf(dinner.copy(paidBy = "amit", splitBetween = listOf("amit", ME)))
+        val vm = vm(expenseId = 5)
+        advanceUntilIdle()
+        assertEquals("amit", vm.uiState.value.paidBy)
+        assertEquals(listOf(ME, "amit"), vm.uiState.value.splitBetween) // list order
+        vm.onNameChange("Dinner out")
+        vm.onSave()
+        advanceUntilIdle()
+        val saved = repo.expenses.value.single()
+        assertEquals("amit", saved.paidBy)
+        assertEquals(listOf(ME, "amit"), saved.splitBetween)
+        assertEquals(12_050L, saved.amountAgorot)
+    }
+
+    @Test
+    fun editing_anExpenseOfARemovedTraveler_keepsThemAsRemoved() = runTest(dispatcher) {
+        // Only possible through a sync conflict: "gone" was removed on another device.
+        repo.expenses.value = listOf(dinner.copy(paidBy = "gone", splitBetween = listOf(ME, "gone")))
+        val vm = vm(expenseId = 5)
+        advanceUntilIdle()
+        val s = vm.uiState.value
+        assertTrue(s.showSplit)
+        assertEquals(listOf(Person.You, Person.Removed("gone")), s.people)
+        assertEquals("gone", s.paidBy)
     }
 }

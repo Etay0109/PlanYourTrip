@@ -6,6 +6,9 @@ import com.example.planyourtrip.ui.theme.LightExtendedColors
 import com.example.planyourtrip.ui.theme.PdfColors
 import com.example.planyourtrip.data.trip.Expense
 import com.example.planyourtrip.data.trip.ExpenseCategory
+import com.example.planyourtrip.data.trip.ME
+import com.example.planyourtrip.data.trip.Traveler
+import com.example.planyourtrip.data.trip.TravelerColor
 import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.data.trip.TripActivity
 import com.example.planyourtrip.data.trip.TripColor
@@ -59,6 +62,26 @@ class TripPdfContentTest {
         assertEquals(listOf(ExpenseCategory.HOTELS, ExpenseCategory.FOOD), costs.categories.map { it.category })
         assertEquals(listOf(30_000L, 25_000L), costs.categories.map { it.amountAgorot })
         assertEquals(30_000 * 100.0 / 55_000, costs.categories[0].percent, 1e-9)
+    }
+
+    @Test
+    fun `costs count only my share of each expense, like the Budget tab`() {
+        val noa = Traveler(1, 1, "noa", "Noa", TravelerColor.ROSE)
+        val shared = listOf(
+            // ₪300 split with Noa: ₪150 is mine.
+            expense(1, 30_000, ExpenseCategory.HOTELS).copy(paidBy = "noa", splitBetween = listOf(ME, "noa")),
+            // Paid by me for Noa only: nothing is mine.
+            expense(2, 10_000, ExpenseCategory.FOOD).copy(splitBetween = listOf("noa")),
+            expense(3, 5_000, ExpenseCategory.FOOD),
+        )
+        val costs = buildTripPdfContent(trip, shared, activities, includeCosts = true, travelers = listOf(noa)).costs!!
+        assertEquals(20_000L, costs.spentAgorot)
+        assertEquals(BudgetDifference.Under(80_000), costs.difference)
+        // Only categories with spending of mine.
+        assertEquals(
+            listOf(ExpenseCategory.HOTELS to 15_000L, ExpenseCategory.FOOD to 5_000L),
+            costs.categories.map { it.category to it.amountAgorot },
+        )
     }
 
     @Test

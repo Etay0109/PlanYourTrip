@@ -5,7 +5,8 @@ import java.time.LocalDate
 
 /**
  * Expenses of the owner's trips; callers pass the signed-in user's uid as [ownerId]. Amounts are in agorot;
- * [ForeignAmount] (null = entered in shekels) records the original amount and the rate used.
+ * [ForeignAmount] (null = entered in shekels) records the original amount and the rate used. [paidBy] and
+ * [splitBetween] are traveler keys ([ME] or a traveler uuid); an empty split is stored as the payer only.
  */
 interface ExpenseRepository {
     /** The trip's expenses, newest first (by date, then by id). Empty if the trip is not the owner's. */
@@ -23,6 +24,8 @@ interface ExpenseRepository {
         category: ExpenseCategory,
         date: LocalDate,
         original: ForeignAmount? = null,
+        paidBy: String = ME,
+        splitBetween: List<String> = listOf(ME),
     ): Long?
 
     suspend fun updateExpense(
@@ -33,6 +36,8 @@ interface ExpenseRepository {
         category: ExpenseCategory,
         date: LocalDate,
         original: ForeignAmount? = null,
+        paidBy: String = ME,
+        splitBetween: List<String> = listOf(ME),
     )
 
     suspend fun deleteExpense(id: Long, ownerId: String)

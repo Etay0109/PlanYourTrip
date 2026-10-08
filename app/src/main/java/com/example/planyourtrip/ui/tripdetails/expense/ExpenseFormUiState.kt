@@ -3,6 +3,8 @@ package com.example.planyourtrip.ui.tripdetails.expense
 import com.example.planyourtrip.data.currency.ExchangeRate
 import com.example.planyourtrip.data.currency.ILS
 import com.example.planyourtrip.data.trip.ExpenseCategory
+import com.example.planyourtrip.data.trip.ME
+import com.example.planyourtrip.ui.common.split.Person
 import java.time.LocalDate
 
 data class ExpenseFormUiState(
@@ -37,10 +39,24 @@ data class ExpenseFormUiState(
     val amountError: ExpenseFieldError? = null,
     /** [ExpenseFieldError.DATE_AFTER_TRIP]; also shown when an edited expense is already dated after the trip. */
     val dateError: ExpenseFieldError? = null,
+    /** "You" and the trip's travelers in list order (+ removed travelers the edited expense still uses). */
+    val people: List<Person> = listOf(Person.You),
+    /** Key of the payer ("Paid by"); a new expense is paid by me. */
+    val paidBy: String = ME,
+    /** Keys sharing the expense equally ("Split between"), in list order; a new expense is split with everyone. */
+    val splitBetween: List<String> = listOf(ME),
+    /** [ExpenseFieldError.SPLIT_EMPTY] when nobody is selected. */
+    val splitError: ExpenseFieldError? = null,
     val isSaving: Boolean = false,
     /** Set once the expense is saved or deleted; the screen then navigates back. */
     val done: Boolean = false,
-)
+) {
+    /** "Paid by" and "Split between" are shown only when the trip has more than one traveler. */
+    val showSplit: Boolean get() = people.size > 1
+
+    /** "Not shared": only the payer is in the split. */
+    val isNotShared: Boolean get() = splitBetween == listOf(paidBy)
+}
 
 /** The rate behind the foreign currency option. */
 sealed interface ForeignRateState {

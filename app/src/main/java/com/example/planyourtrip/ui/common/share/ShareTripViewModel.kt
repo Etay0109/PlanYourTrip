@@ -9,6 +9,7 @@ import com.example.planyourtrip.appContainer
 import com.example.planyourtrip.data.auth.AuthRepository
 import com.example.planyourtrip.data.trip.ActivityRepository
 import com.example.planyourtrip.data.trip.ExpenseRepository
+import com.example.planyourtrip.data.trip.TravelerRepository
 import com.example.planyourtrip.data.trip.TripRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -31,6 +32,8 @@ class ShareTripViewModel(
     private val expenseRepository: ExpenseRepository,
     private val activityRepository: ActivityRepository,
     private val exporter: TripPdfExporter,
+    /** The trip's travelers, for my share of each expense. */
+    private val travelerRepository: TravelerRepository,
     /** Where the PDF content is built; tests pass their test dispatcher. */
     private val computeDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) : ViewModel() {
@@ -84,8 +87,13 @@ class ShareTripViewModel(
         val trip = tripRepository.observeTrip(dialog.tripId, uid).first() ?: return null
         val expenses = if (dialog.includeCosts) expenseRepository.observeExpenses(trip.id, uid).first() else emptyList()
         val activities = activityRepository.observeActivities(trip.id, uid).first()
+        val travelers = if (dialog.includeCosts) {
+            travelerRepository.observeTravelers(trip.id, uid).first()
+        } else {
+            emptyList()
+        }
         val content = withContext(computeDispatcher) {
-            buildTripPdfContent(trip, expenses, activities, dialog.includeCosts)
+            buildTripPdfContent(trip, expenses, activities, dialog.includeCosts, travelers)
         }
         return exporter.export(content, pdfFileName(trip.destination, trip.startDate, trip.endDate))
     }
@@ -103,6 +111,7 @@ class ShareTripViewModel(
                     container.expenseRepository,
                     container.activityRepository,
                     container.tripPdfExporter,
+                    container.travelerRepository,
                 )
             }
         }

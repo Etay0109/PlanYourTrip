@@ -48,6 +48,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -56,6 +57,8 @@ import com.example.planyourtrip.R
 import com.example.planyourtrip.data.currency.ExchangeRate
 import com.example.planyourtrip.data.currency.ILS
 import com.example.planyourtrip.data.trip.ExpenseCategory
+import com.example.planyourtrip.data.trip.ME
+import com.example.planyourtrip.data.trip.TravelerColor
 import com.example.planyourtrip.ui.common.TripFormatting
 import com.example.planyourtrip.ui.common.components.BackTopAppBar
 import com.example.planyourtrip.ui.common.components.DateField
@@ -64,10 +67,13 @@ import com.example.planyourtrip.ui.common.errorSupportingText
 import com.example.planyourtrip.ui.common.iconRes
 import com.example.planyourtrip.ui.common.labelRes
 import com.example.planyourtrip.ui.common.shekels
+import com.example.planyourtrip.ui.common.split.Person
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
 import com.example.planyourtrip.ui.theme.PlanYourTripTheme
 import com.example.planyourtrip.ui.tripdetails.CurrencyConversion
+import com.example.planyourtrip.ui.tripdetails.components.TravelerAvatar
+import com.example.planyourtrip.ui.tripdetails.components.personName
 import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDate
@@ -90,6 +96,9 @@ fun ExpenseFormScreen(
         onCurrencyChange = viewModel::onCurrencyChange,
         onCategoryChange = viewModel::onCategoryChange,
         onDateChange = viewModel::onDateChange,
+        onPaidByChange = viewModel::onPaidByChange,
+        onSplitToggle = viewModel::onSplitToggle,
+        onNotShared = viewModel::onNotShared,
         onSave = viewModel::onSave,
         onDelete = viewModel::onDelete,
     )
@@ -105,6 +114,9 @@ fun ExpenseFormContent(
     onCurrencyChange: (String) -> Unit,
     onCategoryChange: (ExpenseCategory) -> Unit,
     onDateChange: (LocalDate) -> Unit,
+    onPaidByChange: (String) -> Unit,
+    onSplitToggle: (String) -> Unit,
+    onNotShared: () -> Unit,
     onSave: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -157,6 +169,10 @@ fun ExpenseFormContent(
             )
 
             AmountField(state, onAmountChange, onCurrencyChange)
+
+            if (state.showSplit) {
+                SplitFields(state, onPaidByChange, onSplitToggle, onNotShared)
+            }
 
             DateField(
                 label = R.string.expense_date,
@@ -236,6 +252,69 @@ fun ExpenseFormContent(
             },
         )
     }
+}
+
+/**
+ * "Paid by" (one person) and "Split between" (one or more, plus the quick "Not shared" option). Shown only when the
+ * trip has other travelers.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SplitFields(
+    state: ExpenseFormUiState,
+    onPaidByChange: (String) -> Unit,
+    onSplitToggle: (String) -> Unit,
+    onNotShared: () -> Unit,
+) {
+    Text(
+        text = stringResource(R.string.expense_paid_by),
+        style = MaterialTheme.typography.titleMedium,
+        color = MaterialTheme.colorScheme.onBackground,
+    )
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        state.people.forEach { person ->
+            PersonChip(person, selected = person.key == state.paidBy, onClick = { onPaidByChange(person.key) })
+        }
+    }
+    Text(
+        text = stringResource(R.string.expense_split_between),
+        style = MaterialTheme.typography.titleMedium,
+        color = MaterialTheme.colorScheme.onBackground,
+        modifier = Modifier.padding(top = 8.dp),
+    )
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        FilterChip(
+            selected = state.isNotShared,
+            onClick = onNotShared,
+            label = { Text(stringResource(R.string.expense_not_shared)) },
+        )
+        state.people.forEach { person ->
+            PersonChip(
+                person,
+                selected = person.key in state.splitBetween,
+                onClick = { onSplitToggle(person.key) },
+            )
+        }
+    }
+    if (state.splitError != null) {
+        Text(
+            text = stringResource(R.string.error_split_empty),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+    }
+}
+
+/** A chip with the person's small avatar and name. */
+@Composable
+private fun PersonChip(person: Person, selected: Boolean, onClick: () -> Unit) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = { Text(personName(person), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        leadingIcon = { TravelerAvatar(person, Dimens.TravelerAvatarChipSize) },
+    )
 }
 
 /**
@@ -341,6 +420,7 @@ private fun amountErrorText(error: ExpenseFieldError, state: ExpenseFormUiState)
     ExpenseFieldError.EMPTY_NAME -> stringResource(R.string.error_empty_expense_name)
     ExpenseFieldError.EMPTY_AMOUNT -> stringResource(R.string.error_empty_amount)
     ExpenseFieldError.DATE_AFTER_TRIP -> stringResource(R.string.error_expense_after_trip)
+    ExpenseFieldError.SPLIT_EMPTY -> stringResource(R.string.error_split_empty)
     ExpenseFieldError.NO_RATE ->
         if (state.foreignRate == ForeignRateState.Unavailable) {
             stringResource(R.string.expense_rate_unavailable, state.currencyCode)
@@ -371,13 +451,22 @@ private fun Preview(state: ExpenseFormUiState, darkTheme: Boolean = false) {
         ExpenseFormContent(
             state = state,
             onBack = {}, onNameChange = {}, onAmountChange = {}, onCurrencyChange = {}, onCategoryChange = {},
-            onDateChange = {}, onSave = {}, onDelete = {},
+            onDateChange = {}, onPaidByChange = {}, onSplitToggle = {}, onNotShared = {}, onSave = {}, onDelete = {},
         )
     }
 }
 
+private val previewPeople = listOf(
+    Person.You,
+    Person.Named("noa", "Noa", TravelerColor.ROSE),
+    Person.Named("amit", "Amit", TravelerColor.INDIGO),
+)
+
 private val previewForeign = ExpenseFormUiState(
     isLoading = false,
+    people = previewPeople,
+    paidBy = "noa",
+    splitBetween = listOf(ME, "noa", "amit"),
     name = "Lunch at Campo de' Fiori",
     amount = "10",
     currencyCode = "EUR",
@@ -417,6 +506,12 @@ private fun ExpenseFormNoRatePreview() = Preview(
 @Composable
 private fun ExpenseFormShekelPreview() =
     Preview(ExpenseFormUiState(isLoading = false, amount = "85.50", date = LocalDate.of(2026, 11, 13)))
+
+@Preview(name = "Expense form – not shared, empty split error", showBackground = true, heightDp = 900)
+@Composable
+private fun ExpenseFormSplitErrorPreview() = Preview(
+    previewForeign.copy(splitBetween = emptyList(), splitError = ExpenseFieldError.SPLIT_EMPTY)
+)
 
 @Preview(name = "Expense form – narrow, large font", widthDp = 320, heightDp = 1100, fontScale = 1.5f)
 @Composable

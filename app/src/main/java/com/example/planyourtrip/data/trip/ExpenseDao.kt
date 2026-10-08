@@ -36,7 +36,8 @@ interface ExpenseDao {
     @Query(
         "UPDATE expenses SET name = :name, amount_agorot = :amountAgorot, category = :category, date = :date, " +
             "original_amount = :originalAmount, original_currency = :originalCurrency, " +
-            "exchange_rate = :exchangeRate, rate_date = :rateDate, updated_at = :updatedAt, pending_sync = 1 " +
+            "exchange_rate = :exchangeRate, rate_date = :rateDate, paid_by = :paidBy, split_between = :splitBetween, " +
+            "updated_at = :updatedAt, pending_sync = 1 " +
             "WHERE id = :id AND trip_id IN (SELECT id FROM trips WHERE owner_id = :ownerId)"
     )
     suspend fun update(
@@ -50,6 +51,8 @@ interface ExpenseDao {
         originalCurrency: String?,
         exchangeRate: BigDecimal?,
         rateDate: LocalDate?,
+        paidBy: String,
+        splitBetween: List<String>,
         updatedAt: Long,
     )
 

@@ -38,6 +38,10 @@ data class ExpenseEntity(
     /** Shekels per 1 unit, exact text (see [Converters]). */
     @ColumnInfo(name = "exchange_rate") val exchangeRate: BigDecimal? = null,
     @ColumnInfo(name = "rate_date") val rateDate: LocalDate? = null,
+    /** Key of the traveler who paid ([ME] or a traveler uuid). Existing expenses got [ME] in the v13 migration. */
+    @ColumnInfo(name = "paid_by", defaultValue = ME) val paidBy: String = ME,
+    /** Keys of the travelers sharing it equally, joined by "," (see [Converters]); never empty. */
+    @ColumnInfo(name = "split_between", defaultValue = ME) val splitBetween: List<String> = listOf(ME),
     /** Stable id shared by every device and Firestore (the document id); the Long [id] is local only. */
     @ColumnInfo(defaultValue = "") val uuid: String = UUID.randomUUID().toString(),
     /** Epoch millis of the last change on any device; the newer change wins when syncing. */
@@ -58,4 +62,6 @@ fun ExpenseEntity.toExpense() = Expense(
     } else {
         null
     },
+    paidBy = paidBy,
+    splitBetween = splitBetween.ifEmpty { listOf(paidBy) },
 )

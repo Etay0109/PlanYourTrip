@@ -75,6 +75,20 @@ class Converters {
     fun nameToDocumentType(name: String): DocumentType =
         DocumentType.entries.firstOrNull { it.name == name } ?: DocumentType.OTHER
 
+    /** Traveler keys of an expense's split: uuids and "me" never contain a comma. */
+    @TypeConverter
+    fun keysToText(keys: List<String>): String = keys.joinToString(",")
+
+    @TypeConverter
+    fun textToKeys(text: String): List<String> = text.split(",").filter { it.isNotEmpty() }
+
+    @TypeConverter
+    fun travelerColorToName(color: TravelerColor): String = color.name
+
+    /** Unknown names fall back to the first color instead of crashing. */
+    @TypeConverter
+    fun nameToTravelerColor(name: String): TravelerColor = TravelerColor.fromName(name)
+
     @TypeConverter
     fun syncKindToName(kind: SyncKind): String = kind.name
 

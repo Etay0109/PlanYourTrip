@@ -4,12 +4,16 @@ import com.example.planyourtrip.data.sync.SyncTestData.activity
 import com.example.planyourtrip.data.sync.SyncTestData.checklistItem
 import com.example.planyourtrip.data.sync.SyncTestData.deletedAt
 import com.example.planyourtrip.data.sync.SyncTestData.expense
+import com.example.planyourtrip.data.sync.SyncTestData.settlement
+import com.example.planyourtrip.data.sync.SyncTestData.traveler
 import com.example.planyourtrip.data.sync.SyncTestData.trip
 import com.example.planyourtrip.data.trip.ActivityInput
 import com.example.planyourtrip.data.trip.ActivityType
 import com.example.planyourtrip.data.trip.ChecklistKind
 import com.example.planyourtrip.data.trip.ExpenseCategory
 import com.example.planyourtrip.data.trip.ForeignAmount
+import com.example.planyourtrip.data.trip.ME
+import com.example.planyourtrip.data.trip.TravelerColor
 import com.example.planyourtrip.data.trip.TripColor
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -184,5 +188,88 @@ class SyncDocumentsTest {
         }
         assertEquals("SHOPPING", SyncDocuments.toDocument(shopping)["type"])
         assertEquals(shopping, roundTrip(shopping))
+    }
+
+    @Test
+    fun sharedExpense_storesPayerAndSplit_andRoundTrips() {
+        val item = expense("e1", "t1", updatedAt = 5).copy(
+            data = ItemData.ExpenseData(
+                "Dinner", 18_000, ExpenseCategory.FOOD, LocalDate.of(2026, 10, 20), null,
+                paidBy = "noa-uuid", splitBetween = listOf(ME, "noa-uuid", "amit-uuid"),
+            ),
+        )
+        val doc = SyncDocuments.toDocument(item)
+
+        assertEquals("noa-uuid", doc["paidBy"])
+        assertEquals(listOf(ME, "noa-uuid", "amit-uuid"), doc["splitBetween"])
+        assertEquals(item, roundTrip(item))
+    }
+
+    @Test
+    fun expenseFromBeforeSplitting_isPaidByMeAndNotShared() {
+        // A document written by an older app version: no paidBy / splitBetween keys.
+        val doc = SyncDocuments.toDocument(expense("e1", "t1", 5)) - "paidBy" - "splitBetween"
+        val read = SyncDocuments.fromDocument(SyncKind.EXPENSE, "e1", "t1", doc)?.data as ItemData.ExpenseData
+
+        assertEquals(ME, read.paidBy)
+        assertEquals(listOf(ME), read.splitBetween)
+        assertEquals(12_050L, read.amountAgorot)
+    }
+
+    @Test
+    fun expenseWithAnEmptySplit_isThePayerOnly() {
+        val doc = SyncDocuments.toDocument(expense("e1", "t1", 5)) + mapOf("paidBy" to "noa", "splitBetween" to emptyList<String>())
+        val read = SyncDocuments.fromDocument(SyncKind.EXPENSE, "e1", "t1", doc)?.data as ItemData.ExpenseData
+
+        assertEquals(listOf("noa"), read.splitBetween)
+    }
+
+    @Test
+    fun traveler_storesNameColorAndCreatedAt_andRoundTrips() {
+        val item = traveler("r1", "t1", updatedAt = 5, name = "Noa", createdAt = 99)
+        val doc = SyncDocuments.toDocument(item)
+
+        assertEquals(
+            mapOf("name" to "Noa", "color" to "ROSE", "createdAt" to 99L, "deleted" to false, "updatedAt" to 5L),
+            doc,
+        )
+        assertEquals(item, roundTrip(item))
+    }
+
+    @Test
+    fun travelerWithAnUnknownColor_fallsBackToTheFirst() {
+        val doc = SyncDocuments.toDocument(traveler("r1", "t1", 5)) + mapOf("color" to "NEON")
+        val read = SyncDocuments.fromDocument(SyncKind.TRAVELER, "r1", "t1", doc)?.data as ItemData.TravelerData
+
+        assertEquals(TravelerColor.entries.first(), read.color)
+    }
+
+    @Test
+    fun settlement_storesKeysAmountAndIsoDate_andRoundTrips() {
+        val item = settlement("s1", "t1", updatedAt = 5, from = "noa", to = ME)
+        val doc = SyncDocuments.toDocument(item)
+
+        assertEquals("noa", doc["fromTraveler"])
+        assertEquals(ME, doc["toTraveler"])
+        assertEquals(32_000L, doc["amountAgorot"])
+        assertEquals("2026-11-14", doc["date"])
+        assertEquals(item, roundTrip(item))
+    }
+
+    @Test
+    fun travelerAndSettlementTombstones_roundTrip() {
+        for (item in listOf(traveler("r1", "t1", 5), settlement("s1", "t1", 5))) {
+            val deleted = item.deletedAt(9)
+            assertEquals(mapOf("deleted" to true, "updatedAt" to 9L), SyncDocuments.toDocument(deleted))
+            assertEquals(deleted, roundTrip(deleted))
+        }
+    }
+
+    @Test
+    fun brokenTravelerOrSettlement_isSkipped() {
+        val traveler = SyncDocuments.toDocument(traveler("r1", "t1", 5)) - "name"
+        val settlement = SyncDocuments.toDocument(settlement("s1", "t1", 5)) + mapOf("date" to "soon")
+        assertNull(SyncDocuments.fromDocument(SyncKind.TRAVELER, "r1", "t1", traveler))
+        assertNull(SyncDocuments.fromDocument(SyncKind.SETTLEMENT, "s1", "t1", settlement))
     }
 }

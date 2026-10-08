@@ -341,6 +341,101 @@ class MigrationTest {
         db.close()
     }
 
+    @Test
+    fun migrate12To13_keepsAllData_existingExpensesArePaidByMeNotShared_andAddsEmptySplitTables() {
+        helper.createDatabase(DB, 12).use { db ->
+            db.execSQL(
+                "INSERT INTO trips (id, owner_id, destination, start_date, end_date, color, budget_agorot, " +
+                    "currency_code, uuid, updated_at, pending_sync) " +
+                    "VALUES (1, 'u1', 'Rome', 20769, 20774, 'SKY', 500000, 'EUR', 't-1', 5, 0)"
+            )
+            db.execSQL(
+                "INSERT INTO expenses (id, trip_id, name, amount_agorot, category, date, original_amount, " +
+                    "original_currency, exchange_rate, rate_date, uuid, updated_at, pending_sync) VALUES " +
+                    "(1, 1, 'Flights', 180000, 'FLIGHTS', 20700, NULL, NULL, NULL, NULL, 'e-1', 5, 0), " +
+                    "(2, 1, 'Gelato', 4020, 'FOOD', 20770, '10.00', 'EUR', '4.02', 20770, 'e-2', 6, 1)"
+            )
+            db.execSQL(
+                "INSERT INTO activities (id, trip_id, date, start_time, title, note, type, location, " +
+                    "estimated_cost_agorot, booked, uuid, updated_at, pending_sync) VALUES " +
+                    "(1, 1, 20769, 600, 'Colosseum', NULL, 'ACTIVITY', NULL, NULL, 0, 'a-1', 5, 0)"
+            )
+            db.execSQL(
+                "INSERT INTO checklist_items (id, trip_id, list, text, checked, due_date, created_at, uuid, " +
+                    "updated_at, pending_sync) VALUES (1, 1, 'PACKING', 'Charger', 1, NULL, 7, 'c-1', 7, 0)"
+            )
+            db.execSQL(
+                "INSERT INTO deletions (uuid, owner_id, kind, trip_uuid, deleted_at) " +
+                    "VALUES ('e-9', 'u1', 'EXPENSE', 't-1', 8)"
+            )
+        }
+
+        val db = helper.runMigrationsAndValidate(DB, 13, true)
+
+        db.query("SELECT destination, budget_agorot, pending_sync FROM trips").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("Rome", c.getString(0))
+            assertEquals(500000, c.getInt(1))
+            assertEquals(0, c.getInt(2))
+        }
+        db.query(
+            "SELECT name, amount_agorot, original_amount, paid_by, split_between, updated_at, pending_sync " +
+                "FROM expenses ORDER BY id"
+        ).use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("Flights", c.getString(0))
+            assertEquals(180000, c.getInt(1))
+            assertEquals("me", c.getString(3))
+            assertEquals("me", c.getString(4))
+            assertEquals(5, c.getLong(5)) // untouched: nothing new to upload
+            assertEquals(0, c.getInt(6))
+            assertTrue(c.moveToNext())
+            assertEquals("Gelato", c.getString(0))
+            assertEquals(4020, c.getInt(1))
+            assertEquals("10.00", c.getString(2))
+            assertEquals("me", c.getString(3))
+            assertEquals("me", c.getString(4))
+            assertEquals(1, c.getInt(6)) // still pending, as before
+        }
+        db.query("SELECT COUNT(*) FROM activities").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(1, c.getInt(0))
+        }
+        db.query("SELECT text FROM checklist_items").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("Charger", c.getString(0))
+        }
+        db.query("SELECT uuid FROM deletions").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("e-9", c.getString(0))
+        }
+        for (table in listOf("travelers", "settlements")) {
+            db.query("SELECT COUNT(*) FROM $table").use { c ->
+                assertTrue(c.moveToFirst())
+                assertEquals(0, c.getInt(0))
+            }
+        }
+
+        // The new tables work and go with their trip.
+        db.execSQL(
+            "INSERT INTO travelers (id, trip_id, name, color, created_at, uuid, updated_at, pending_sync) " +
+                "VALUES (1, 1, 'Noa', 'ROSE', 9, 'r-1', 9, 1)"
+        )
+        db.execSQL(
+            "INSERT INTO settlements (id, trip_id, from_traveler, to_traveler, amount_agorot, date, created_at, " +
+                "uuid, updated_at, pending_sync) VALUES (1, 1, 'me', 'r-1', 3200, 20771, 9, 's-1', 9, 1)"
+        )
+        db.execSQL("PRAGMA foreign_keys = ON")
+        db.execSQL("DELETE FROM trips WHERE id = 1")
+        for (table in listOf("travelers", "settlements", "expenses")) {
+            db.query("SELECT COUNT(*) FROM $table").use { c ->
+                assertTrue(c.moveToFirst())
+                assertEquals(0, c.getInt(0))
+            }
+        }
+        db.close()
+    }
+
     private companion object {
         const val DB = "migration-test.db"
     }

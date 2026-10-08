@@ -28,6 +28,8 @@ class RoomExpenseRepository(
         category: ExpenseCategory,
         date: LocalDate,
         original: ForeignAmount?,
+        paidBy: String,
+        splitBetween: List<String>,
     ): Long? {
         // Never attach an expense to another account's trip.
         if (!tripDao.exists(tripId, ownerId)) return null
@@ -42,6 +44,8 @@ class RoomExpenseRepository(
                 originalCurrency = original?.currencyCode,
                 exchangeRate = original?.ilsPerUnit,
                 rateDate = original?.rateDate,
+                paidBy = paidBy,
+                splitBetween = cleanSplit(paidBy, splitBetween),
                 updatedAt = clock.millis(),
             )
         ).also { changes.onLocalChange() }
@@ -55,11 +59,13 @@ class RoomExpenseRepository(
         category: ExpenseCategory,
         date: LocalDate,
         original: ForeignAmount?,
+        paidBy: String,
+        splitBetween: List<String>,
     ) {
         expenseDao.update(
             id, ownerId, name.trim(), amountAgorot, category, date,
             original?.amount, original?.currencyCode, original?.ilsPerUnit, original?.rateDate,
-            clock.millis(),
+            paidBy, cleanSplit(paidBy, splitBetween), clock.millis(),
         )
         changes.onLocalChange()
     }
@@ -68,4 +74,8 @@ class RoomExpenseRepository(
         expenseDao.deleteAndRecord(id, ownerId, clock.millis())
         changes.onLocalChange()
     }
+
+    /** No duplicates; an empty split means "not shared" (the payer only). */
+    private fun cleanSplit(paidBy: String, splitBetween: List<String>): List<String> =
+        splitBetween.distinct().ifEmpty { listOf(paidBy) }
 }

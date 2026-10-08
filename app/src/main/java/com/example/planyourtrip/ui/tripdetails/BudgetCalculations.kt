@@ -1,6 +1,5 @@
 package com.example.planyourtrip.ui.tripdetails
 
-import com.example.planyourtrip.data.trip.Expense
 import com.example.planyourtrip.ui.common.TripFormatting
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -29,16 +28,19 @@ data class BudgetSummary(
     val perDay: PerDay?,
 )
 
-/** Null when the trip has no budget yet. */
+/**
+ * Null when the trip has no budget yet. [spentAgorot] is what I spent: my share of every expense (see `myTotal`),
+ * so expenses paid for others never count.
+ */
 fun budgetSummary(
     budgetAgorot: Long?,
-    expenses: List<Expense>,
+    spentAgorot: Long,
     start: LocalDate,
     end: LocalDate,
     today: LocalDate,
 ): BudgetSummary? {
     if (budgetAgorot == null || budgetAgorot <= 0) return null
-    val spent = expenses.sumOf { it.amountAgorot }
+    val spent = spentAgorot
     val left = budgetAgorot - spent
     val percent = spent * 100.0 / budgetAgorot
     val days = remainingBudgetDays(start, end, today)

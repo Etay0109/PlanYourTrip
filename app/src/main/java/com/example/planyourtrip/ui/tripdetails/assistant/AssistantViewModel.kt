@@ -18,6 +18,9 @@ import com.example.planyourtrip.data.assistant.AssistantResponse
 import com.example.planyourtrip.data.auth.AuthRepository
 import com.example.planyourtrip.data.trip.ActivityRepository
 import com.example.planyourtrip.data.trip.ExpenseRepository
+import com.example.planyourtrip.data.trip.TravelerRepository
+import com.example.planyourtrip.ui.common.split.myTotal
+import com.example.planyourtrip.ui.common.split.travelerOrder
 import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.data.trip.TripActivity
 import com.example.planyourtrip.data.trip.TripRepository
@@ -48,6 +51,8 @@ class AssistantViewModel(
     private val authRepository: AuthRepository,
     private val assistantRepository: AssistantRepository,
     private val clock: Clock,
+    /** The trip's travelers, so the budget line counts only my share. */
+    travelerRepository: TravelerRepository,
 ) : ViewModel() {
 
     private data class TripData(val trip: Trip, val spentAgorot: Long, val activities: List<TripActivity>)
@@ -59,9 +64,11 @@ class AssistantViewModel(
             combine(
                 tripRepository.observeTrip(tripId, user.uid),
                 expenseRepository.observeExpenses(tripId, user.uid),
+                travelerRepository.observeTravelers(tripId, user.uid),
                 activityRepository.observeActivities(tripId, user.uid),
-            ) { trip, expenses, activities ->
-                trip?.let { TripData(it, expenses.sumOf { e -> e.amountAgorot }, activities) }
+            ) { trip, expenses, travelers, activities ->
+                // Like the Budget tab: only my share of each expense counts as spent.
+                trip?.let { TripData(it, myTotal(expenses, travelerOrder(travelers)), activities) }
             }
         }
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
@@ -216,6 +223,7 @@ class AssistantViewModel(
                     authRepository = container.authRepository,
                     assistantRepository = container.assistantRepository,
                     clock = container.clock,
+                    travelerRepository = container.travelerRepository,
                 )
             }
         }

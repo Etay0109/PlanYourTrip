@@ -20,9 +20,10 @@ import com.example.planyourtrip.data.sync.SyncDao
 @Database(
     entities = [
         TripEntity::class, ExpenseEntity::class, ExchangeRateEntity::class, ActivityEntity::class,
-        DeletionEntity::class, ChecklistItemEntity::class, DocumentEntity::class,
+        DeletionEntity::class, ChecklistItemEntity::class, DocumentEntity::class, TravelerEntity::class,
+        SettlementEntity::class,
     ],
-    version = 12,
+    version = 13,
     exportSchema = true,
     autoMigrations = [
         // v2: trips.owner_id. Trips from v1 get "" and are not shown to any account.
@@ -51,6 +52,9 @@ import com.example.planyourtrip.data.sync.SyncDao
         // v12: the checklist_items table (Prep tab, synced) and the documents table (this device only). Both start
         // empty; all existing data is kept.
         AutoMigration(from = 11, to = 12),
+        // v13: expense splitting. expenses.paid_by / split_between default to 'me' (every existing expense becomes
+        // "paid by me, not shared", so every trip keeps its numbers); the travelers and settlements tables start empty.
+        AutoMigration(from = 12, to = 13),
     ],
 )
 @TypeConverters(Converters::class)
@@ -68,6 +72,10 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun checklistDao(): ChecklistDao
 
     abstract fun documentDao(): DocumentDao
+
+    abstract fun travelerDao(): TravelerDao
+
+    abstract fun settlementDao(): SettlementDao
 
     companion object {
         fun create(context: Context): AppDatabase =

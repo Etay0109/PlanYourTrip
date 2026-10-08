@@ -4,6 +4,7 @@ import com.example.planyourtrip.FakeActivityRepository
 import com.example.planyourtrip.FakeAssistantRepository
 import com.example.planyourtrip.FakeAuthRepository
 import com.example.planyourtrip.FakeExpenseRepository
+import com.example.planyourtrip.FakeTravelerRepository
 import com.example.planyourtrip.FakeTripRepository
 import com.example.planyourtrip.data.assistant.AssistantError
 import com.example.planyourtrip.data.assistant.AssistantModel
@@ -12,6 +13,9 @@ import com.example.planyourtrip.data.assistant.ChatTurn
 import com.example.planyourtrip.data.auth.AuthUser
 import com.example.planyourtrip.data.trip.ActivityType
 import com.example.planyourtrip.data.trip.ExpenseCategory
+import com.example.planyourtrip.data.trip.ME
+import com.example.planyourtrip.data.trip.Traveler
+import com.example.planyourtrip.data.trip.TravelerColor
 import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.data.trip.TripActivity
 import com.example.planyourtrip.data.trip.TripColor
@@ -75,7 +79,7 @@ class AssistantViewModelTest {
     fun tearDown() = Dispatchers.resetMain()
 
     private fun TestScope.vm(assistant: FakeAssistantRepository) =
-        AssistantViewModel(1, trips, expenses, activities, auth, assistant, clock).also {
+        AssistantViewModel(1, trips, expenses, activities, auth, assistant, clock, FakeTravelerRepository(trips)).also {
             it.uiState.launchIn(backgroundScope)
         }
 
@@ -108,6 +112,24 @@ class AssistantViewModelTest {
         assertEquals(ChatMessage.User(1, "Am I within budget?"), messages[0])
         assertEquals("Yes, ₪3,500 left.", (messages[1] as ChatMessage.Assistant).text)
         assertFalse(vm.uiState.value.isSending)
+    }
+
+    @Test
+    fun send_budgetLineCountsOnlyMyShare() = runTest(dispatcher) {
+        // ₪2,500 split with Noa: ₪1,250 is mine, like on the Budget tab.
+        expenses.addExpense(
+            1, "u1", "Flights", 250_000, ExpenseCategory.FLIGHTS, nov(1),
+            paidBy = "noa", splitBetween = listOf(ME, "noa"),
+        )
+        val travelers = FakeTravelerRepository(trips, initial = listOf(Traveler(1, 1, "noa", "Noa", TravelerColor.ROSE)))
+        val assistant = FakeAssistantRepository(AssistantResponse.Answer("""{"reply":"Yes."}"""))
+        val vm = AssistantViewModel(1, trips, expenses, activities, auth, assistant, clock, travelers).also {
+            it.uiState.launchIn(backgroundScope)
+        }
+
+        assertTrue(vm.onSend("Am I within budget?"))
+
+        assertTrue("Budget: total ₪6,000, spent ₪1,250, remaining ₪4,750." in assistant.requests.single().tripContext)
     }
 
     @Test
@@ -149,7 +171,7 @@ class AssistantViewModelTest {
     @Test
     fun noTrip_cannotSend() = runTest(dispatcher) {
         val assistant = FakeAssistantRepository()
-        val vm = AssistantViewModel(99, trips, expenses, activities, auth, assistant, clock)
+        val vm = AssistantViewModel(99, trips, expenses, activities, auth, assistant, clock, FakeTravelerRepository(trips))
         assertFalse(vm.onSend("Hello"))
         assertTrue(assistant.requests.isEmpty())
     }

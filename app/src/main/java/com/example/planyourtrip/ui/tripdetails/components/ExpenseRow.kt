@@ -1,6 +1,9 @@
 package com.example.planyourtrip.ui.tripdetails.components
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,26 +14,46 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.planyourtrip.R
 import com.example.planyourtrip.data.trip.Expense
 import com.example.planyourtrip.ui.common.TripFormatting
 import com.example.planyourtrip.ui.common.labelRes
 import com.example.planyourtrip.ui.common.shekels
+import com.example.planyourtrip.ui.common.split.Person
+import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
 import com.example.planyourtrip.ui.tripdetails.expense.ExpenseCurrency
 
+/** Who paid an expense and who shares it, shown only when the trip has other travelers. */
+@Immutable
+data class ExpenseSplitInfo(
+    val payer: Person,
+    /** In list order; never empty. */
+    val splitWith: List<Person>,
+    val myShareAgorot: Long,
+)
+
 /**
- * One expense: round category icon, name, date and the category label; on the right the shekel amount in bold
- * and, for an expense entered in another currency, its original amount ("€10.00") in small gray text.
- * Tapping opens it for editing.
+ * One expense: round category icon, name, the date with the category label and, with other travelers ([split]),
+ * a gray line with the payer's small avatar ("Paid by Noa · split 3 ways"). On the right the shekel amount in bold,
+ * the original amount ("€10.00") for a foreign expense, and "Your share ₪60" in teal. Tapping opens it for editing.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ExpenseRow(expense: Expense, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun ExpenseRow(
+    expense: Expense,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    split: ExpenseSplitInfo? = null,
+) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val categoryColor = ExtendedTheme.colors.category(expense.category)
     Surface(
@@ -54,17 +77,35 @@ fun ExpenseRow(expense: Expense, onClick: () -> Unit, modifier: Modifier = Modif
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Text(
-                    text = TripFormatting.date(expense.date),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = muted,
-                )
                 Spacer(Modifier.height(4.dp))
-                TagPill(
-                    text = stringResource(expense.category.labelRes()),
-                    container = categoryColor.container,
-                    content = categoryColor.content,
-                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    itemVerticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = TripFormatting.date(expense.date),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = muted,
+                    )
+                    TagPill(
+                        text = stringResource(expense.category.labelRes()),
+                        container = categoryColor.container,
+                        content = categoryColor.content,
+                    )
+                }
+                if (split != null) {
+                    Spacer(Modifier.height(4.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TravelerAvatar(split.payer, Dimens.TravelerAvatarTinySize)
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = splitLine(split),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = muted,
+                        )
+                    }
+                }
             }
             Spacer(Modifier.width(12.dp))
             Column(horizontalAlignment = Alignment.End) {
@@ -80,7 +121,35 @@ fun ExpenseRow(expense: Expense, onClick: () -> Unit, modifier: Modifier = Modif
                         color = muted,
                     )
                 }
+                if (split != null) {
+                    Text(
+                        text = stringResource(R.string.expense_row_your_share, shekels(split.myShareAgorot)),
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
             }
         }
     }
 }
+
+/** "Paid by Noa · split 3 ways", "Paid by you · not shared", "Paid by you · for Noa". */
+@Composable
+private fun splitLine(split: ExpenseSplitInfo): String {
+    val paidBy = if (split.payer == Person.You) {
+        stringResource(R.string.expense_row_paid_by_you)
+    } else {
+        stringResource(R.string.expense_row_paid_by, personName(split.payer))
+    }
+    val single = split.splitWith.singleOrNull()
+    return when {
+        single == split.payer -> stringResource(R.string.expense_row_not_shared, paidBy)
+        single != null -> stringResource(R.string.expense_row_for, paidBy, personForSentence(single))
+        else -> pluralStringResource(R.plurals.expense_row_split, split.splitWith.size, paidBy, split.splitWith.size)
+    }
+}
+
+/** "you" in the middle of a sentence, otherwise the name. */
+@Composable
+private fun personForSentence(person: Person): String =
+    if (person == Person.You) stringResource(R.string.expense_row_you_lowercase) else personName(person)

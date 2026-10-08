@@ -1,6 +1,7 @@
 package com.example.planyourtrip.ui.tripdetails
 
 import com.example.planyourtrip.data.trip.Expense
+import com.example.planyourtrip.data.trip.Traveler
 import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.data.trip.TripActivity
 import com.example.planyourtrip.ui.common.CategoryTotal
@@ -22,11 +23,15 @@ sealed interface TripDetailsUiState {
         val trip: Trip,
         /** Header badge; null once the trip has ended. */
         val status: TripStatus?,
-        /** Null when the trip has no budget yet. */
+        /** Null when the trip has no budget yet. Counts only my share of each expense. */
         val summary: BudgetSummary?,
         val categoryTotals: List<CategoryTotal>,
         /** Newest first. */
         val expenses: List<Expense>,
+        /** The trip's travelers besides "You", in list order (empty = only me: no split shown anywhere). */
+        val travelers: List<Traveler> = emptyList(),
+        /** My share of each expense, by expense id (what the budget and the chart count). */
+        val myShares: Map<Long, Long> = emptyMap(),
         /** Plan tab, Daily plan card and the Overview day section. */
         val itinerary: ItineraryState,
     ) : TripDetailsUiState

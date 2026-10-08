@@ -4,6 +4,8 @@ import com.example.planyourtrip.data.sync.SyncTestData.activity
 import com.example.planyourtrip.data.sync.SyncTestData.checklistItem
 import com.example.planyourtrip.data.sync.SyncTestData.deletedAt
 import com.example.planyourtrip.data.sync.SyncTestData.expense
+import com.example.planyourtrip.data.sync.SyncTestData.settlement
+import com.example.planyourtrip.data.sync.SyncTestData.traveler
 import com.example.planyourtrip.data.sync.SyncTestData.pending
 import com.example.planyourtrip.data.sync.SyncTestData.renamed
 import com.example.planyourtrip.data.sync.SyncTestData.synced
@@ -232,6 +234,41 @@ class SyncMergeTest {
             listOf(SyncKind.TRIP, SyncKind.EXPENSE, SyncKind.ACTIVITY, SyncKind.CHECKLIST),
             plan.saveLocally.map { it.kind },
         )
+    }
+
+    @Test
+    fun newDevice_savesTravelersAfterTheirTrip_inCreationOrder_andSettlementsLast() {
+        val amit = traveler("r2", "t1", updatedAt = 100, name = "Amit", createdAt = 20)
+        val noa = traveler("r1", "t1", updatedAt = 100, name = "Noa", createdAt = 10)
+        val paid = settlement("s1", "t1", updatedAt = 100)
+        val dinner = expense("e1", "t1", updatedAt = 100)
+
+        val plan = planMerge(local = emptyList(), cloud = listOf(paid, amit, dinner, noa, rome))
+
+        assertEquals(listOf(rome, noa, amit, dinner, paid), plan.saveLocally)
+    }
+
+    @Test
+    fun travelersAndSettlementsOfATripDeletedElsewhere_areDeleted_andNeverUploaded() {
+        val noa = traveler("r1", "t1", updatedAt = 100)
+        val paid = settlement("s1", "t1", updatedAt = 250) // recorded here after the trip's delete
+
+        val plan = planMerge(
+            local = listOf(synced(rome), synced(noa), pending(paid)),
+            cloud = listOf(rome.deletedAt(200), noa.deletedAt(200)),
+        )
+
+        assertEquals(setOf(rome, noa, paid), plan.deleteLocally.toSet())
+        assertTrue(plan.upload.isEmpty())
+    }
+
+    @Test
+    fun settlementDeletedHere_afterItWasSynced_uploadsTheTombstone() {
+        val paid = settlement("s1", "t1", updatedAt = 100)
+
+        val plan = planMerge(listOf(pending(paid.deletedAt(300))), listOf(paid))
+
+        assertEquals(listOf(paid.deletedAt(300)), plan.upload)
     }
 
     @Test

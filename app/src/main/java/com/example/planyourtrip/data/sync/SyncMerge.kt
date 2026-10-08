@@ -30,7 +30,7 @@ data class MergePlan(
  * | tombstone            | live      | the newer of delete and edit wins (tie: the cloud's edit)           |
  * | tombstone            | missing / tombstone | drop the local tombstone                                  |
  *
- * Expenses and activities of a trip that ends up deleted are deleted here and neither saved nor uploaded.
+ * Children (travelers, expenses, activities, checklist items, settlements) of a trip that ends up deleted are deleted here and neither saved nor uploaded.
  */
 fun planMerge(local: List<LocalItem>, cloud: List<SyncItem>): MergePlan {
     val localByUuid = local.associateBy { it.item.uuid }
@@ -73,14 +73,21 @@ fun planMerge(local: List<LocalItem>, cloud: List<SyncItem>): MergePlan {
 }
 
 /**
- * Trips before their children; checklist items in creation order (ties by uuid, the same on every device), so the
- * rows they become here are inserted in list order and `ORDER BY created_at, id` matches the other devices.
+ * Trips before their children; checklist items and travelers in creation order (ties by uuid, the same on every
+ * device), so the rows they become here are inserted in list order and `ORDER BY created_at, id` matches the other
+ * devices.
  */
 private val saveOrder: Comparator<SyncItem> = compareBy<SyncItem>(
     { it.kind.ordinal },
-    { (it.data as? ItemData.ChecklistData)?.createdAt ?: 0L },
-    { if (it.kind == SyncKind.CHECKLIST) it.uuid else "" },
+    { it.createdAtForOrder() ?: 0L },
+    { if (it.createdAtForOrder() != null) it.uuid else "" },
 )
+
+private fun SyncItem.createdAtForOrder(): Long? = when (val d = data) {
+    is ItemData.ChecklistData -> d.createdAt
+    is ItemData.TravelerData -> d.createdAt
+    else -> null
+}
 
 private class Decision(
     val uuid: String,

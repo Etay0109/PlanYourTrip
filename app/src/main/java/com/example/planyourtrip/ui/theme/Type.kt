@@ -5,6 +5,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import com.example.planyourtrip.R
 
@@ -75,3 +76,18 @@ val DatePickerHeadlineStyle = Typography.headlineMedium.copy(
  */
 val ConverterAmountStyles: List<TextStyle> =
     (24 downTo 10).map { size -> Typography.headlineSmall.copy(fontSize = size.sp) }
+
+/**
+ * Initials inside a round traveler avatar of [avatarSize]: about 40% of the circle for one letter, 28% for "YOU".
+ * Divided by [fontScale] so the letters always fit the circle; avatars are decorative (the name is always written
+ * next to them and read by TalkBack), so they don't need to grow with the font size.
+ */
+fun travelerAvatarTextStyle(avatarSize: Dp, letters: Int, fontScale: Float): TextStyle {
+    val factor = if (letters <= 1) 0.4f else 0.28f
+    return Typography.labelLarge.copy(
+        fontWeight = FontWeight.Bold,
+        fontSize = (avatarSize.value * factor / fontScale).sp,
+        lineHeight = (avatarSize.value * factor / fontScale).sp,
+        letterSpacing = 0.sp,
+    )
+}

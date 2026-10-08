@@ -15,7 +15,7 @@ data class DeletionEntity(
     @ColumnInfo(name = "owner_id") val ownerId: String,
     /** Stored as the enum name (see Converters). */
     val kind: SyncKind,
-    /** The trip's uuid for an expense or activity (the cloud path needs it); null for a trip. */
+    /** The trip's uuid for a child item (the cloud path needs it); null for a trip. */
     @ColumnInfo(name = "trip_uuid") val tripUuid: String?,
     /** Epoch millis of the delete; compared with edits made on other devices. */
     @ColumnInfo(name = "deleted_at") val deletedAt: Long,

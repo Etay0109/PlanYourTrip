@@ -4,6 +4,8 @@ import com.example.planyourtrip.data.trip.ActivityInput
 import com.example.planyourtrip.data.trip.ActivityType
 import com.example.planyourtrip.data.trip.ChecklistKind
 import com.example.planyourtrip.data.trip.ExpenseCategory
+import com.example.planyourtrip.data.trip.ME
+import com.example.planyourtrip.data.trip.TravelerColor
 import com.example.planyourtrip.data.trip.TripColor
 import java.time.LocalDate
 
@@ -67,6 +69,24 @@ object SyncTestData {
         updatedAt = updatedAt,
         data = ItemData.ChecklistData(ChecklistKind.BEFORE_TRIP, text, checked, dueDate, createdAt),
     )
+
+    fun traveler(uuid: String, tripUuid: String, updatedAt: Long, name: String = "Noa", createdAt: Long = 7) =
+        SyncItem(
+            kind = SyncKind.TRAVELER,
+            uuid = uuid,
+            tripUuid = tripUuid,
+            updatedAt = updatedAt,
+            data = ItemData.TravelerData(name, TravelerColor.ROSE, createdAt),
+        )
+
+    fun settlement(uuid: String, tripUuid: String, updatedAt: Long, from: String = "noa", to: String = ME) =
+        SyncItem(
+            kind = SyncKind.SETTLEMENT,
+            uuid = uuid,
+            tripUuid = tripUuid,
+            updatedAt = updatedAt,
+            data = ItemData.SettlementData(from, to, 32_000, LocalDate.of(2026, 11, 14), createdAt = 11),
+        )
 
     fun SyncItem.deletedAt(at: Long) = copy(updatedAt = at, data = null)
 
