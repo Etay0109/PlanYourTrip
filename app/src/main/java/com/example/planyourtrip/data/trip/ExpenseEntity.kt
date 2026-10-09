@@ -20,7 +20,7 @@ import java.util.UUID
             onDelete = ForeignKey.CASCADE,
         ),
     ],
-    indices = [Index("trip_id"), Index(value = ["uuid"], unique = true)],
+    indices = [Index("trip_id"), Index(value = ["trip_id", "uuid"], unique = true)],
 )
 data class ExpenseEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
@@ -38,10 +38,13 @@ data class ExpenseEntity(
     /** Shekels per 1 unit, exact text (see [Converters]). */
     @ColumnInfo(name = "exchange_rate") val exchangeRate: BigDecimal? = null,
     @ColumnInfo(name = "rate_date") val rateDate: LocalDate? = null,
-    /** Key of the traveler who paid ([ME] or a traveler uuid). Existing expenses got [ME] in the v13 migration. */
-    @ColumnInfo(name = "paid_by", defaultValue = ME) val paidBy: String = ME,
+    /**
+     * Key of the traveler who paid (a member uid or a traveler uuid). The SQL default is the legacy "me" (v13); the
+     * v14 migration replaced it with the trip owner's uid, and every insert passes the key.
+     */
+    @ColumnInfo(name = "paid_by", defaultValue = LEGACY_ME_KEY) val paidBy: String,
     /** Keys of the travelers sharing it equally, joined by "," (see [Converters]); never empty. */
-    @ColumnInfo(name = "split_between", defaultValue = ME) val splitBetween: List<String> = listOf(ME),
+    @ColumnInfo(name = "split_between", defaultValue = LEGACY_ME_KEY) val splitBetween: List<String>,
     /** Stable id shared by every device and Firestore (the document id); the Long [id] is local only. */
     @ColumnInfo(defaultValue = "") val uuid: String = UUID.randomUUID().toString(),
     /** Epoch millis of the last change on any device; the newer change wins when syncing. */

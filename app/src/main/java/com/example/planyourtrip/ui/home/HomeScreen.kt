@@ -50,9 +50,11 @@ import com.example.planyourtrip.ui.common.components.AccountButton
 import com.example.planyourtrip.ui.common.components.BrandMark
 import com.example.planyourtrip.ui.common.components.Pill
 import com.example.planyourtrip.ui.common.components.PrimaryButton
+import com.example.planyourtrip.ui.common.components.RefreshBox
 import com.example.planyourtrip.ui.common.delete.DeleteTripHost
 import com.example.planyourtrip.ui.common.delete.DeleteTripMessage
 import com.example.planyourtrip.ui.common.delete.DeleteTripViewModel
+import com.example.planyourtrip.ui.common.refresh.RefreshViewModel
 import com.example.planyourtrip.ui.common.share.ShareTripHost
 import com.example.planyourtrip.ui.common.share.ShareTripViewModel
 import com.example.planyourtrip.ui.home.components.NextTripCard
@@ -75,8 +77,10 @@ fun HomeScreen(
     shareViewModel: ShareTripViewModel = viewModel(factory = ShareTripViewModel.Factory),
     accountViewModel: AccountViewModel = viewModel(factory = AccountViewModel.Factory),
     deleteViewModel: DeleteTripViewModel = viewModel(factory = DeleteTripViewModel.Factory),
+    refreshViewModel: RefreshViewModel = viewModel(factory = RefreshViewModel.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val refresh by refreshViewModel.state.collectAsStateWithLifecycle()
     val account by accountViewModel.state.collectAsStateWithLifecycle()
     val deleteState by deleteViewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -93,6 +97,12 @@ fun HomeScreen(
         deleteViewModel.onMessageShown()
         snackbarHostState.showSnackbar(if (message == DeleteTripMessage.DELETED) deletedText else failedText)
     }
+    val refreshFailedText = stringResource(R.string.refresh_failed)
+    LaunchedEffect(refresh.failed) {
+        if (!refresh.failed) return@LaunchedEffect
+        refreshViewModel.onMessageShown()
+        snackbarHostState.showSnackbar(refreshFailedText)
+    }
 
     ShareTripHost(shareViewModel)
     DeleteTripHost(deleteViewModel)
@@ -106,6 +116,8 @@ fun HomeScreen(
         deletingTripId = deleteState.dialog?.tripId,
         snackbarHostState = snackbarHostState,
         accountActions = remember(accountViewModel) { accountViewModel.actions() },
+        isRefreshing = refresh.isRefreshing,
+        onRefresh = refreshViewModel::onRefresh,
     )
 }
 
@@ -123,6 +135,9 @@ fun HomeContent(
     deletingTripId: Long? = null,
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     accountActions: AccountActions = AccountActions({}, {}, {}),
+    /** Pull to refresh: a full sync with the cloud. */
+    isRefreshing: Boolean = false,
+    onRefresh: () -> Unit = {},
 ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -142,108 +157,115 @@ fun HomeContent(
         val sections = content.sections
         val layoutDirection = LocalLayoutDirection.current
 
-        LazyColumn(
+        RefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = onRefresh,
             modifier = Modifier.fillMaxSize(),
-            // Extra bottom space so the FAB (56dp + 16dp margin) never covers the last card.
-            contentPadding = PaddingValues(
-                start = innerPadding.calculateStartPadding(layoutDirection) + Dimens.ScreenPadding,
-                end = innerPadding.calculateEndPadding(layoutDirection) + Dimens.ScreenPadding,
-                top = innerPadding.calculateTopPadding() + 32.dp,
-                bottom = innerPadding.calculateBottomPadding() + 104.dp,
-            ),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            indicatorTop = innerPadding.calculateTopPadding(),
         ) {
-            item(key = "header") {
-                HomeHeader(content, account, accountActions)
-            }
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                // Extra bottom space so the FAB (56dp + 16dp margin) never covers the last card.
+                contentPadding = PaddingValues(
+                    start = innerPadding.calculateStartPadding(layoutDirection) + Dimens.ScreenPadding,
+                    end = innerPadding.calculateEndPadding(layoutDirection) + Dimens.ScreenPadding,
+                    top = innerPadding.calculateTopPadding() + 32.dp,
+                    bottom = innerPadding.calculateBottomPadding() + 104.dp,
+                ),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                item(key = "header") {
+                    HomeHeader(content, account, accountActions)
+                }
 
-            if (sections.isEmpty) {
-                item(key = "empty") { EmptyState(onAddTrip, Modifier.animateItem()) }
-                return@LazyColumn
-            }
+                if (sections.isEmpty) {
+                    item(key = "empty") { EmptyState(onAddTrip, Modifier.animateItem()) }
+                    return@LazyColumn
+                }
 
-            // Every card is keyed by its trip, whatever its section: a deleted card fades out and the trip that
-            // takes the Next trip place moves there from the Upcoming list.
-            sections.next?.let { next ->
-                item(key = tripKey(next.trip.id)) {
-                    SwipeToDeleteBox(
-                        shape = MaterialTheme.shapes.extraLarge,
-                        deletePending = deletingTripId == next.trip.id,
-                        onDelete = { onDeleteTrip(next.trip) },
-                        modifier = Modifier.animateItem().padding(top = 8.dp),
-                    ) {
-                        NextTripCard(
-                            next = next,
-                            onClick = { onTripClick(next.trip.id) },
-                            onShare = { onShareTrip(next.trip.id) },
+                // Every card is keyed by its trip, whatever its section: a deleted card fades out and the trip that
+                // takes the Next trip place moves there from the Upcoming list.
+                sections.next?.let { next ->
+                    item(key = tripKey(next.trip.id)) {
+                        SwipeToDeleteBox(
+                            shape = MaterialTheme.shapes.extraLarge,
+                            deletePending = deletingTripId == next.trip.id,
                             onDelete = { onDeleteTrip(next.trip) },
-                        )
+                            modifier = Modifier.animateItem().padding(top = 8.dp),
+                        ) {
+                            NextTripCard(
+                                next = next,
+                                onClick = { onTripClick(next.trip.id) },
+                                onShare = { onShareTrip(next.trip.id) },
+                                onDelete = { onDeleteTrip(next.trip) },
+                            )
+                        }
                     }
                 }
-            }
 
-            if (sections.upcoming.isNotEmpty()) {
-                item(key = "upcoming-header") {
-                    SectionHeader(
-                        modifier = Modifier.animateItem(),
-                        title = stringResource(R.string.home_upcoming),
-                        titleColor = MaterialTheme.colorScheme.onSurface,
-                    ) {
-                        Pill(
-                            text = pluralStringResource(
-                                R.plurals.home_trip_count, sections.upcoming.size, sections.upcoming.size
-                            ),
-                            container = MaterialTheme.colorScheme.secondaryContainer,
-                            content = MaterialTheme.colorScheme.primary,
-                        )
+                if (sections.upcoming.isNotEmpty()) {
+                    item(key = "upcoming-header") {
+                        SectionHeader(
+                            modifier = Modifier.animateItem(),
+                            title = stringResource(R.string.home_upcoming),
+                            titleColor = MaterialTheme.colorScheme.onSurface,
+                        ) {
+                            Pill(
+                                text = pluralStringResource(
+                                    R.plurals.home_trip_count, sections.upcoming.size, sections.upcoming.size
+                                ),
+                                container = MaterialTheme.colorScheme.secondaryContainer,
+                                content = MaterialTheme.colorScheme.primary,
+                            )
+                        }
                     }
-                }
-                items(sections.upcoming, key = { tripKey(it.trip.id) }) { item ->
-                    SwipeToDeleteBox(
-                        shape = MaterialTheme.shapes.large,
-                        deletePending = deletingTripId == item.trip.id,
-                        onDelete = { onDeleteTrip(item.trip) },
-                        modifier = Modifier.animateItem(),
-                    ) {
-                        UpcomingTripCard(
-                            item = item,
-                            onClick = { onTripClick(item.trip.id) },
-                            onShare = { onShareTrip(item.trip.id) },
+                    items(sections.upcoming, key = { tripKey(it.trip.id) }) { item ->
+                        SwipeToDeleteBox(
+                            shape = MaterialTheme.shapes.large,
+                            deletePending = deletingTripId == item.trip.id,
                             onDelete = { onDeleteTrip(item.trip) },
-                        )
+                            modifier = Modifier.animateItem(),
+                        ) {
+                            UpcomingTripCard(
+                                item = item,
+                                onClick = { onTripClick(item.trip.id) },
+                                onShare = { onShareTrip(item.trip.id) },
+                                onDelete = { onDeleteTrip(item.trip) },
+                            )
+                        }
                     }
                 }
-            }
 
-            if (sections.past.isNotEmpty()) {
-                item(key = "past-header") {
-                    SectionHeader(
-                        modifier = Modifier.animateItem(),
-                        title = stringResource(R.string.home_past_trips),
-                        titleColor = ExtendedTheme.colors.onPastCard,
-                    ) {
-                        Text(
-                            text = pluralStringResource(
-                                R.plurals.home_archived_count, sections.past.size, sections.past.size
-                            ),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                if (sections.past.isNotEmpty()) {
+                    item(key = "past-header") {
+                        SectionHeader(
+                            modifier = Modifier.animateItem(),
+                            title = stringResource(R.string.home_past_trips),
+                            titleColor = ExtendedTheme.colors.onPastCard,
+                        ) {
+                            Text(
+                                text = pluralStringResource(
+                                    R.plurals.home_archived_count, sections.past.size, sections.past.size
+                                ),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
-                }
-                items(sections.past, key = { tripKey(it.id) }) { trip ->
-                    SwipeToDeleteBox(
-                        shape = MaterialTheme.shapes.large,
-                        deletePending = deletingTripId == trip.id,
-                        onDelete = { onDeleteTrip(trip) },
-                        modifier = Modifier.animateItem(),
-                    ) {
-                        PastTripCard(
-                            trip = trip,
-                            onClick = { onTripClick(trip.id) },
-                            onShare = { onShareTrip(trip.id) },
+                    items(sections.past, key = { tripKey(it.id) }) { trip ->
+                        SwipeToDeleteBox(
+                            shape = MaterialTheme.shapes.large,
+                            deletePending = deletingTripId == trip.id,
                             onDelete = { onDeleteTrip(trip) },
-                        )
+                            modifier = Modifier.animateItem(),
+                        ) {
+                            PastTripCard(
+                                trip = trip,
+                                onClick = { onTripClick(trip.id) },
+                                onShare = { onShareTrip(trip.id) },
+                                onDelete = { onDeleteTrip(trip) },
+                            )
+                        }
                     }
                 }
             }

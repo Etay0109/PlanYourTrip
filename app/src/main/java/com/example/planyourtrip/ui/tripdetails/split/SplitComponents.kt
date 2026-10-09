@@ -10,10 +10,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -42,7 +42,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.R
-import com.example.planyourtrip.data.trip.ME
 import com.example.planyourtrip.data.trip.Settlement
 import com.example.planyourtrip.data.trip.Traveler
 import com.example.planyourtrip.ui.common.components.Pill
@@ -289,7 +288,7 @@ fun TransferRow(transfer: Transfer, state: SplitUiState.Loaded, modifier: Modifi
         Text(
             text = amount,
             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-            color = if (transfer.toKey == ME) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+            color = if (to is Person.You) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
         )
     }
 }
@@ -314,8 +313,8 @@ fun TransferAvatars(from: Person, to: Person) {
 /** "Noa owes you", "You owe Amit", "Amit owes Noa". */
 @Composable
 fun transferSentence(from: Person, to: Person): String = when {
-    to == Person.You -> stringResource(R.string.owes_they_owe_you, personName(from))
-    from == Person.You -> stringResource(R.string.owes_you_owe, personName(to))
+    to is Person.You -> stringResource(R.string.owes_they_owe_you, personName(from))
+    from is Person.You -> stringResource(R.string.owes_you_owe, personName(to))
     else -> stringResource(R.string.owes_they_owe, personName(from), personName(to))
 }
 
@@ -325,8 +324,8 @@ fun settlementSentence(settlement: Settlement, state: SplitUiState.Loaded): Stri
     val from = state.person(settlement.fromKey)
     val to = state.person(settlement.toKey)
     return when {
-        to == Person.You -> stringResource(R.string.settle_paid_you, personName(from))
-        from == Person.You -> stringResource(R.string.settle_you_paid, personName(to))
+        to is Person.You -> stringResource(R.string.settle_paid_you, personName(from))
+        from is Person.You -> stringResource(R.string.settle_you_paid, personName(to))
         else -> stringResource(R.string.settle_paid, personName(from), personName(to))
     }
 }

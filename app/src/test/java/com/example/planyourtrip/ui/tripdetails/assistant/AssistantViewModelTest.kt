@@ -6,6 +6,7 @@ import com.example.planyourtrip.FakeAuthRepository
 import com.example.planyourtrip.FakeExpenseRepository
 import com.example.planyourtrip.FakeTravelerRepository
 import com.example.planyourtrip.FakeTripRepository
+import com.example.planyourtrip.ME
 import com.example.planyourtrip.data.assistant.AssistantError
 import com.example.planyourtrip.data.assistant.AssistantModel
 import com.example.planyourtrip.data.assistant.AssistantResponse
@@ -14,12 +15,15 @@ import com.example.planyourtrip.data.auth.AuthUser
 import com.example.planyourtrip.data.trip.ActivityType
 import com.example.planyourtrip.data.trip.ExpenseCategory
 import com.example.planyourtrip.data.trip.ExpenseInput
-import com.example.planyourtrip.data.trip.ME
 import com.example.planyourtrip.data.trip.Traveler
 import com.example.planyourtrip.data.trip.TravelerColor
 import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.data.trip.TripActivity
 import com.example.planyourtrip.data.trip.TripColor
+import java.time.Clock
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.ZoneOffset
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -36,10 +40,6 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import java.time.Clock
-import java.time.LocalDate
-import java.time.LocalTime
-import java.time.ZoneOffset
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class AssistantViewModelTest {
@@ -96,7 +96,7 @@ class AssistantViewModelTest {
 
     @Test
     fun send_includesTheCurrentTripContext() = runTest(dispatcher) {
-        expenses.addExpense(1, "u1", ExpenseInput("Flights", 250_000, ExpenseCategory.FLIGHTS, nov(1)))
+        expenses.addExpense(1, "u1", ExpenseInput("Flights", 250_000, ExpenseCategory.FLIGHTS, nov(1), paidBy = ME, splitBetween = listOf(ME)))
         val assistant = FakeAssistantRepository(AssistantResponse.Answer("""{"reply":"Yes, ₪3,500 left."}"""))
         val vm = vm(assistant)
 

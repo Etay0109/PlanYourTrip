@@ -28,6 +28,8 @@ import com.example.planyourtrip.ui.common.split.simplifyTransfers
 import com.example.planyourtrip.ui.common.split.travelerOrder
 import com.example.planyourtrip.ui.common.split.validateTravelerName
 import com.example.planyourtrip.ui.navigation.TripDetails
+import java.time.Clock
+import java.time.LocalDate
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -41,8 +43,6 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.Clock
-import java.time.LocalDate
 
 /**
  * Travelers, "Who owes whom" and "Settle up" of one trip (Budget tab). Created with the TripDetails back stack entry
@@ -78,10 +78,11 @@ class SplitViewModel(
                 if (trip == null) return@combine SplitUiState.NotFound
                 expenses = expenseList
                 settlements = settlementList
-                val order = travelerOrder(travelers)
+                val order = travelerOrder(user.uid, trip.memberIds, travelers)
                 SplitUiState.Loaded(
+                    me = user.uid,
                     travelers = travelers,
-                    transfers = simplifyTransfers(balances(expenseList, settlementList, order), order),
+                    transfers = simplifyTransfers(balances(expenseList, settlementList, order), order, user.uid),
                     sharedExpenseCount = sharedExpenseCount(expenseList),
                     settlements = settlementList,
                 )

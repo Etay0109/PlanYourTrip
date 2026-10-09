@@ -19,14 +19,14 @@ import java.util.UUID
             onDelete = ForeignKey.CASCADE,
         ),
     ],
-    indices = [Index("trip_id"), Index(value = ["uuid"], unique = true)],
+    indices = [Index("trip_id"), Index(value = ["trip_id", "uuid"], unique = true)],
 )
 data class SettlementEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     @ColumnInfo(name = "trip_id") val tripId: Long,
-    /** Who paid: [ME] or a traveler uuid. */
+    /** Who paid: a member uid or a traveler uuid. */
     @ColumnInfo(name = "from_traveler") val fromKey: String,
-    /** Who received the money: [ME] or a traveler uuid. */
+    /** Who received the money: a member uid or a traveler uuid. */
     @ColumnInfo(name = "to_traveler") val toKey: String,
     /** Whole agorot, > 0. */
     @ColumnInfo(name = "amount_agorot") val amountAgorot: Long,

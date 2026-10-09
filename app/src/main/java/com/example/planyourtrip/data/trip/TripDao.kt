@@ -7,8 +7,8 @@ import androidx.room.Query
 import androidx.room.Transaction
 import com.example.planyourtrip.data.sync.DeletionEntity
 import com.example.planyourtrip.data.sync.SyncKind
-import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
+import kotlinx.coroutines.flow.Flow
 
 /**
  * Every query is scoped to one owner, so an account never sees another account's trips. Every change sets
@@ -47,8 +47,9 @@ interface TripDao {
         updatedAt: Long,
     )
 
+    /** The budget is personal and synced on its own: it never changes the trip's `updated_at`. */
     @Query(
-        "UPDATE trips SET budget_agorot = :budgetAgorot, updated_at = :updatedAt, pending_sync = 1 " +
+        "UPDATE trips SET budget_agorot = :budgetAgorot, budget_updated_at = :updatedAt, budget_pending = 1 " +
             "WHERE id = :id AND owner_id = :ownerId"
     )
     suspend fun setBudget(id: Long, ownerId: String, budgetAgorot: Long?, updatedAt: Long)

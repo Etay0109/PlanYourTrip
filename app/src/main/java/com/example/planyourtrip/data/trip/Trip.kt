@@ -9,8 +9,12 @@ data class Trip(
     val startDate: LocalDate,
     val endDate: LocalDate,
     val color: TripColor,
-    /** Total budget in agorot (1/100 shekel), or null when no budget is set yet. */
+    /** My own budget for the trip in agorot (1/100 shekel; personal), or null when no budget is set yet. */
     val budgetAgorot: Long? = null,
     /** ISO 4217 code of the destination currency ("EUR"), or null when none is chosen yet. */
     val currencyCode: String? = null,
+    /** Uid of the trip's owner (who created it). */
+    val ownerId: String = "",
+    /** Uids of the trip's members, owner first, then in join order (the same order on every device). */
+    val memberIds: List<String> = emptyList(),
 )

@@ -1,26 +1,27 @@
 package com.example.planyourtrip.ui.common.split
 
+import com.example.planyourtrip.ME
 import com.example.planyourtrip.data.trip.Expense
 import com.example.planyourtrip.data.trip.ExpenseCategory
-import com.example.planyourtrip.data.trip.ME
+import com.example.planyourtrip.data.trip.LEGACY_ME_KEY
 import com.example.planyourtrip.data.trip.Settlement
 import com.example.planyourtrip.data.trip.Traveler
 import com.example.planyourtrip.data.trip.TravelerColor
 import com.example.planyourtrip.ui.common.categoryTotals
+import java.time.LocalDate
+import kotlin.random.Random
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.time.LocalDate
-import kotlin.random.Random
 
 class SplitTest {
     private val day = LocalDate.of(2026, 10, 20)
     private val noa = Traveler(1, 1, "noa", "Noa", TravelerColor.ROSE)
     private val amit = Traveler(2, 1, "amit", "Amit", TravelerColor.INDIGO)
     private val travelers = listOf(noa, amit)
-    private val order = travelerOrder(travelers)
+    private val order = travelerOrder(ME, listOf(ME), travelers)
     private val everyone = listOf(ME, "noa", "amit")
 
     private var nextId = 1L
@@ -35,12 +36,12 @@ class SplitTest {
         Settlement(nextId++, 1, "s$nextId", from, to, agorot, day)
 
     private fun transfers(expenses: List<Expense>, settlements: List<Settlement> = emptyList()) =
-        simplifyTransfers(balances(expenses, settlements, order), order)
+        simplifyTransfers(balances(expenses, settlements, order), order, ME)
 
     @Test
     fun order_isYouFirstThenTravelersAsAdded() {
         assertEquals(listOf(ME, "noa", "amit"), order)
-        assertEquals(listOf(ME), travelerOrder(emptyList()))
+        assertEquals(listOf(ME), travelerOrder(ME, listOf(ME), emptyList()))
     }
 
     @Test
@@ -61,15 +62,15 @@ class SplitTest {
     @Test
     fun expenseIAmNotPartOf_countsZeroForMe() {
         val e = expense(9_000, paidBy = "noa", split = listOf("noa", "amit"))
-        assertEquals(0L, e.myShare(order))
-        assertEquals(0L, myTotal(listOf(e), order))
+        assertEquals(0L, e.myShare(order, ME))
+        assertEquals(0L, myTotal(listOf(e), order, ME))
         assertTrue(e.isShared())
     }
 
     @Test
     fun notSharedExpense_isAllMineAndNotShared() {
         val e = expense(12_345)
-        assertEquals(12_345L, e.myShare(order))
+        assertEquals(12_345L, e.myShare(order, ME))
         assertFalse(e.isShared())
         assertTrue(transfers(listOf(e)).isEmpty())
     }
@@ -77,7 +78,7 @@ class SplitTest {
     @Test
     fun expenseIPaidForSomeoneElse_isSharedAndTheyOweMe() {
         val e = expense(5_000, paidBy = ME, split = listOf("noa"))
-        assertEquals(0L, e.myShare(order))
+        assertEquals(0L, e.myShare(order, ME))
         assertTrue(e.isShared())
         assertEquals(listOf(Transfer("noa", ME, 5_000)), transfers(listOf(e)))
     }
@@ -85,9 +86,9 @@ class SplitTest {
     @Test
     fun existingExpense_paidByMeNotShared_keepsTheFullAmount() {
         // What every expense becomes in the v13 migration.
-        val old = Expense(1, 1, "Hotel", 250_000, ExpenseCategory.HOTELS, day)
-        assertEquals(250_000L, old.myShare(order))
-        assertEquals(250_000L, old.myShare(travelerOrder(emptyList())))
+        val old = Expense(1, 1, "Hotel", 250_000, ExpenseCategory.HOTELS, day, paidBy = ME, splitBetween = listOf(ME))
+        assertEquals(250_000L, old.myShare(order, ME))
+        assertEquals(250_000L, old.myShare(travelerOrder(ME, listOf(ME), emptyList()), ME))
         assertEquals(0, sharedExpenseCount(listOf(old)))
     }
 
@@ -132,7 +133,7 @@ class SplitTest {
         // Four people: A owes B 10, C owes D 20 (as balances). Greedy by size alone could cross them (3 transfers).
         val keys = listOf(ME, "b", "c", "d")
         val balances = mapOf(ME to -1_000L, "b" to 1_000L, "c" to -2_000L, "d" to 2_000L)
-        val result = simplifyTransfers(balances, keys)
+        val result = simplifyTransfers(balances, keys, ME)
         assertEquals(setOf(Transfer(ME, "b", 1_000), Transfer("c", "d", 2_000)), result.toSet())
     }
 
@@ -141,7 +142,7 @@ class SplitTest {
         // +5 +3 −3 −5 +7 −7: three pairs (3 transfers) instead of a chain (5).
         val keys = listOf("a", "b", "c", "d", "e", "f")
         val balances = mapOf("a" to 500L, "b" to 300L, "c" to -300L, "d" to -500L, "e" to 700L, "f" to -700L)
-        val result = simplifyTransfers(balances, keys)
+        val result = simplifyTransfers(balances, keys, ME)
         assertEquals(3, result.size)
         assertSettles(balances, result)
     }
@@ -177,18 +178,18 @@ class SplitTest {
     @Test
     fun settlementsNeverChangeMyShare() {
         val expenses = listOf(expense(30_000, paidBy = "noa", split = listOf(ME, "noa")))
-        val before = myTotal(expenses, order)
+        val before = myTotal(expenses, order, ME)
         transfers(expenses, listOf(settlement(ME, "noa", 15_000)))
         assertEquals(15_000L, before)
-        assertEquals(before, myTotal(expenses, order))
+        assertEquals(before, myTotal(expenses, order, ME))
     }
 
     @Test
     fun singleTraveler_hasNoTransfersAndFullAmounts() {
-        val only = travelerOrder(emptyList())
+        val only = travelerOrder(ME, listOf(ME), emptyList())
         val expenses = listOf(expense(1_000), expense(2_550))
-        assertEquals(3_550L, myTotal(expenses, only))
-        assertTrue(simplifyTransfers(balances(expenses, emptyList(), only), only).isEmpty())
+        assertEquals(3_550L, myTotal(expenses, only, ME))
+        assertTrue(simplifyTransfers(balances(expenses, emptyList(), only), only, ME).isEmpty())
         assertEquals(mapOf(ME to 0L), balances(expenses, emptyList(), only))
     }
 
@@ -199,8 +200,8 @@ class SplitTest {
         assertEquals(mapOf(ME to 5_000L, "gone" to 5_000L), e.shares(order))
         val b = balances(listOf(e), emptyList(), order)
         assertEquals(0L, b.values.sum())
-        assertEquals(listOf(Transfer(ME, "gone", 5_000)), simplifyTransfers(b, order))
-        assertEquals(Person.Removed("gone"), personOf("gone", travelers))
+        assertEquals(listOf(Transfer(ME, "gone", 5_000)), simplifyTransfers(b, order, ME))
+        assertEquals(Person.Removed("gone"), personOf("gone", ME, travelers))
     }
 
     @Test
@@ -234,18 +235,68 @@ class SplitTest {
             }
             val everyoneTotal = keys.sumOf { key -> expenses.sumOf { it.shares(bigOrder)[key] ?: 0L } }
             assertEquals(expenses.sumOf { it.amountAgorot }, everyoneTotal)
-            val mine = myTotal(expenses, bigOrder)
-            assertEquals(mine, categoryTotals(expenses, { it.myShare(bigOrder) }).sumOf { it.amountAgorot })
+            val mine = myTotal(expenses, bigOrder, ME)
+            assertEquals(mine, categoryTotals(expenses, { it.myShare(bigOrder, ME) }).sumOf { it.amountAgorot })
             val settlements = List(random.nextInt(0, 3)) {
                 val (from, to) = keys.shuffled(random).take(2)
                 settlement(from, to, random.nextLong(1, 100_000))
             }
             val b = balances(expenses, settlements, bigOrder)
             assertEquals(0L, b.values.sum())
-            val t = simplifyTransfers(b, bigOrder)
+            val t = simplifyTransfers(b, bigOrder, ME)
             assertSettles(b, t)
             // Never more than people with a non-zero balance − 1.
             assertTrue(t.size <= maxOf(0, b.values.count { it != 0L } - 1))
+        }
+    }
+
+    @Test
+    fun order_isTheMembersInTheirCloudOrder_thenTheTravelers_onEveryDevice() {
+        // Bob's phone and Alice's phone compute the same order (Alice is the owner): the extra agorot of an uneven
+        // split go to the same people everywhere.
+        assertEquals(listOf("alice", "bob", "noa", "amit"), travelerOrder("bob", listOf("alice", "bob"), travelers))
+        assertEquals(listOf("alice", "bob", "noa", "amit"), travelerOrder("alice", listOf("alice", "bob"), travelers))
+        // A trip without member data (never in real data): me first, as before shared trips.
+        assertEquals(listOf(ME, "noa", "amit"), travelerOrder(ME, emptyList(), travelers))
+    }
+
+    @Test
+    fun theOwnersUid_givesExactlyTheSameNumbersAsTheOldMeKey() {
+        // Before shared trips the owner's key was "me", first in the order; the v14 migration (and the cloud
+        // migration) replace it with the owner's uid, which is first among the members. Every number stays the same.
+        val random = Random(7)
+        val uid = "kQ3vT9owner"
+        val oldOrder = listOf(LEGACY_ME_KEY) + travelers.map { it.uuid }
+        val newOrder = travelerOrder(uid, listOf(uid), travelers)
+        fun key(k: String) = if (k == LEGACY_ME_KEY) uid else k
+        val keys = listOf(LEGACY_ME_KEY, "noa", "amit")
+        repeat(500) {
+            val old = List(random.nextInt(1, 8)) {
+                expense(
+                    agorot = random.nextLong(1, 1_000_000),
+                    paidBy = keys.random(random),
+                    split = keys.shuffled(random).take(random.nextInt(1, keys.size + 1)),
+                )
+            }
+            val oldSettlements = List(random.nextInt(0, 3)) {
+                val (from, to) = keys.shuffled(random).take(2)
+                settlement(from, to, random.nextLong(1, 100_000))
+            }
+            val new = old.map { it.copy(paidBy = key(it.paidBy), splitBetween = it.splitBetween.map(::key)) }
+            val newSettlements = oldSettlements.map { it.copy(fromKey = key(it.fromKey), toKey = key(it.toKey)) }
+
+            for ((o, n) in old.zip(new)) {
+                assertEquals(o.shares(oldOrder).mapKeys { key(it.key) }, n.shares(newOrder))
+                assertEquals(o.myShare(oldOrder, LEGACY_ME_KEY), n.myShare(newOrder, uid))
+            }
+            assertEquals(myTotal(old, oldOrder, LEGACY_ME_KEY), myTotal(new, newOrder, uid))
+            val oldBalances = balances(old, oldSettlements, oldOrder)
+            val newBalances = balances(new, newSettlements, newOrder)
+            assertEquals(oldBalances.mapKeys { key(it.key) }, newBalances)
+            assertEquals(
+                simplifyTransfers(oldBalances, oldOrder, LEGACY_ME_KEY).map { it.copy(fromKey = key(it.fromKey), toKey = key(it.toKey)) },
+                simplifyTransfers(newBalances, newOrder, uid),
+            )
         }
     }
 

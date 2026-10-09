@@ -16,21 +16,20 @@ import com.example.planyourtrip.data.trip.Expense
 import com.example.planyourtrip.data.trip.ExpenseCategory
 import com.example.planyourtrip.data.trip.ExpenseInput
 import com.example.planyourtrip.data.trip.ExpenseRepository
-import com.example.planyourtrip.data.trip.ME
 import com.example.planyourtrip.data.trip.TravelerRepository
 import com.example.planyourtrip.data.trip.TripRepository
 import com.example.planyourtrip.ui.common.split.inListOrder
 import com.example.planyourtrip.ui.common.split.personOf
 import com.example.planyourtrip.ui.common.split.travelerOrder
 import com.example.planyourtrip.ui.navigation.ExpenseForm
+import java.time.Clock
+import java.time.LocalDate
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.Clock
-import java.time.LocalDate
 
 /**
  * New expense of [tripId] when [expenseId] is null; otherwise edits (or deletes) that expense. The amount can be
@@ -68,10 +67,10 @@ class ExpenseFormViewModel(
             val expense = expenseId?.let { repository.observeExpense(it, ownerId).first() }
             val travelers = travelerRepository.observeTravelers(tripId, ownerId).first()
             stored = expense
-            val order = travelerOrder(travelers)
+            val order = travelerOrder(ownerId, trip?.memberIds.orEmpty(), travelers)
             // An edited expense keeps its payer and split, even a traveler removed on another device since.
             val usedKeys = expense?.let { listOf(it.paidBy) + it.splitBetween }.orEmpty()
-            val people = inListOrder(order + usedKeys, order).map { personOf(it, travelers) }
+            val people = inListOrder(order + usedKeys, order).map { personOf(it, ownerId, travelers) }
             // Editing keeps the expense's own currency even if the trip currency changed since.
             val foreignCode = expense?.original?.currencyCode ?: trip?.currencyCode?.takeIf { it != ILS }
             _uiState.update { state ->
@@ -88,7 +87,7 @@ class ExpenseFormViewModel(
                     // Paid by me, split between everyone.
                     base.copy(
                         date = ExpenseValidator.defaultDate(state.date, trip?.endDate),
-                        paidBy = ME,
+                        paidBy = ownerId,
                         splitBetween = order,
                     )
                 } else {

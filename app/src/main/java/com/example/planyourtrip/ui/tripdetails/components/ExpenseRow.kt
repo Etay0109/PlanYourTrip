@@ -136,7 +136,7 @@ fun ExpenseRow(
 /** "Paid by Noa · split 3 ways", "Paid by you · not shared", "Paid by you · for Noa". */
 @Composable
 private fun splitLine(split: ExpenseSplitInfo): String {
-    val paidBy = if (split.payer == Person.You) {
+    val paidBy = if (split.payer is Person.You) {
         stringResource(R.string.expense_row_paid_by_you)
     } else {
         stringResource(R.string.expense_row_paid_by, personName(split.payer))
@@ -152,4 +152,4 @@ private fun splitLine(split: ExpenseSplitInfo): String {
 /** "you" in the middle of a sentence, otherwise the name. */
 @Composable
 private fun personForSentence(person: Person): String =
-    if (person == Person.You) stringResource(R.string.expense_row_you_lowercase) else personName(person)
+    if (person is Person.You) stringResource(R.string.expense_row_you_lowercase) else personName(person)

@@ -8,8 +8,8 @@ import androidx.room.Transaction
 import com.example.planyourtrip.data.sync.ChildRef
 import com.example.planyourtrip.data.sync.DeletionEntity
 import com.example.planyourtrip.data.sync.SyncKind
-import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
+import kotlinx.coroutines.flow.Flow
 
 /**
  * Every query is scoped to the owner of the item's trip, so an account never sees or changes another account's
@@ -85,11 +85,15 @@ interface ChecklistDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertDeletion(deletion: DeletionEntity)
 
-    /** Deletes the item and records the delete, so it reaches the cloud and the account's other devices. */
+    /**
+     * Deletes the item and records the delete, so it reaches the cloud and the account's other devices. A Packing
+     * item is personal (`SyncKind.PACKING`, the member's own cloud folder); a "Before the trip" item is shared.
+     */
     @Transaction
     suspend fun deleteAndRecord(id: Long, ownerId: String, deletedAt: Long) {
         val ref = ref(id, ownerId) ?: return
-        insertDeletion(DeletionEntity(ref.uuid, ownerId, SyncKind.CHECKLIST, ref.tripUuid, deletedAt))
+        val kind = if (byId(id, ownerId)?.list == ChecklistKind.PACKING) SyncKind.PACKING else SyncKind.CHECKLIST
+        insertDeletion(DeletionEntity(ref.uuid, ownerId, kind, ref.tripUuid, deletedAt))
         delete(id, ownerId)
     }
 }

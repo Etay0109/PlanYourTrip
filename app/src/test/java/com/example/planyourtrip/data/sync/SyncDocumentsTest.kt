@@ -1,6 +1,7 @@
 package com.example.planyourtrip.data.sync
 
 import com.example.planyourtrip.data.sync.SyncTestData.activity
+import com.example.planyourtrip.data.sync.SyncTestData.budget
 import com.example.planyourtrip.data.sync.SyncTestData.checklistItem
 import com.example.planyourtrip.data.sync.SyncTestData.deletedAt
 import com.example.planyourtrip.data.sync.SyncTestData.expense
@@ -12,17 +13,17 @@ import com.example.planyourtrip.data.trip.ActivityType
 import com.example.planyourtrip.data.trip.ChecklistKind
 import com.example.planyourtrip.data.trip.ExpenseCategory
 import com.example.planyourtrip.data.trip.ForeignAmount
-import com.example.planyourtrip.data.trip.ME
+import com.example.planyourtrip.data.trip.LEGACY_ME_KEY
 import com.example.planyourtrip.data.trip.TravelerColor
 import com.example.planyourtrip.data.trip.TripColor
+import java.math.BigDecimal
+import java.time.LocalDate
+import java.time.LocalTime
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.math.BigDecimal
-import java.time.LocalDate
-import java.time.LocalTime
 
 class SyncDocumentsTest {
 
@@ -30,12 +31,15 @@ class SyncDocumentsTest {
         SyncDocuments.fromDocument(item.kind, item.uuid, item.tripUuid, SyncDocuments.toDocument(item))
 
     @Test
-    fun trip_isStoredWithIsoDatesAgorotAndColorName() {
+    fun trip_isStoredWithIsoDatesOwnerMembersAndColorName_andNoBudget() {
         val doc = SyncDocuments.toDocument(trip("t1", updatedAt = 1_700_000_000_000))
 
         assertEquals("2026-11-12", doc["startDate"])
         assertEquals("2026-11-17", doc["endDate"])
-        assertEquals(600_000L, doc["budgetAgorot"])
+        // The budget is personal (memberData), never in the shared trip document.
+        assertFalse("budgetAgorot" in doc)
+        assertEquals("alice", doc["ownerId"])
+        assertEquals(listOf("alice"), doc["memberIds"])
         assertEquals("EUR", doc["currencyCode"])
         assertEquals("SKY", doc["color"])
         assertEquals(1_700_000_000_000L, doc["updatedAt"])
@@ -49,6 +53,7 @@ class SyncDocumentsTest {
             data = ItemData.ExpenseData(
                 "Museum", 4_020, ExpenseCategory.ATTRACTIONS, LocalDate.of(2026, 11, 14),
                 ForeignAmount(BigDecimal("10.00"), "EUR", BigDecimal("4.0200"), LocalDate.of(2026, 10, 2)),
+                paidBy = "alice", splitBetween = listOf("alice"),
             )
         )
         val doc = SyncDocuments.toDocument(item)
@@ -117,6 +122,40 @@ class SyncDocumentsTest {
         assertEquals("2026-11-01", doc["dueDate"])
         assertEquals(42L, doc["createdAt"])
         assertEquals(item, roundTrip(item))
+    }
+
+    @Test
+    fun budget_isTheMembersOwnDocument_withOnlyTheAmount_andRoundTrips() {
+        val item = budget("t1", updatedAt = 5)
+        val doc = SyncDocuments.toDocument(item)
+
+        assertEquals(mapOf("budgetAgorot" to 600_000L, "deleted" to false, "updatedAt" to 5L), doc)
+        assertEquals(item, roundTrip(item))
+        assertEquals(budget("t1", updatedAt = 5, budgetAgorot = null), roundTrip(budget("t1", 5, budgetAgorot = null)))
+    }
+
+    @Test
+    fun packingItem_usesTheChecklistFields_andRoundTrips() {
+        val item = checklistItem("c2", "t1", updatedAt = 5, dueDate = null).let {
+            it.copy(kind = SyncKind.PACKING, data = (it.data as ItemData.ChecklistData).copy(list = ChecklistKind.PACKING))
+        }
+
+        assertEquals("PACKING", SyncDocuments.toDocument(item)["list"])
+        assertEquals(item, roundTrip(item))
+    }
+
+    @Test
+    fun aLegacyTripDocument_readsWithoutOwner_andItsBudgetBecomesABudgetItem() {
+        val legacy = mapOf(
+            "destination" to "Rome", "startDate" to "2026-11-12", "endDate" to "2026-11-17", "budgetAgorot" to 600_000L,
+            "currencyCode" to "EUR", "color" to "SKY", "updatedAt" to 9L, "deleted" to false,
+        )
+
+        val trip = SyncDocuments.fromDocument(SyncKind.TRIP, "t1", null, legacy)?.data as ItemData.TripData
+        assertEquals("", trip.ownerId)
+        assertEquals(emptyList<String>(), trip.memberIds)
+        assertEquals(budget("t1", updatedAt = 9), SyncDocuments.legacyBudget("t1", legacy))
+        assertNull(SyncDocuments.legacyBudget("t1", mapOf("deleted" to true, "updatedAt" to 9L)))
     }
 
     @Test
@@ -195,24 +234,25 @@ class SyncDocumentsTest {
         val item = expense("e1", "t1", updatedAt = 5).copy(
             data = ItemData.ExpenseData(
                 "Dinner", 18_000, ExpenseCategory.FOOD, LocalDate.of(2026, 10, 20), null,
-                paidBy = "noa-uuid", splitBetween = listOf(ME, "noa-uuid", "amit-uuid"),
+                paidBy = "noa-uuid", splitBetween = listOf("alice", "noa-uuid", "amit-uuid"),
             ),
         )
         val doc = SyncDocuments.toDocument(item)
 
         assertEquals("noa-uuid", doc["paidBy"])
-        assertEquals(listOf(ME, "noa-uuid", "amit-uuid"), doc["splitBetween"])
+        assertEquals(listOf("alice", "noa-uuid", "amit-uuid"), doc["splitBetween"])
         assertEquals(item, roundTrip(item))
     }
 
     @Test
     fun expenseFromBeforeSplitting_isPaidByMeAndNotShared() {
-        // A document written by an older app version: no paidBy / splitBetween keys.
+        // A legacy document written by an older app version: no paidBy / splitBetween keys. The legacy migration
+        // then turns "me" into the account's uid (LegacyMigrationTest).
         val doc = SyncDocuments.toDocument(expense("e1", "t1", 5)) - "paidBy" - "splitBetween"
         val read = SyncDocuments.fromDocument(SyncKind.EXPENSE, "e1", "t1", doc)?.data as ItemData.ExpenseData
 
-        assertEquals(ME, read.paidBy)
-        assertEquals(listOf(ME), read.splitBetween)
+        assertEquals(LEGACY_ME_KEY, read.paidBy)
+        assertEquals(listOf(LEGACY_ME_KEY), read.splitBetween)
         assertEquals(12_050L, read.amountAgorot)
     }
 
@@ -246,11 +286,11 @@ class SyncDocumentsTest {
 
     @Test
     fun settlement_storesKeysAmountAndIsoDate_andRoundTrips() {
-        val item = settlement("s1", "t1", updatedAt = 5, from = "noa", to = ME)
+        val item = settlement("s1", "t1", updatedAt = 5, from = "noa", to = "alice")
         val doc = SyncDocuments.toDocument(item)
 
         assertEquals("noa", doc["fromTraveler"])
-        assertEquals(ME, doc["toTraveler"])
+        assertEquals("alice", doc["toTraveler"])
         assertEquals(32_000L, doc["amountAgorot"])
         assertEquals("2026-11-14", doc["date"])
         assertEquals(item, roundTrip(item))

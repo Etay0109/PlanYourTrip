@@ -357,6 +357,9 @@
     <string name="trip_delete_body">\u200E%1$s and its expenses, plan, checklists and documents will be deleted from this device and from your account. This can\'t be undone.</string>
     <string name="trip_deleted">Trip deleted</string>
     <string name="trip_delete_failed">Couldn\'t delete the trip. Try again.</string>
+
+    <!-- Pull to refresh (Home and the trip screen) -->
+    <string name="refresh_failed">Couldn\'t refresh. Check your connection.</string>
     <string name="share_trip">Share trip</string>
     <string name="share_more_options">More options for %1$s</string>
     <string name="share_include_costs">Include costs</string>

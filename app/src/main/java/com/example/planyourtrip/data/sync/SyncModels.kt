@@ -4,7 +4,6 @@ import com.example.planyourtrip.data.trip.ActivityInput
 import com.example.planyourtrip.data.trip.ChecklistKind
 import com.example.planyourtrip.data.trip.ExpenseCategory
 import com.example.planyourtrip.data.trip.ForeignAmount
-import com.example.planyourtrip.data.trip.ME
 import com.example.planyourtrip.data.trip.TravelerColor
 import com.example.planyourtrip.data.trip.TripColor
 import java.time.LocalDate
@@ -12,8 +11,12 @@ import java.time.LocalDate
 /**
  * What kind of item a [SyncItem] is. Stored by name in the `deletions` table, so entries may be reordered; the
  * order is the order in which cloud versions are saved (trips first).
+ *
+ * Shared by all members of a trip: [TRIP], [TRAVELER], [EXPENSE], [ACTIVITY], [CHECKLIST] ("Before the trip"),
+ * [SETTLEMENT]. Personal to the signed-in member (`trips/{trip}/memberData/{uid}`): [BUDGET] (uuid = the trip's
+ * uuid) and [PACKING] (the Packing checklist).
  */
-enum class SyncKind { TRIP, TRAVELER, EXPENSE, ACTIVITY, CHECKLIST, SETTLEMENT }
+enum class SyncKind { TRIP, TRAVELER, EXPENSE, ACTIVITY, CHECKLIST, SETTLEMENT, BUDGET, PACKING }
 
 /**
  * One trip or child item (traveler, expense, activity, checklist item, settlement) as the sync layer sees it, identical on every device and in the cloud.
@@ -31,16 +34,24 @@ data class SyncItem(
     val isDeleted: Boolean get() = data == null
 }
 
-/** The synced fields of an item. Local ids, owner and the pending flag are never synced. */
+/** The synced fields of an item. Local ids, the local account and the pending flag are never synced. */
 sealed interface ItemData {
+    /**
+     * The shared trip. [ownerId] and [memberIds] are written only when the trip is created in the cloud; uploads of
+     * an existing trip never change them (see `FirestoreCloudStore.write`). The budget is personal ([BudgetData]).
+     */
     data class TripData(
         val destination: String,
         val startDate: LocalDate,
         val endDate: LocalDate,
         val color: TripColor,
-        val budgetAgorot: Long?,
         val currencyCode: String?,
+        val ownerId: String,
+        val memberIds: List<String>,
     ) : ItemData
+
+    /** The signed-in member's own budget for the trip (null = none). */
+    data class BudgetData(val budgetAgorot: Long?) : ItemData
 
     data class ExpenseData(
         val name: String,
@@ -48,10 +59,10 @@ sealed interface ItemData {
         val category: ExpenseCategory,
         val date: LocalDate,
         val original: ForeignAmount?,
-        /** Traveler key of the payer ("me" or a traveler uuid). */
-        val paidBy: String = ME,
+        /** Traveler key of the payer (a member uid or a traveler uuid). */
+        val paidBy: String,
         /** Traveler keys sharing the expense equally; never empty. */
-        val splitBetween: List<String> = listOf(ME),
+        val splitBetween: List<String>,
     ) : ItemData
 
     data class ActivityData(val input: ActivityInput) : ItemData

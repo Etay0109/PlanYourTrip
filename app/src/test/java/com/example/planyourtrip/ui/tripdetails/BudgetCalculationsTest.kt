@@ -1,5 +1,6 @@
 package com.example.planyourtrip.ui.tripdetails
 
+import com.example.planyourtrip.ME
 import com.example.planyourtrip.data.trip.Expense
 import com.example.planyourtrip.data.trip.ExpenseCategory
 import com.example.planyourtrip.data.trip.ExpenseCategory.ATTRACTIONS
@@ -7,12 +8,12 @@ import com.example.planyourtrip.data.trip.ExpenseCategory.FLIGHTS
 import com.example.planyourtrip.data.trip.ExpenseCategory.FOOD
 import com.example.planyourtrip.data.trip.ExpenseCategory.HOTELS
 import com.example.planyourtrip.ui.common.categoryTotals
+import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.time.LocalDate
 
 class BudgetCalculationsTest {
 
@@ -23,7 +24,7 @@ class BudgetCalculationsTest {
 
     private var nextId = 1L
     private fun expense(shekels: Long, category: ExpenseCategory = FOOD, agorot: Long = 0) =
-        Expense(nextId++, 1, "e", shekels * 100 + agorot, category, start)
+        Expense(nextId++, 1, "e", shekels * 100 + agorot, category, start, paidBy = ME, splitBetween = listOf(ME))
 
     private fun summary(budgetShekels: Long?, expenses: List<Expense>, today: LocalDate, s: LocalDate = start, e: LocalDate = end) =
         budgetSummary(budgetShekels?.times(100), expenses.sumOf { it.amountAgorot }, s, e, today)

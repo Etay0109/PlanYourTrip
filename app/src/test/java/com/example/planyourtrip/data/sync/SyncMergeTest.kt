@@ -1,14 +1,15 @@
 package com.example.planyourtrip.data.sync
 
 import com.example.planyourtrip.data.sync.SyncTestData.activity
+import com.example.planyourtrip.data.sync.SyncTestData.budget
 import com.example.planyourtrip.data.sync.SyncTestData.checklistItem
 import com.example.planyourtrip.data.sync.SyncTestData.deletedAt
 import com.example.planyourtrip.data.sync.SyncTestData.expense
-import com.example.planyourtrip.data.sync.SyncTestData.settlement
-import com.example.planyourtrip.data.sync.SyncTestData.traveler
 import com.example.planyourtrip.data.sync.SyncTestData.pending
 import com.example.planyourtrip.data.sync.SyncTestData.renamed
+import com.example.planyourtrip.data.sync.SyncTestData.settlement
 import com.example.planyourtrip.data.sync.SyncTestData.synced
+import com.example.planyourtrip.data.sync.SyncTestData.traveler
 import com.example.planyourtrip.data.sync.SyncTestData.trip
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -288,5 +289,18 @@ class SyncMergeTest {
         assertEquals(listOf("t1", "c1", "c2", "c3", "c4", "c5"), plan.saveLocally.map { it.uuid })
         // The same order whatever order the cloud returned them in.
         assertEquals(plan.saveLocally, planMerge(emptyList(), cloud.reversed()).saveLocally)
+    }
+
+    @Test
+    fun aTripAndItsBudget_shareTheUuid_butAreMergedSeparately() {
+        // My own budget changed here, the trip's name on another phone: both changes are kept.
+        val rome = trip("t1", updatedAt = 100)
+        val plan = planMerge(
+            local = listOf(synced(rome), pending(budget("t1", updatedAt = 300))),
+            cloud = listOf(rome.renamed("Rome (other phone)", at = 200), budget("t1", updatedAt = 100, budgetAgorot = 1)),
+        )
+
+        assertEquals(listOf(rome.renamed("Rome (other phone)", at = 200)), plan.saveLocally)
+        assertEquals(listOf(budget("t1", updatedAt = 300)), plan.upload)
     }
 }

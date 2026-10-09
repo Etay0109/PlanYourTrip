@@ -29,7 +29,7 @@ import com.example.planyourtrip.ui.theme.travelerAvatarTextStyle
 fun TravelerAvatar(person: Person, size: Dp, modifier: Modifier = Modifier) {
     val colors = avatarColors(person)
     val text = when (person) {
-        Person.You -> stringResource(R.string.traveler_you_initials)
+        is Person.You -> stringResource(R.string.traveler_you_initials)
         is Person.Named -> avatarLetter(person.name)
         is Person.Removed -> "?"
     }
@@ -53,7 +53,7 @@ fun TravelerAvatar(person: Person, size: Dp, modifier: Modifier = Modifier) {
 @Composable
 @ReadOnlyComposable
 fun avatarColors(person: Person): TintedColor = when (person) {
-    Person.You -> TintedColor(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary)
+    is Person.You -> TintedColor(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary)
     is Person.Named -> ExtendedTheme.colors.traveler(person.color)
     is Person.Removed -> ExtendedTheme.colors.removedTraveler
 }
@@ -61,7 +61,7 @@ fun avatarColors(person: Person): TintedColor = when (person) {
 /** The name shown for [person]: "You", the traveler's name, or "Removed traveler". */
 @Composable
 fun personName(person: Person): String = when (person) {
-    Person.You -> stringResource(R.string.traveler_you)
+    is Person.You -> stringResource(R.string.traveler_you)
     is Person.Named -> person.name
     is Person.Removed -> stringResource(R.string.traveler_removed)
 }

@@ -13,7 +13,6 @@ import com.example.planyourtrip.data.trip.ChecklistKind
 import com.example.planyourtrip.data.trip.Expense
 import com.example.planyourtrip.data.trip.ExpenseCategory
 import com.example.planyourtrip.data.trip.ForeignAmount
-import com.example.planyourtrip.data.trip.ME
 import com.example.planyourtrip.data.trip.Settlement
 import com.example.planyourtrip.data.trip.Traveler
 import com.example.planyourtrip.data.trip.TravelerColor
@@ -56,6 +55,8 @@ private val previewTrip = Trip(
     endDate = LocalDate.of(2026, 11, 17),
     color = TripColor.SKY,
     budgetAgorot = 600_000,
+    ownerId = PREVIEW_ME,
+    memberIds = listOf(PREVIEW_ME),
 )
 
 private val previewTravelers = listOf(
@@ -63,10 +64,18 @@ private val previewTravelers = listOf(
     Traveler(2, 1, "amit", "Amit", TravelerColor.INDIGO),
 )
 
-private val everyone = listOf(ME, "noa", "amit")
+/** The signed-in member's uid in the previews ("You"). */
+private const val PREVIEW_ME = "me-uid"
+
+private val mine = listOf(PREVIEW_ME)
+
+private val everyone = listOf(PREVIEW_ME, "noa", "amit")
 
 private val previewExpenses = listOf(
-    Expense(1, 1, "Flights TLV–FCO", 180_000, ExpenseCategory.FLIGHTS, LocalDate.of(2026, 9, 1)),
+    Expense(
+        1, 1, "Flights TLV–FCO", 180_000, ExpenseCategory.FLIGHTS, LocalDate.of(2026, 9, 1),
+        paidBy = PREVIEW_ME, splitBetween = mine,
+    ),
     // Paid by Noa for everyone (3 ways), and by me for Noa only.
     Expense(
         2, 1, "Hotel Campo de' Fiori", 120_000, ExpenseCategory.HOTELS, LocalDate.of(2026, 9, 3),
@@ -74,7 +83,7 @@ private val previewExpenses = listOf(
     ),
     Expense(
         3, 1, "Colosseum guided tour", 25_000, ExpenseCategory.ATTRACTIONS, LocalDate.of(2026, 9, 20),
-        splitBetween = listOf("noa"),
+        paidBy = PREVIEW_ME, splitBetween = listOf("noa"),
     ),
     Expense(
         4, 1, "Leonardo Express", 20_000, ExpenseCategory.TRANSPORT, LocalDate.of(2026, 9, 21),
@@ -84,13 +93,18 @@ private val previewExpenses = listOf(
     Expense(
         5, 1, "Gelato", 4_020, ExpenseCategory.FOOD, LocalDate.of(2026, 9, 22),
         ForeignAmount(BigDecimal("10.00"), "EUR", BigDecimal("4.02"), LocalDate.of(2026, 9, 22)),
+        paidBy = PREVIEW_ME, splitBetween = mine,
     ),
     // A currency without decimals: 1500 JPY × 0.02512 = ₪37.68.
     Expense(
         6, 1, "Souvenirs", 3_768, ExpenseCategory.SHOPPING, LocalDate.of(2026, 9, 23),
         ForeignAmount(BigDecimal("1500"), "JPY", BigDecimal("0.02512"), LocalDate.of(2026, 9, 23)),
+        paidBy = PREVIEW_ME, splitBetween = mine,
     ),
-    Expense(7, 1, "SIM card", 5_900, ExpenseCategory.OTHER, LocalDate.of(2026, 9, 24)),
+    Expense(
+        7, 1, "SIM card", 5_900, ExpenseCategory.OTHER, LocalDate.of(2026, 9, 24),
+        paidBy = PREVIEW_ME, splitBetween = mine,
+    ),
 ).sortedByDescending { it.date }
 
 private val nov12 = LocalDate.of(2026, 11, 12)
@@ -133,10 +147,11 @@ private fun previewState(
     planDay: LocalDate? = null,
     travelers: List<Traveler> = previewTravelers,
 ): TripDetailsUiState.Loaded {
-    val order = travelerOrder(travelers)
+    val order = travelerOrder(PREVIEW_ME, trip.memberIds, travelers)
     // Without travelers every expense is mine alone.
-    val shown = if (travelers.isEmpty()) expenses.map { it.copy(paidBy = ME, splitBetween = listOf(ME)) } else expenses
-    val myShares = shown.associate { it.id to it.myShare(order) }
+    val shown =
+        if (travelers.isEmpty()) expenses.map { it.copy(paidBy = PREVIEW_ME, splitBetween = mine) } else expenses
+    val myShares = shown.associate { it.id to it.myShare(order, PREVIEW_ME) }
     return TripDetailsUiState.Loaded(
         trip = trip,
         status = tripStatus(trip, previewToday),
@@ -147,17 +162,18 @@ private fun previewState(
         expenses = shown,
         travelers = travelers,
         myShares = myShares,
-        expenseSplits = expenseSplits(shown, travelers, myShares),
+        expenseSplits = expenseSplits(shown, travelers, myShares, PREVIEW_ME, order),
         itinerary = itineraryState(trip.startDate, trip.endDate, activities, planDay, null, previewToday),
     )
 }
 
 /** The split section for [state], computed like SplitViewModel does. */
 private fun previewSplit(state: TripDetailsUiState.Loaded, settlements: List<Settlement> = emptyList()): SplitUiState {
-    val order = travelerOrder(state.travelers)
+    val order = travelerOrder(PREVIEW_ME, state.trip.memberIds, state.travelers)
     return SplitUiState.Loaded(
+        me = PREVIEW_ME,
         travelers = state.travelers,
-        transfers = simplifyTransfers(balances(state.expenses, settlements, order), order),
+        transfers = simplifyTransfers(balances(state.expenses, settlements, order), order, PREVIEW_ME),
         sharedExpenseCount = sharedExpenseCount(state.expenses),
         settlements = settlements,
     )
@@ -303,9 +319,10 @@ private fun BudgetOnlyMePreview() = Preview(previewState(travelers = emptyList()
 @Composable
 private fun BudgetSettledPreview() {
     val state = previewState()
-    val order = travelerOrder(state.travelers)
+    val order = travelerOrder(PREVIEW_ME, state.trip.memberIds, state.travelers)
     // Pay every open debt.
-    val settlements = simplifyTransfers(balances(state.expenses, emptyList(), order), order).mapIndexed { i, t ->
+    val transfers = simplifyTransfers(balances(state.expenses, emptyList(), order), order, PREVIEW_ME)
+    val settlements = transfers.mapIndexed { i, t ->
         Settlement(i + 1L, 1, "s$i", t.fromKey, t.toKey, t.amountAgorot, LocalDate.of(2026, 9, 30))
     }
     Preview(state, TripTab.BUDGET, split = previewSplit(state, settlements))

@@ -1,8 +1,8 @@
 package com.example.planyourtrip.data.sync
 
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Embedded
-import androidx.room.ColumnInfo
 import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Update
@@ -50,11 +50,19 @@ interface SyncDao {
     )
     suspend fun settlements(ownerId: String, pendingOnly: Boolean): List<SettlementRow>
 
+    /** The owner's trips whose own budget was ever set (a [SyncKind.BUDGET] item each). */
+    @Query(
+        "SELECT * FROM trips WHERE owner_id = :ownerId AND budget_updated_at > 0 " +
+            "AND (:pendingOnly = 0 OR budget_pending = 1)"
+    )
+    suspend fun budgets(ownerId: String, pendingOnly: Boolean): List<TripEntity>
+
     @Query("SELECT * FROM deletions WHERE owner_id = :ownerId")
     suspend fun deletions(ownerId: String): List<DeletionEntity>
 
     @Query(
         "SELECT (SELECT COUNT(*) FROM trips WHERE owner_id = :ownerId AND pending_sync = 1)" +
+            " + (SELECT COUNT(*) FROM trips WHERE owner_id = :ownerId AND budget_pending = 1)" +
             " + (SELECT COUNT(*) FROM expenses e JOIN trips t ON t.id = e.trip_id" +
             " WHERE t.owner_id = :ownerId AND e.pending_sync = 1)" +
             " + (SELECT COUNT(*) FROM activities a JOIN trips t ON t.id = a.trip_id" +
@@ -69,26 +77,41 @@ interface SyncDao {
     )
     fun pendingCount(ownerId: String): Flow<Int>
 
-    @Query("SELECT * FROM trips WHERE uuid = :uuid")
-    suspend fun tripByUuid(uuid: String): TripEntity?
+    @Query("SELECT * FROM trips WHERE uuid = :uuid AND owner_id = :ownerId")
+    suspend fun tripByUuid(uuid: String, ownerId: String): TripEntity?
 
-    @Query("SELECT * FROM expenses WHERE uuid = :uuid")
-    suspend fun expenseByUuid(uuid: String): ExpenseEntity?
+    @Query(
+        "SELECT e.* FROM expenses e JOIN trips t ON t.id = e.trip_id " +
+            "WHERE e.uuid = :uuid AND t.uuid = :tripUuid AND t.owner_id = :ownerId"
+    )
+    suspend fun expenseByUuid(uuid: String, tripUuid: String, ownerId: String): ExpenseEntity?
 
-    @Query("SELECT * FROM activities WHERE uuid = :uuid")
-    suspend fun activityByUuid(uuid: String): ActivityEntity?
+    @Query(
+        "SELECT a.* FROM activities a JOIN trips t ON t.id = a.trip_id " +
+            "WHERE a.uuid = :uuid AND t.uuid = :tripUuid AND t.owner_id = :ownerId"
+    )
+    suspend fun activityByUuid(uuid: String, tripUuid: String, ownerId: String): ActivityEntity?
 
-    @Query("SELECT * FROM checklist_items WHERE uuid = :uuid")
-    suspend fun checklistItemByUuid(uuid: String): ChecklistItemEntity?
+    @Query(
+        "SELECT c.* FROM checklist_items c JOIN trips t ON t.id = c.trip_id " +
+            "WHERE c.uuid = :uuid AND t.uuid = :tripUuid AND t.owner_id = :ownerId"
+    )
+    suspend fun checklistItemByUuid(uuid: String, tripUuid: String, ownerId: String): ChecklistItemEntity?
 
-    @Query("SELECT * FROM travelers WHERE uuid = :uuid")
-    suspend fun travelerByUuid(uuid: String): TravelerEntity?
+    @Query(
+        "SELECT r.* FROM travelers r JOIN trips t ON t.id = r.trip_id " +
+            "WHERE r.uuid = :uuid AND t.uuid = :tripUuid AND t.owner_id = :ownerId"
+    )
+    suspend fun travelerByUuid(uuid: String, tripUuid: String, ownerId: String): TravelerEntity?
 
-    @Query("SELECT * FROM settlements WHERE uuid = :uuid")
-    suspend fun settlementByUuid(uuid: String): SettlementEntity?
+    @Query(
+        "SELECT s.* FROM settlements s JOIN trips t ON t.id = s.trip_id " +
+            "WHERE s.uuid = :uuid AND t.uuid = :tripUuid AND t.owner_id = :ownerId"
+    )
+    suspend fun settlementByUuid(uuid: String, tripUuid: String, ownerId: String): SettlementEntity?
 
-    @Query("SELECT * FROM deletions WHERE uuid = :uuid")
-    suspend fun deletion(uuid: String): DeletionEntity?
+    @Query("SELECT * FROM deletions WHERE uuid = :uuid AND owner_id = :ownerId")
+    suspend fun deletion(uuid: String, ownerId: String): DeletionEntity?
 
     @Insert
     suspend fun insertTrip(trip: TripEntity)
@@ -164,6 +187,26 @@ interface SyncDao {
     suspend fun markTripSynced(uuid: String, ownerId: String, updatedAt: Long)
 
     @Query(
+        "UPDATE trips SET budget_pending = 0 " +
+            "WHERE uuid = :tripUuid AND owner_id = :ownerId AND budget_updated_at = :updatedAt"
+    )
+    suspend fun markBudgetSynced(tripUuid: String, ownerId: String, updatedAt: Long)
+
+    /** Stores the cloud's version of the owner's budget, unless this device has a newer one. */
+    @Query(
+        "UPDATE trips SET budget_agorot = :budgetAgorot, budget_updated_at = :updatedAt, budget_pending = 0 " +
+            "WHERE uuid = :tripUuid AND owner_id = :ownerId AND budget_updated_at <= :updatedAt"
+    )
+    suspend fun saveBudget(tripUuid: String, ownerId: String, budgetAgorot: Long?, updatedAt: Long)
+
+    /** The budget is gone from the cloud (and wasn't changed here since): no budget. */
+    @Query(
+        "UPDATE trips SET budget_agorot = NULL, budget_updated_at = 0, budget_pending = 0 " +
+            "WHERE uuid = :tripUuid AND owner_id = :ownerId AND budget_updated_at = :updatedAt"
+    )
+    suspend fun clearBudget(tripUuid: String, ownerId: String, updatedAt: Long)
+
+    @Query(
         "UPDATE expenses SET pending_sync = 0 WHERE uuid = :uuid AND updated_at = :updatedAt " +
             "AND trip_id IN (SELECT id FROM trips WHERE owner_id = :ownerId)"
     )
@@ -196,8 +239,8 @@ interface SyncDao {
     @Query("DELETE FROM deletions WHERE uuid = :uuid AND owner_id = :ownerId AND deleted_at = :deletedAt")
     suspend fun dropDeletion(uuid: String, ownerId: String, deletedAt: Long)
 
-    @Query("DELETE FROM deletions WHERE uuid = :uuid")
-    suspend fun dropDeletion(uuid: String)
+    @Query("DELETE FROM deletions WHERE uuid = :uuid AND owner_id = :ownerId")
+    suspend fun dropDeletion(uuid: String, ownerId: String)
 
     @Query("DELETE FROM trips WHERE owner_id = :ownerId")
     suspend fun deleteTripsOf(ownerId: String)

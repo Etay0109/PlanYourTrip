@@ -23,7 +23,7 @@ import com.example.planyourtrip.data.sync.SyncDao
         DeletionEntity::class, ChecklistItemEntity::class, DocumentEntity::class, TravelerEntity::class,
         SettlementEntity::class,
     ],
-    version = 13,
+    version = 14,
     exportSchema = true,
     autoMigrations = [
         // v2: trips.owner_id. Trips from v1 get "" and are not shown to any account.
@@ -55,6 +55,8 @@ import com.example.planyourtrip.data.sync.SyncDao
         // v13: expense splitting. expenses.paid_by / split_between default to 'me' (every existing expense becomes
         // "paid by me, not shared", so every trip keeps its numbers); the travelers and settlements tables start empty.
         AutoMigration(from = 12, to = 13),
+        // v14 (shared trips) is the manual MIGRATION_13_14: "me" becomes the owner's uid, trips get their cloud owner,
+        // members and the budget's own sync state, local copies become per account.
     ],
 )
 @TypeConverters(Converters::class)
@@ -80,7 +82,7 @@ abstract class AppDatabase : RoomDatabase() {
     companion object {
         fun create(context: Context): AppDatabase =
             Room.databaseBuilder(context, AppDatabase::class.java, "plan_your_trip.db")
-                .addMigrations(MIGRATION_6_7, MIGRATION_10_11)
+                .addMigrations(MIGRATION_6_7, MIGRATION_10_11, MIGRATION_13_14)
                 .build()
     }
 }

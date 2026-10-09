@@ -1,13 +1,29 @@
 rules_version = '2';
 
-// Plan Your Trip: each signed-in user can read and write only their own documents under users/{uid}/trips/…;
-// everything else is denied. Field names match app/src/main/java/com/example/planyourtrip/data/sync/SyncDocuments.kt.
-// Live documents always contain every key (null when empty); a deleted item is a tombstone {deleted: true, updatedAt}.
+// Plan Your Trip — shared trips. Paste into Firebase console → Firestore Database → Rules → Publish.
+//
+// trips/{tripId}                                  the shared trip: ownerId, memberIds (owner first, ≤ 10) + data
+// trips/{tripId}/expenses|activities|checklist|travelers|settlements/{id}   shared with every member
+// trips/{tripId}/memberData/{uid}                 one member's own budget (only that member)
+// trips/{tripId}/memberData/{uid}/packing/{id}    one member's own Packing list (only that member)
+// users/{uid}                                     the legacy copy's migration marker
+// users/{uid}/trips/**                            the legacy copy (before shared trips): read until migrated, delete
+//
+// Field names match app/src/main/java/com/example/planyourtrip/data/sync/SyncDocuments.kt. Live documents contain
+// every key (null when empty); a deleted item is a tombstone {deleted: true, updatedAt} (a trip tombstone keeps
+// ownerId and memberIds, so members still learn about the delete). Everything not matched below is denied.
+// Tests: rules-tests/ (Firebase Emulator).
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isOwner(uid) {
-      return request.auth != null && request.auth.uid == uid;
+    // ---------- Common ----------
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
     }
 
     function isDate(v) {
@@ -32,25 +48,90 @@ service cloud.firestore {
         && d.updatedAt is int;
     }
 
+    // ---------- Membership ----------
+
+    function tripPath(tripId) {
+      return /databases/$(database)/documents/trips/$(tripId);
+    }
+
+    // Reads: a member of the trip as it is now.
+    function isMember(tripId) {
+      return signedIn()
+        && exists(tripPath(tripId))
+        && request.auth.uid in get(tripPath(tripId)).data.memberIds;
+    }
+
+    // Writes: a member of the trip as it is after this write (a new trip and its first children may be written in
+    // one batch; leaving and writing in the same batch fails).
+    function isMemberAfter(tripId) {
+      return signedIn()
+        && existsAfter(tripPath(tripId))
+        && request.auth.uid in getAfter(tripPath(tripId)).data.memberIds;
+    }
+
+    function isTripOwner(tripId) {
+      return signedIn()
+        && exists(tripPath(tripId))
+        && get(tripPath(tripId)).data.ownerId == request.auth.uid;
+    }
+
+    // Live (not deleted) after this write: only then can live child items be written.
+    function isTripLiveAfter(tripId) {
+      return getAfter(tripPath(tripId)).data.deleted == false;
+    }
+
+    // 1–10 members, no duplicates.
+    function validMembers(m) {
+      return m is list && m.size() >= 1 && m.size() <= 10 && m.toSet().size() == m.size();
+    }
+
+    // A child item (shared or personal) by a member: live only while the trip is live and valid for its [kind]; a
+    // tombstone always (so a big trip can be deleted in several batches).
+    function canWriteChild(tripId, kind, d) {
+      return isMemberAfter(tripId) && (isTombstone(d) || (isTripLiveAfter(tripId) && validChild(kind, d)));
+    }
+
+    // Only the validation of the matching kind is evaluated.
+    function validChild(kind, d) {
+      return (kind == 'expense' && validExpense(d))
+        || (kind == 'activity' && validActivity(d))
+        || (kind == 'checklist' && validChecklistItem(d, 'BEFORE_TRIP'))
+        || (kind == 'traveler' && validTraveler(d))
+        || (kind == 'settlement' && validSettlement(d))
+        || (kind == 'budget' && validBudget(d))
+        || (kind == 'packing' && validChecklistItem(d, 'PACKING'));
+    }
+
+    // ---------- Field validation ----------
+
+    // No budget here: each member's budget is personal (memberData).
     function validTrip(d) {
-      return d.keys().hasOnly(['destination', 'startDate', 'endDate', 'budgetAgorot', 'currencyCode', 'color',
-                               'updatedAt', 'deleted'])
+      return d.keys().hasOnly(['destination', 'startDate', 'endDate', 'currencyCode', 'color', 'ownerId',
+                               'memberIds', 'updatedAt', 'deleted'])
         && d.destination is string && d.destination.size() > 0
         && isDate(d.startDate) && isDate(d.endDate) && d.endDate >= d.startDate
-        && optPositiveInt(d.budgetAgorot)
         && optString(d.currencyCode)
         && d.color is string
+        && d.ownerId is string
+        && validMembers(d.memberIds)
+        && d.ownerId in d.memberIds
         && d.updatedAt is int
         && d.deleted == false;
     }
 
-    // A traveler key: "me" (the account owner) or a traveler's uuid.
+    function validTripTombstone(d) {
+      return d.keys().hasOnly(['ownerId', 'memberIds', 'deleted', 'updatedAt'])
+        && d.ownerId is string
+        && validMembers(d.memberIds)
+        && d.deleted == true
+        && d.updatedAt is int;
+    }
+
+    // A traveler key: a member's uid or a name-only traveler's uuid.
     function isTravelerKey(v) {
       return v is string && v.size() > 0 && v.size() <= 64;
     }
 
-    // paidBy / splitBetween may be missing: documents written by app versions before expense splitting
-    // (read as "paid by me, not shared").
     function validExpense(d) {
       return d.keys().hasOnly(['name', 'amountAgorot', 'category', 'date', 'originalAmount', 'originalCurrency',
                                'exchangeRate', 'rateDate', 'paidBy', 'splitBetween', 'updatedAt', 'deleted'])
@@ -62,9 +143,8 @@ service cloud.firestore {
         && optString(d.originalCurrency)
         && (d.exchangeRate == null || isDecimal(d.exchangeRate))
         && (d.rateDate == null || isDate(d.rateDate))
-        && (!('paidBy' in d) || isTravelerKey(d.paidBy))
-        && (!('splitBetween' in d)
-            || (d.splitBetween is list && d.splitBetween.size() > 0 && d.splitBetween.size() <= 50))
+        && isTravelerKey(d.paidBy)
+        && d.splitBetween is list && d.splitBetween.size() > 0 && d.splitBetween.size() <= 50
         && d.updatedAt is int
         && d.deleted == false;
     }
@@ -84,9 +164,9 @@ service cloud.firestore {
         && d.deleted == false;
     }
 
-    function validChecklistItem(d) {
+    function validChecklistItem(d, list) {
       return d.keys().hasOnly(['list', 'text', 'checked', 'dueDate', 'createdAt', 'updatedAt', 'deleted'])
-        && d.list is string
+        && d.list == list
         && d.text is string && d.text.size() > 0
         && d.checked is bool
         && (d.dueDate == null || isDate(d.dueDate))
@@ -117,48 +197,140 @@ service cloud.firestore {
         && d.deleted == false;
     }
 
-    match /users/{uid}/trips/{tripId} {
-      allow read, delete: if isOwner(uid);
-      allow create, update: if isOwner(uid)
-        && (isTombstone(request.resource.data) || validTrip(request.resource.data));
+    function validBudget(d) {
+      return d.keys().hasOnly(['budgetAgorot', 'updatedAt', 'deleted'])
+        && optPositiveInt(d.budgetAgorot)
+        && d.updatedAt is int
+        && d.deleted == false;
+    }
+
+    // ---------- Trips ----------
+
+    // Changes of an existing trip by one of its members. The owner never changes.
+    function validTripUpdate() {
+      let before = resource.data;
+      let after = request.resource.data;
+      let me = request.auth.uid;
+      let isOwner = me == before.ownerId;
+      return me in before.memberIds
+        && after.ownerId == before.ownerId
+        && (
+          // The data (destination, dates, currency, color). Reviving a deleted trip: owner only.
+          (after.memberIds == before.memberIds && validTrip(after) && (before.deleted == false || isOwner))
+          // Deleting (tombstone): owner only.
+          || (after.memberIds == before.memberIds && validTripTombstone(after) && isOwner)
+          // The member list, nothing else: the owner removes others (and stays), a member removes only themselves.
+          // Nobody is ever added here (joining needs an invite, Stage 2).
+          || (after.diff(before).affectedKeys().hasOnly(['memberIds'])
+              && validMembers(after.memberIds)
+              && (
+                (isOwner
+                  && before.memberIds.hasAll(after.memberIds)
+                  && after.memberIds.size() < before.memberIds.size()
+                  && before.ownerId in after.memberIds)
+                || (!isOwner && after.memberIds == before.memberIds.removeAll([me]))
+              ))
+        );
+    }
+
+    match /trips/{tripId} {
+      // A missing trip reads as "no document" (the app checks before creating one; ids are random UUIDs); an
+      // existing one only for its members.
+      allow get: if signedIn() && (resource == null || request.auth.uid in resource.data.memberIds);
+      // Only the query "trips whose memberIds contain me".
+      allow list: if signedIn() && request.auth.uid in resource.data.memberIds;
+      // A new trip: I am its owner and only member.
+      allow create: if signedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.memberIds == [request.auth.uid]
+        && (validTrip(request.resource.data) || validTripTombstone(request.resource.data));
+      allow update: if signedIn() && validTripUpdate();
+      allow delete: if signedIn() && request.auth.uid == resource.data.ownerId;
+
+      // ---------- Shared with every member ----------
 
       match /expenses/{expenseId} {
-        allow read, delete: if isOwner(uid);
-        allow create, update: if isOwner(uid)
-          && (isTombstone(request.resource.data) || validExpense(request.resource.data));
-      }
-
-      // Places were synced until the Map tab was removed. The app now only deletes what is left (once per
-      // account); nothing can be written here any more.
-      match /places/{placeId} {
-        allow read, delete: if isOwner(uid);
+        allow read: if isMember(tripId);
+        allow create, update: if canWriteChild(tripId, 'expense', request.resource.data);
+        allow delete: if isTripOwner(tripId);
       }
 
       match /activities/{activityId} {
-        allow read, delete: if isOwner(uid);
-        allow create, update: if isOwner(uid)
-          && (isTombstone(request.resource.data) || validActivity(request.resource.data));
+        allow read: if isMember(tripId);
+        allow create, update: if canWriteChild(tripId, 'activity', request.resource.data);
+        allow delete: if isTripOwner(tripId);
       }
 
-      // The Prep tab's checklists ("Before the trip", "Packing"). Trip documents are never uploaded.
+      // "Before the trip" only; the Packing list is personal (memberData).
       match /checklist/{itemId} {
-        allow read, delete: if isOwner(uid);
-        allow create, update: if isOwner(uid)
-          && (isTombstone(request.resource.data) || validChecklistItem(request.resource.data));
+        allow read: if isMember(tripId);
+        allow create, update: if canWriteChild(tripId, 'checklist', request.resource.data);
+        allow delete: if isTripOwner(tripId);
       }
 
-      // Expense splitting: the people traveling with the user (names only, not accounts) and the payments
-      // between them ("Settle up").
+      // Name-only travelers (members are not traveler documents).
       match /travelers/{travelerId} {
-        allow read, delete: if isOwner(uid);
-        allow create, update: if isOwner(uid)
-          && (isTombstone(request.resource.data) || validTraveler(request.resource.data));
+        allow read: if isMember(tripId);
+        allow create, update: if canWriteChild(tripId, 'traveler', request.resource.data);
+        allow delete: if isTripOwner(tripId);
       }
 
       match /settlements/{settlementId} {
-        allow read, delete: if isOwner(uid);
-        allow create, update: if isOwner(uid)
-          && (isTombstone(request.resource.data) || validSettlement(request.resource.data));
+        allow read: if isMember(tripId);
+        allow create, update: if canWriteChild(tripId, 'settlement', request.resource.data);
+        allow delete: if isTripOwner(tripId);
+      }
+
+      // ---------- Personal: only that member, never the owner or the other members ----------
+      // Reading and deleting my own personal data works even after I left or was removed (so I can clean it up);
+      // writing needs me to be a member.
+
+      match /memberData/{uid} {
+        allow read, delete: if isSelf(uid);
+        allow create, update: if isSelf(uid)
+          && canWriteChild(tripId, 'budget', request.resource.data);
+
+        match /packing/{itemId} {
+          allow read, delete: if isSelf(uid);
+          allow create, update: if isSelf(uid)
+            && canWriteChild(tripId, 'packing', request.resource.data);
+        }
+      }
+    }
+
+    // ---------- Legacy copy (before shared trips) ----------
+
+    function legacyMigrated(uid) {
+      let marker = /databases/$(database)/documents/users/$(uid);
+      return exists(marker) && get(marker).data.get('sharedTripsMigrated', false) == true;
+    }
+
+    // Until the account is migrated, its own legacy copy can be read as before. After that, only with the exact
+    // page size the new app's migration uses (450): old app versions read without a limit, so they are cut off
+    // and keep their data on the phone, while leftovers of an interrupted migration can still be found and deleted.
+    function canListLegacy(uid) {
+      return isSelf(uid) && (!legacyMigrated(uid) || request.query.limit == 450);
+    }
+
+    // The migration marker: set once, never unset.
+    match /users/{uid} {
+      allow get: if isSelf(uid);
+      allow create, update: if isSelf(uid)
+        && request.resource.data.keys().hasOnly(['sharedTripsMigrated'])
+        && request.resource.data.sharedTripsMigrated == true;
+    }
+
+    // Nothing can be written to the legacy copy any more; it is only read (to migrate it) and deleted.
+    match /users/{uid}/trips/{tripId} {
+      allow get: if isSelf(uid) && !legacyMigrated(uid);
+      allow list: if canListLegacy(uid);
+      allow delete: if isSelf(uid);
+
+      // expenses, activities, checklist, travelers, settlements and the old places.
+      match /{collection}/{docId} {
+        allow get: if isSelf(uid) && !legacyMigrated(uid);
+        allow list: if canListLegacy(uid);
+        allow delete: if isSelf(uid);
       }
     }
   }

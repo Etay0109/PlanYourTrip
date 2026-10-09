@@ -5,7 +5,8 @@ import kotlinx.coroutines.flow.Flow
 /**
  * Expenses of the owner's trips; callers pass the signed-in user's uid as [ownerId]. Amounts are in agorot;
  * [ForeignAmount] (null = entered in shekels) records the original amount and the rate used.
- * [ExpenseInput.paidBy] and [ExpenseInput.splitBetween] are traveler keys ([ME] or a traveler uuid); an empty split is stored as the payer only.
+ * [ExpenseInput.paidBy] and [ExpenseInput.splitBetween] are traveler keys (a member uid or a traveler uuid); an
+ * empty split is stored as the payer only.
  */
 interface ExpenseRepository {
     /** The trip's expenses, newest first (by date, then by id). Empty if the trip is not the owner's. */

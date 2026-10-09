@@ -11,6 +11,7 @@ import com.example.planyourtrip.data.trip.ActivityRepository
 import com.example.planyourtrip.data.trip.ExpenseRepository
 import com.example.planyourtrip.data.trip.TravelerRepository
 import com.example.planyourtrip.data.trip.TripRepository
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,7 +21,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * "Share trip": the include-costs dialog, creating the PDF and handing it to the share sheet. Used by Home (any
@@ -93,7 +93,7 @@ class ShareTripViewModel(
             emptyList()
         }
         val content = withContext(computeDispatcher) {
-            buildTripPdfContent(trip, expenses, activities, dialog.includeCosts, travelers)
+            buildTripPdfContent(trip, expenses, activities, dialog.includeCosts, uid, travelers)
         }
         return exporter.export(content, pdfFileName(trip.destination, trip.startDate, trip.endDate))
     }

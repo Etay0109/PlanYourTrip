@@ -14,11 +14,13 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -57,10 +59,12 @@ import com.example.planyourtrip.R
 import com.example.planyourtrip.ui.common.components.BackTopAppBar
 import com.example.planyourtrip.ui.common.components.BrandMark
 import com.example.planyourtrip.ui.common.components.CurrencyPickerSheet
+import com.example.planyourtrip.ui.common.components.RefreshBox
 import com.example.planyourtrip.ui.common.delete.DeleteTripHost
 import com.example.planyourtrip.ui.common.delete.DeleteTripViewModel
 import com.example.planyourtrip.ui.common.iconRes
 import com.example.planyourtrip.ui.common.labelRes
+import com.example.planyourtrip.ui.common.refresh.RefreshViewModel
 import com.example.planyourtrip.ui.common.share.ShareTripHost
 import com.example.planyourtrip.ui.common.share.ShareTripViewModel
 import com.example.planyourtrip.ui.theme.Dimens
@@ -78,8 +82,8 @@ import com.example.planyourtrip.ui.tripdetails.split.SplitActions
 import com.example.planyourtrip.ui.tripdetails.split.SplitDialogs
 import com.example.planyourtrip.ui.tripdetails.split.SplitUiState
 import com.example.planyourtrip.ui.tripdetails.split.SplitViewModel
-import kotlinx.coroutines.launch
 import java.time.LocalDate
+import kotlinx.coroutines.launch
 
 @Composable
 fun TripDetailsScreen(
@@ -97,8 +101,10 @@ fun TripDetailsScreen(
     deleteViewModel: DeleteTripViewModel = viewModel(factory = DeleteTripViewModel.Factory),
     prepViewModel: PrepViewModel = viewModel(factory = PrepViewModel.Factory),
     splitViewModel: SplitViewModel = viewModel(factory = SplitViewModel.Factory),
+    refreshViewModel: RefreshViewModel = viewModel(factory = RefreshViewModel.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val refresh by refreshViewModel.state.collectAsStateWithLifecycle()
     val budgetDialog by viewModel.budgetDialog.collectAsStateWithLifecycle()
     val currencyCard by viewModel.currencyCard.collectAsStateWithLifecycle()
     val currencyPicker by viewModel.currencyPicker.collectAsStateWithLifecycle()
@@ -115,6 +121,12 @@ fun TripDetailsScreen(
         } else {
             viewModel.onDeleteMessageDismissed(deleted)
         }
+    }
+    val refreshFailedText = stringResource(R.string.refresh_failed)
+    LaunchedEffect(refresh.failed) {
+        if (!refresh.failed) return@LaunchedEffect
+        refreshViewModel.onMessageShown()
+        snackbarHostState.showSnackbar(refreshFailedText)
     }
     var selectedTab by rememberSaveable { mutableStateOf(TripTab.OVERVIEW) }
 
@@ -200,6 +212,8 @@ fun TripDetailsScreen(
         prepActions = prepActions,
         split = splitState,
         splitActions = splitActions,
+        isRefreshing = refresh.isRefreshing,
+        onRefresh = refreshViewModel::onRefresh,
     )
 
     currencyPicker?.let { picker ->
@@ -252,6 +266,9 @@ fun TripDetailsContent(
     /** The Budget tab's travelers, "Who owes whom" and "Settle up" (their own ViewModel). */
     split: SplitUiState = SplitUiState.Loading,
     splitActions: SplitActions = SplitActions.None,
+    /** Pull to refresh (every tab): a full sync with the cloud. */
+    isRefreshing: Boolean = false,
+    onRefresh: () -> Unit = {},
 ) {
     when (state) {
         // Nothing is drawn until Room answers, so no placeholder flashes.
@@ -284,33 +301,41 @@ fun TripDetailsContent(
             // Centered = the full-width row above lines the two buttons up with both edges.
             floatingActionButtonPosition = if (selectedTab == TripTab.BUDGET) FabPosition.Center else FabPosition.End,
         ) { innerPadding ->
-            // A fresh list per tab, so a newly selected tab opens at the top.
-            key(selectedTab) {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    // Extra room at the end so the assistant button never covers the last card.
-                    contentPadding = PaddingValues(bottom = innerPadding.calculateBottomPadding() + FabClearance),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    item(key = "header") {
-                        TripHeader(
-                            state.trip,
-                            state.status,
-                            onBack = onBack,
-                            onEdit = onEditTrip,
-                            onShare = { onShareTrip(state.trip.id) },
-                            onDelete = { onDeleteTrip(state.trip.id, state.trip.destination) },
-                        )
-                    }
-                    when (selectedTab) {
-                        TripTab.OVERVIEW ->
-                            overviewTab(
-                                state, currencyCard, currencyActions, itineraryActions,
-                                onTabSelected, budgetActions.onEditBudget, onOpenMaps,
+            // The header draws behind the status bar: the spinner appears below it.
+            RefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh = onRefresh,
+                modifier = Modifier.fillMaxSize(),
+                indicatorTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding(),
+            ) {
+                // A fresh list per tab, so a newly selected tab opens at the top.
+                key(selectedTab) {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        // Extra room at the end so the assistant button never covers the last card.
+                        contentPadding = PaddingValues(bottom = innerPadding.calculateBottomPadding() + FabClearance),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        item(key = "header") {
+                            TripHeader(
+                                state.trip,
+                                state.status,
+                                onBack = onBack,
+                                onEdit = onEditTrip,
+                                onShare = { onShareTrip(state.trip.id) },
+                                onDelete = { onDeleteTrip(state.trip.id, state.trip.destination) },
                             )
-                        TripTab.BUDGET -> budgetTab(state, split, splitActions, budgetActions)
-                        TripTab.PREP -> prepTab(prep, prepActions)
-                        TripTab.PLAN -> planTab(state, itineraryActions)
+                        }
+                        when (selectedTab) {
+                            TripTab.OVERVIEW ->
+                                overviewTab(
+                                    state, currencyCard, currencyActions, itineraryActions,
+                                    onTabSelected, budgetActions.onEditBudget, onOpenMaps,
+                                )
+                            TripTab.BUDGET -> budgetTab(state, split, splitActions, budgetActions)
+                            TripTab.PREP -> prepTab(prep, prepActions)
+                            TripTab.PLAN -> planTab(state, itineraryActions)
+                        }
                     }
                 }
             }

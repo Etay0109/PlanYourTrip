@@ -5,6 +5,7 @@ import com.example.planyourtrip.data.trip.ActivityEntity
 import com.example.planyourtrip.data.trip.ActivityInput
 import com.example.planyourtrip.data.trip.AppDatabase
 import com.example.planyourtrip.data.trip.ChecklistItemEntity
+import com.example.planyourtrip.data.trip.ChecklistKind
 import com.example.planyourtrip.data.trip.ExpenseEntity
 import com.example.planyourtrip.data.trip.SettlementEntity
 import com.example.planyourtrip.data.trip.TravelerEntity
@@ -17,6 +18,7 @@ class RoomSyncLocalStore(private val db: AppDatabase) : SyncLocalStore {
 
     override suspend fun snapshot(ownerId: String, pendingOnly: Boolean): List<LocalItem> = db.withTransaction {
         dao.trips(ownerId, pendingOnly).map { LocalItem(it.toSyncItem(), it.pendingSync) } +
+            dao.budgets(ownerId, pendingOnly).map { LocalItem(it.toBudgetItem(), it.budgetPending) } +
             dao.expenses(ownerId, pendingOnly).map { LocalItem(it.toSyncItem(), it.expense.pendingSync) } +
             dao.activities(ownerId, pendingOnly).map { LocalItem(it.toSyncItem(), it.activity.pendingSync) } +
             dao.checklistItems(ownerId, pendingOnly).map { LocalItem(it.toSyncItem(), it.item.pendingSync) } +
@@ -32,9 +34,10 @@ class RoomSyncLocalStore(private val db: AppDatabase) : SyncLocalStore {
                 SyncKind.TRIP -> dao.deleteTrip(item.uuid, ownerId, item.updatedAt)
                 SyncKind.EXPENSE -> dao.deleteExpense(item.uuid, ownerId, item.updatedAt)
                 SyncKind.ACTIVITY -> dao.deleteActivity(item.uuid, ownerId, item.updatedAt)
-                SyncKind.CHECKLIST -> dao.deleteChecklistItem(item.uuid, ownerId, item.updatedAt)
+                SyncKind.CHECKLIST, SyncKind.PACKING -> dao.deleteChecklistItem(item.uuid, ownerId, item.updatedAt)
                 SyncKind.TRAVELER -> dao.deleteTraveler(item.uuid, ownerId, item.updatedAt)
                 SyncKind.SETTLEMENT -> dao.deleteSettlement(item.uuid, ownerId, item.updatedAt)
+                SyncKind.BUDGET -> dao.clearBudget(item.uuid, ownerId, item.updatedAt)
             }
         }
         plan.dropTombstones.forEach { dao.dropDeletion(it.uuid, ownerId, it.updatedAt) }
@@ -46,9 +49,10 @@ class RoomSyncLocalStore(private val db: AppDatabase) : SyncLocalStore {
             SyncKind.TRIP -> dao.markTripSynced(item.uuid, ownerId, item.updatedAt)
             SyncKind.EXPENSE -> dao.markExpenseSynced(item.uuid, ownerId, item.updatedAt)
             SyncKind.ACTIVITY -> dao.markActivitySynced(item.uuid, ownerId, item.updatedAt)
-            SyncKind.CHECKLIST -> dao.markChecklistItemSynced(item.uuid, ownerId, item.updatedAt)
+            SyncKind.CHECKLIST, SyncKind.PACKING -> dao.markChecklistItemSynced(item.uuid, ownerId, item.updatedAt)
             SyncKind.TRAVELER -> dao.markTravelerSynced(item.uuid, ownerId, item.updatedAt)
             SyncKind.SETTLEMENT -> dao.markSettlementSynced(item.uuid, ownerId, item.updatedAt)
+            SyncKind.BUDGET -> dao.markBudgetSynced(item.uuid, ownerId, item.updatedAt)
         }
     }
 
@@ -64,44 +68,47 @@ class RoomSyncLocalStore(private val db: AppDatabase) : SyncLocalStore {
     /** Stores a cloud version as synced, unless this device has a newer change (edit or delete) of the item. */
     private suspend fun save(ownerId: String, item: SyncItem) {
         val data = item.data ?: return
-        val tombstone = dao.deletion(item.uuid)
+        // A trip's budget has the trip's uuid; only a tombstone of the same kind of item counts.
+        val tombstone = dao.deletion(item.uuid, ownerId)?.takeIf { it.kind == item.kind }
         if (tombstone != null) {
             if (tombstone.deletedAt > item.updatedAt) return
-            dao.dropDeletion(item.uuid)
+            dao.dropDeletion(item.uuid, ownerId)
         }
         when (data) {
             is ItemData.TripData -> {
-                val existing = dao.tripByUuid(item.uuid)
-                if (existing != null && (existing.ownerId != ownerId || existing.updatedAt > item.updatedAt)) return
-                val trip = data.toEntity(existing?.id ?: 0, ownerId, item)
+                val existing = dao.tripByUuid(item.uuid, ownerId)
+                if (existing != null && existing.updatedAt > item.updatedAt) return
+                // The budget columns are this account's own and synced separately ([ItemData.BudgetData]).
+                val trip = data.toEntity(existing, ownerId, item)
                 if (existing == null) dao.insertTrip(trip) else dao.updateTrip(trip)
             }
+            is ItemData.BudgetData -> dao.saveBudget(item.uuid, ownerId, data.budgetAgorot, item.updatedAt)
             is ItemData.ExpenseData -> {
-                val existing = dao.expenseByUuid(item.uuid)
+                val existing = dao.expenseByUuid(item.uuid, item.tripUuid.orEmpty(), ownerId)
                 val tripId = childTripId(ownerId, item, existing?.updatedAt) ?: return
                 val expense = data.toEntity(existing?.id ?: 0, tripId, item)
                 if (existing == null) dao.insertExpense(expense) else dao.updateExpense(expense)
             }
             is ItemData.ActivityData -> {
-                val existing = dao.activityByUuid(item.uuid)
+                val existing = dao.activityByUuid(item.uuid, item.tripUuid.orEmpty(), ownerId)
                 val tripId = childTripId(ownerId, item, existing?.updatedAt) ?: return
                 val activity = data.toEntity(existing?.id ?: 0, tripId, item)
                 if (existing == null) dao.insertActivity(activity) else dao.updateActivity(activity)
             }
             is ItemData.ChecklistData -> {
-                val existing = dao.checklistItemByUuid(item.uuid)
+                val existing = dao.checklistItemByUuid(item.uuid, item.tripUuid.orEmpty(), ownerId)
                 val tripId = childTripId(ownerId, item, existing?.updatedAt) ?: return
                 val checklistItem = data.toEntity(existing?.id ?: 0, tripId, item)
                 if (existing == null) dao.insertChecklistItem(checklistItem) else dao.updateChecklistItem(checklistItem)
             }
             is ItemData.TravelerData -> {
-                val existing = dao.travelerByUuid(item.uuid)
+                val existing = dao.travelerByUuid(item.uuid, item.tripUuid.orEmpty(), ownerId)
                 val tripId = childTripId(ownerId, item, existing?.updatedAt) ?: return
                 val traveler = data.toEntity(existing?.id ?: 0, tripId, item)
                 if (existing == null) dao.insertTraveler(traveler) else dao.updateTraveler(traveler)
             }
             is ItemData.SettlementData -> {
-                val existing = dao.settlementByUuid(item.uuid)
+                val existing = dao.settlementByUuid(item.uuid, item.tripUuid.orEmpty(), ownerId)
                 val tripId = childTripId(ownerId, item, existing?.updatedAt) ?: return
                 val settlement = data.toEntity(existing?.id ?: 0, tripId, item)
                 if (existing == null) dao.insertSettlement(settlement) else dao.updateSettlement(settlement)
@@ -120,25 +127,30 @@ class RoomSyncLocalStore(private val db: AppDatabase) : SyncLocalStore {
 
     /** Local id of the item's trip, or null when the trip isn't on this device for this owner. */
     private suspend fun ownedTripId(ownerId: String, item: SyncItem): Long? {
-        val trip = dao.tripByUuid(item.tripUuid ?: return null) ?: return null
-        return trip.id.takeIf { trip.ownerId == ownerId }
+        val trip = dao.tripByUuid(item.tripUuid ?: return null, ownerId) ?: return null
+        return trip.id
     }
 }
 
 // ---------- Cloud versions → Room rows (stored as synced) ----------
 
-private fun ItemData.TripData.toEntity(id: Long, ownerId: String, item: SyncItem) = TripEntity(
-    id = id,
+/** Keeps the [existing] row's local id and its personal budget columns. */
+private fun ItemData.TripData.toEntity(existing: TripEntity?, ownerId: String, item: SyncItem) = TripEntity(
+    id = existing?.id ?: 0,
     ownerId = ownerId,
     destination = destination,
     startDate = startDate,
     endDate = endDate,
     color = color,
-    budgetAgorot = budgetAgorot,
+    budgetAgorot = existing?.budgetAgorot,
     currencyCode = currencyCode,
     uuid = item.uuid,
     updatedAt = item.updatedAt,
     pendingSync = false,
+    cloudOwnerId = this.ownerId,
+    memberIds = memberIds,
+    budgetUpdatedAt = existing?.budgetUpdatedAt ?: 0,
+    budgetPending = existing?.budgetPending ?: false,
 )
 
 private fun ItemData.ExpenseData.toEntity(id: Long, tripId: Long, item: SyncItem) = ExpenseEntity(
@@ -219,7 +231,15 @@ private fun TripEntity.toSyncItem() = SyncItem(
     uuid = uuid,
     tripUuid = null,
     updatedAt = updatedAt,
-    data = ItemData.TripData(destination, startDate, endDate, color, budgetAgorot, currencyCode),
+    data = ItemData.TripData(destination, startDate, endDate, color, currencyCode, cloudOwnerId, memberIds),
+)
+
+private fun TripEntity.toBudgetItem() = SyncItem(
+    kind = SyncKind.BUDGET,
+    uuid = uuid,
+    tripUuid = uuid,
+    updatedAt = budgetUpdatedAt,
+    data = ItemData.BudgetData(budgetAgorot),
 )
 
 private fun ExpenseRow.toSyncItem(): SyncItem {
@@ -246,8 +266,9 @@ private fun ActivityRow.toSyncItem() = SyncItem(
     ),
 )
 
+/** A Packing item is personal ([SyncKind.PACKING]); a "Before the trip" item is shared. */
 private fun ChecklistRow.toSyncItem() = SyncItem(
-    kind = SyncKind.CHECKLIST,
+    kind = if (item.list == ChecklistKind.PACKING) SyncKind.PACKING else SyncKind.CHECKLIST,
     uuid = item.uuid,
     tripUuid = tripUuid,
     updatedAt = item.updatedAt,

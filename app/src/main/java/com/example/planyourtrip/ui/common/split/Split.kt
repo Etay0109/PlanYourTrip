@@ -1,19 +1,24 @@
 package com.example.planyourtrip.ui.common.split
 
 import com.example.planyourtrip.data.trip.Expense
-import com.example.planyourtrip.data.trip.ME
 import com.example.planyourtrip.data.trip.Settlement
 import com.example.planyourtrip.data.trip.Traveler
 
 // Pure expense-splitting math (no Android dependencies, unit-tested). All money is whole agorot. Travelers are
-// referenced by key: ME ("You") or a traveler uuid. Shared by the Budget tab, the Overview budget card, the shared
-// PDF and the assistant's trip context.
+// referenced by key: a trip member's account uid (the signed-in one, `me`, is "You") or a name-only traveler's uuid.
+// Shared by the Budget tab, the Overview budget card, the shared PDF and the assistant's trip context.
 
 /** [fromKey] owes [toKey] [amountAgorot] ("Noa owes you ₪320"). */
 data class Transfer(val fromKey: String, val toKey: String, val amountAgorot: Long)
 
-/** The list order of a trip's travelers: "You" first, then the others in the order they were added. */
-fun travelerOrder(travelers: List<Traveler>): List<String> = listOf(ME) + travelers.map { it.uuid }
+/**
+ * The list order of a trip's travelers, the same on every device (the extra agorot of an uneven split go in this
+ * order): the members ([memberIds]: the owner, then in join order), then the name-only travelers in the order they
+ * were added. For a trip with one member this is "You" first, then the travelers, as before shared trips. [me] is
+ * always a member; were it missing (a trip without member data), it comes first.
+ */
+fun travelerOrder(me: String, memberIds: List<String>, travelers: List<Traveler>): List<String> =
+    (if (me in memberIds) memberIds else listOf(me) + memberIds) + travelers.map { it.uuid }
 
 /**
  * [keys] without duplicates, in list [order]. Keys that are not in [order] (a traveler removed on another device
@@ -41,11 +46,12 @@ fun shares(amountAgorot: Long, splitBetween: List<String>, order: List<String>):
 fun Expense.shares(order: List<String>): Map<String, Long> =
     shares(amountAgorot, splitBetween.ifEmpty { listOf(paidBy) }, order)
 
-/** My share of the expense: what the budget counts. 0 when I'm not part of the split. */
-fun Expense.myShare(order: List<String>): Long = shares(order)[ME] ?: 0L
+/** My ([me]'s) share of the expense: what the budget counts. 0 when I'm not part of the split. */
+fun Expense.myShare(order: List<String>, me: String): Long = shares(order)[me] ?: 0L
 
 /** My share of every expense together (the budget's "spent"). */
-fun myTotal(expenses: List<Expense>, order: List<String>): Long = expenses.sumOf { it.myShare(order) }
+fun myTotal(expenses: List<Expense>, order: List<String>, me: String): Long =
+    expenses.sumOf { it.myShare(order, me) }
 
 /** Shared = involves someone besides the payer (not "not shared"). */
 fun Expense.isShared(): Boolean = splitBetween.ifEmpty { listOf(paidBy) }.distinct() != listOf(paidBy)
@@ -81,10 +87,10 @@ private const val MAX_EXACT_PEOPLE = 16
 /**
  * The smallest number of transfers that settles [balances] (which add up to 0). The people with a non-zero balance
  * are split into as many groups that add up to 0 as possible (exact search over subsets); each group of k people
- * settles with k − 1 transfers, largest debtor paying largest creditor. Sorted: transfers that involve "You" first,
+ * settles with k − 1 transfers, largest debtor paying largest creditor. Sorted: transfers that involve [me] first,
  * then the largest amount, then list order.
  */
-fun simplifyTransfers(balances: Map<String, Long>, order: List<String>): List<Transfer> {
+fun simplifyTransfers(balances: Map<String, Long>, order: List<String>, me: String): List<Transfer> {
     val people = inListOrder(balances.filterValues { it != 0L }.keys, order)
     val amounts = people.map { balances.getValue(it) }
     val groups = if (people.size <= MAX_EXACT_PEOPLE) zeroSumGroups(amounts) else listOf(people.indices.toList())
@@ -92,7 +98,7 @@ fun simplifyTransfers(balances: Map<String, Long>, order: List<String>): List<Tr
     val index = order.withIndex().associate { (i, key) -> key to i }
     return transfers.sortedWith(
         compareBy<Transfer>(
-            { if (it.fromKey == ME || it.toKey == ME) 0 else 1 },
+            { if (it.fromKey == me || it.toKey == me) 0 else 1 },
             { -it.amountAgorot },
             { index[it.fromKey] ?: Int.MAX_VALUE },
             { index[it.toKey] ?: Int.MAX_VALUE },

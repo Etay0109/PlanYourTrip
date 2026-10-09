@@ -37,8 +37,9 @@ import kotlinx.coroutines.withTimeout
  * - **Quick sync** after each local change ([onLocalChange]): only the pending items and their cloud versions.
  * - One sync at a time; every sync works on the current account's items only.
  * - After a full sync, documents (on this device only) of trips that no longer exist are removed ([TripCleanup]).
- * - Once per account, a full sync also deletes the account's old place documents from the cloud (places were synced
- *   until the Map tab was removed; [SyncFlags] remembers that it is done).
+ * - Once per account, before anything else, the account's legacy cloud copy (users/{uid}/trips, before shared trips)
+ *   is moved to the shared layout and then deleted ([migrateLegacy], [SyncFlags] remembers that it is done). No
+ *   merge runs before that worked, so a trip that isn't in the new layout yet is never deleted here.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SyncManager(
@@ -46,7 +47,7 @@ class SyncManager(
     private val cloud: CloudStore,
     private val local: SyncLocalStore,
     private val network: NetworkMonitor,
-    /** Remembers the one-time removal of the old place documents. */
+    /** Remembers the one-time move of the legacy cloud copy. */
     private val flags: SyncFlags,
     /** Removes this device's documents of deleted trips after each full sync (never on sign-out). */
     private val tripCleanup: TripCleanup,
@@ -123,17 +124,18 @@ class SyncManager(
         return mutex.withLock {
             running.value = true
             try {
+                if (!flags.isSharedTripsMigrated(uid)) migrateLegacy(uid)
                 val mine = local.snapshot(uid, pendingOnly = !full)
                 if (!full && mine.isEmpty()) return@withLock true
                 val theirs = cloudCall { if (full) cloud.fetchAll(uid) else cloud.fetch(uid, mine.map { it.item }) }
                 val plan = planMerge(mine, theirs)
                 local.apply(uid, plan)
-                for (chunk in plan.upload.chunked(uploadChunkSize)) {
+                // Trips first: a new trip must exist in the cloud before its children are written.
+                for (chunk in plan.upload.sortedBy { it.kind.ordinal }.chunked(uploadChunkSize)) {
                     cloudCall { cloud.write(uid, chunk) }
                     chunk.forEach { local.markSynced(uid, it) }
                 }
                 if (full) {
-                    removeLegacyPlaces(uid)
                     // Every trip of the account is on this device now: documents of trips that are gone go too.
                     tripCleanup.afterFullSync(uid)
                 }
@@ -146,6 +148,11 @@ class SyncManager(
                 running.value = false
             }
         }
+    }
+
+    override suspend fun refresh(): Boolean {
+        val uid = authRepository.currentUser.value?.uid ?: return false
+        return sync(uid, full = true)
     }
 
     override suspend fun signOut(force: Boolean): SignOutResult {
@@ -168,17 +175,21 @@ class SyncManager(
     }
 
     /**
-     * Deletes the account's old place documents once. A failure never fails the sync: the next full sync tries
-     * again, and the flag is only set after the cloud confirmed the delete.
+     * Moves [uid]'s legacy cloud copy to the shared layout (see LegacyMigration.kt): copy what the new layout lacks or
+     * has in an older version, read it back and check that everything arrived, and only then mark the legacy copy
+     * migrated (old app versions can't read it any more) and delete it. Throws [CloudUnavailableException] when a step
+     * fails; every step can be repeated, so the next sync simply starts again.
      */
-    private suspend fun removeLegacyPlaces(uid: String) {
-        if (flags.isPlacesCleanupDone(uid)) return
-        try {
-            cloudCall { cloud.deleteLegacyPlaces(uid) }
-            flags.markPlacesCleanupDone(uid)
-        } catch (e: CloudUnavailableException) {
-            // Retried at the next full sync.
+    private suspend fun migrateLegacy(uid: String) {
+        val legacy = convertLegacy(cloudCall { cloud.fetchLegacy(uid) }, uid)
+        if (legacy.isNotEmpty()) {
+            val copy = planLegacyCopy(legacy, cloudCall { cloud.fetchAll(uid) })
+            for (chunk in copy.chunked(uploadChunkSize)) cloudCall { cloud.write(uid, chunk) }
+            if (!isLegacyCopyComplete(legacy, cloudCall { cloud.fetchAll(uid) })) throw CloudUnavailableException()
         }
+        cloudCall { cloud.markLegacyMigrated(uid) }
+        cloudCall { cloud.deleteLegacy(uid) }
+        flags.markSharedTripsMigrated(uid)
     }
 
     private suspend fun pendingCount(uid: String) = local.pendingCount(uid).first()

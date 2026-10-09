@@ -436,6 +436,118 @@ class MigrationTest {
         db.close()
     }
 
+    @Test
+    fun migrate13To14_makesMeTheOwnersUid_keepsEveryNumber_andAddsMembersAndTheBudgetsSyncState() {
+        helper.createDatabase(DB, 13).use { db ->
+            db.execSQL(
+                "INSERT INTO trips (id, owner_id, destination, start_date, end_date, color, budget_agorot, " +
+                    "currency_code, uuid, updated_at, pending_sync) VALUES " +
+                    "(1, 'u1', 'Rome', 20769, 20774, 'SKY', 500000, 'EUR', 't-1', 5, 0), " +
+                    "(2, 'u1', 'Oslo', 20800, 20802, 'MINT', NULL, NULL, 't-2', 6, 1), " +
+                    // From v1: no owner, shown to no account; left as it is.
+                    "(3, '', 'Paris', 20800, 20802, 'ROSE', NULL, NULL, 't-3', 7, 1)"
+            )
+            db.execSQL(
+                "INSERT INTO expenses (id, trip_id, name, amount_agorot, category, date, paid_by, split_between, " +
+                    "uuid, updated_at, pending_sync) VALUES " +
+                    "(1, 1, 'Flights', 180000, 'FLIGHTS', 20700, 'me', 'me', 'e-1', 5, 0), " +
+                    "(2, 1, 'Dinner', 10000, 'FOOD', 20770, 'r-1', 'me,r-1', 'e-2', 6, 1), " +
+                    "(3, 1, 'Taxi', 10001, 'TRANSPORT', 20770, 'me', 'r-1,me,r-2', 'e-3', 6, 0), " +
+                    "(4, 1, 'Gift', 5000, 'SHOPPING', 20770, 'me', 'r-1', 'e-4', 6, 0), " +
+                    "(5, 3, 'Croissant', 500, 'FOOD', 20800, 'me', 'me', 'e-5', 7, 1)"
+            )
+            db.execSQL(
+                "INSERT INTO travelers (id, trip_id, name, color, created_at, uuid, updated_at, pending_sync) " +
+                    "VALUES (1, 1, 'Noa', 'ROSE', 9, 'r-1', 9, 0), (2, 1, 'Amit', 'INDIGO', 10, 'r-2', 10, 0)"
+            )
+            db.execSQL(
+                "INSERT INTO settlements (id, trip_id, from_traveler, to_traveler, amount_agorot, date, created_at, " +
+                    "uuid, updated_at, pending_sync) VALUES " +
+                    "(1, 1, 'me', 'r-1', 3200, 20771, 9, 's-1', 9, 0), (2, 1, 'r-2', 'me', 100, 20772, 10, 's-2', 10, 1)"
+            )
+            db.execSQL(
+                "INSERT INTO deletions (uuid, owner_id, kind, trip_uuid, deleted_at) " +
+                    "VALUES ('e-9', 'u1', 'EXPENSE', 't-1', 8)"
+            )
+        }
+
+        val db = helper.runMigrationsAndValidate(DB, 14, true, MIGRATION_13_14)
+
+        db.query(
+            "SELECT uuid, cloud_owner_id, member_ids, budget_agorot, budget_updated_at, budget_pending, updated_at, " +
+                "pending_sync FROM trips ORDER BY id"
+        ).use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("t-1", c.getString(0))
+            assertEquals("u1", c.getString(1)) // the owner…
+            assertEquals("u1", c.getString(2)) // …is the only member
+            assertEquals(500000, c.getInt(3))
+            assertEquals(5, c.getLong(4)) // the budget's own sync state starts as the trip's
+            assertEquals(0, c.getInt(5))
+            assertEquals(5, c.getLong(6)) // the trip itself is untouched
+            assertEquals(0, c.getInt(7))
+            assertTrue(c.moveToNext())
+            assertEquals(6, c.getLong(4))
+            assertEquals(1, c.getInt(5)) // never uploaded yet: the budget is pending too
+            assertTrue(c.moveToNext())
+            assertEquals("", c.getString(1))
+        }
+        db.query("SELECT uuid, paid_by, split_between, updated_at, pending_sync FROM expenses ORDER BY id").use { c ->
+            val rows = mutableListOf<List<Any>>()
+            while (c.moveToNext()) rows += listOf(c.getString(0), c.getString(1), c.getString(2), c.getLong(3), c.getInt(4))
+            assertEquals(
+                listOf(
+                    listOf("e-1", "u1", "u1", 5L, 0),
+                    listOf("e-2", "r-1", "u1,r-1", 6L, 1),
+                    listOf("e-3", "u1", "r-1,u1,r-2", 6L, 0),
+                    listOf("e-4", "u1", "r-1", 6L, 0),
+                    listOf("e-5", "me", "me", 7L, 1), // the trip without an owner is left as it is
+                ),
+                rows,
+            )
+        }
+        db.query("SELECT from_traveler, to_traveler, amount_agorot, updated_at, pending_sync FROM settlements ORDER BY id").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(listOf("u1", "r-1"), listOf(c.getString(0), c.getString(1)))
+            assertEquals(listOf(3200, 9, 0), listOf(c.getInt(2), c.getInt(3), c.getInt(4)))
+            assertTrue(c.moveToNext())
+            assertEquals(listOf("r-2", "u1"), listOf(c.getString(0), c.getString(1)))
+        }
+        db.query("SELECT uuid, owner_id, kind FROM deletions").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(listOf("e-9", "u1", "EXPENSE"), listOf(c.getString(0), c.getString(1), c.getString(2)))
+        }
+
+        // Local copies are per account: another account may hold the same trip, the same account only once.
+        db.execSQL(
+            "INSERT INTO trips (owner_id, destination, start_date, end_date, color, uuid, cloud_owner_id, member_ids) " +
+                "VALUES ('u2', 'Rome', 20769, 20774, 'SKY', 't-1', 'u1', 'u1,u2')"
+        )
+        val duplicate = runCatching {
+            db.execSQL(
+                "INSERT INTO trips (owner_id, destination, start_date, end_date, color, uuid) " +
+                    "VALUES ('u1', 'Rome', 20769, 20774, 'SKY', 't-1')"
+            )
+        }
+        assertTrue(duplicate.isFailure)
+        db.execSQL("INSERT INTO deletions (uuid, owner_id, kind, trip_uuid, deleted_at) VALUES ('e-9', 'u2', 'EXPENSE', 't-1', 8)")
+
+        // Everything still goes with its trip.
+        db.execSQL("PRAGMA foreign_keys = ON")
+        db.execSQL("DELETE FROM trips WHERE id = 1")
+        for (table in listOf("travelers", "settlements")) {
+            db.query("SELECT COUNT(*) FROM $table").use { c ->
+                assertTrue(c.moveToFirst())
+                assertEquals(0, c.getInt(0))
+            }
+        }
+        db.query("SELECT COUNT(*) FROM expenses").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(1, c.getInt(0)) // only the ownerless trip's expense
+        }
+        db.close()
+    }
+
     private companion object {
         const val DB = "migration-test.db"
     }

@@ -3,7 +3,6 @@ package com.example.planyourtrip.ui.tripdetails.expense
 import com.example.planyourtrip.data.currency.ExchangeRate
 import com.example.planyourtrip.data.currency.ILS
 import com.example.planyourtrip.data.trip.ExpenseCategory
-import com.example.planyourtrip.data.trip.ME
 import com.example.planyourtrip.ui.common.split.Person
 import java.time.LocalDate
 
@@ -40,11 +39,11 @@ data class ExpenseFormUiState(
     /** [ExpenseFieldError.DATE_AFTER_TRIP]; also shown when an edited expense is already dated after the trip. */
     val dateError: ExpenseFieldError? = null,
     /** "You" and the trip's travelers in list order (+ removed travelers the edited expense still uses). */
-    val people: List<Person> = listOf(Person.You),
-    /** Key of the payer ("Paid by"); a new expense is paid by me. */
-    val paidBy: String = ME,
+    val people: List<Person> = emptyList(),
+    /** Key of the payer ("Paid by"); a new expense is paid by me (my uid; set when the form loads). */
+    val paidBy: String = "",
     /** Keys sharing the expense equally ("Split between"), in list order; a new expense is split with everyone. */
-    val splitBetween: List<String> = listOf(ME),
+    val splitBetween: List<String> = emptyList(),
     /** [ExpenseFieldError.SPLIT_EMPTY] when nobody is selected. */
     val splitError: ExpenseFieldError? = null,
     val isSaving: Boolean = false,

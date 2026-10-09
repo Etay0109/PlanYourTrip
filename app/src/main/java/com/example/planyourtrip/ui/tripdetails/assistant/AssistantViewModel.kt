@@ -26,6 +26,8 @@ import com.example.planyourtrip.ui.common.WhileUiSubscribed
 import com.example.planyourtrip.ui.common.split.myTotal
 import com.example.planyourtrip.ui.common.split.travelerOrder
 import com.example.planyourtrip.ui.navigation.TripDetails
+import java.time.Clock
+import java.time.LocalDate
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -36,8 +38,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.Clock
-import java.time.LocalDate
 
 /**
  * The trip assistant chat. Scoped to the trip screen's back stack entry (see AppNavHost), so the conversation
@@ -69,7 +69,10 @@ class AssistantViewModel(
                 activityRepository.observeActivities(tripId, user.uid),
             ) { trip, expenses, travelers, activities ->
                 // Like the Budget tab: only my share of each expense counts as spent.
-                trip?.let { TripData(it, myTotal(expenses, travelerOrder(travelers)), activities) }
+                trip?.let {
+                    val order = travelerOrder(user.uid, it.memberIds, travelers)
+                    TripData(it, myTotal(expenses, order, user.uid), activities)
+                }
             }
         }
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)

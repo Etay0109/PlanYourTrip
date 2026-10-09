@@ -4,14 +4,14 @@ import com.example.planyourtrip.data.trip.ActivityInput
 import com.example.planyourtrip.data.trip.ActivityType
 import com.example.planyourtrip.data.trip.ChecklistKind
 import com.example.planyourtrip.data.trip.ExpenseCategory
-import com.example.planyourtrip.data.trip.ME
 import com.example.planyourtrip.data.trip.TravelerColor
 import com.example.planyourtrip.data.trip.TripColor
 import java.time.LocalDate
 
-/** Sample sync items for the sync tests. */
+/** Sample sync items for the sync tests. Traveler keys of the account "alice" are her uid. */
 object SyncTestData {
-    fun trip(uuid: String, updatedAt: Long, destination: String = "Rome") = SyncItem(
+    /** A trip of [owner] (its only member), as the cloud stores it. */
+    fun trip(uuid: String, updatedAt: Long, destination: String = "Rome", owner: String = "alice") = SyncItem(
         kind = SyncKind.TRIP,
         uuid = uuid,
         tripUuid = null,
@@ -21,18 +21,28 @@ object SyncTestData {
             startDate = LocalDate.of(2026, 11, 12),
             endDate = LocalDate.of(2026, 11, 17),
             color = TripColor.SKY,
-            budgetAgorot = 600_000,
             currencyCode = "EUR",
+            ownerId = owner,
+            memberIds = listOf(owner),
         ),
     )
 
-    fun expense(uuid: String, tripUuid: String, updatedAt: Long, name: String = "Dinner", amountAgorot: Long = 12_050) =
+    fun expense(
+        uuid: String,
+        tripUuid: String,
+        updatedAt: Long,
+        name: String = "Dinner",
+        amountAgorot: Long = 12_050,
+        paidBy: String = "alice",
+    ) =
         SyncItem(
             kind = SyncKind.EXPENSE,
             uuid = uuid,
             tripUuid = tripUuid,
             updatedAt = updatedAt,
-            data = ItemData.ExpenseData(name, amountAgorot, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13), null),
+            data = ItemData.ExpenseData(
+                name, amountAgorot, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13), null, paidBy, listOf(paidBy),
+            ),
         )
 
     fun activity(uuid: String, tripUuid: String, updatedAt: Long, title: String = "Colosseum") = SyncItem(
@@ -79,7 +89,7 @@ object SyncTestData {
             data = ItemData.TravelerData(name, TravelerColor.ROSE, createdAt),
         )
 
-    fun settlement(uuid: String, tripUuid: String, updatedAt: Long, from: String = "noa", to: String = ME) =
+    fun settlement(uuid: String, tripUuid: String, updatedAt: Long, from: String = "noa", to: String = "alice") =
         SyncItem(
             kind = SyncKind.SETTLEMENT,
             uuid = uuid,
@@ -87,6 +97,10 @@ object SyncTestData {
             updatedAt = updatedAt,
             data = ItemData.SettlementData(from, to, 32_000, LocalDate.of(2026, 11, 14), createdAt = 11),
         )
+
+    /** The signed-in member's own budget for trip [tripUuid]. */
+    fun budget(tripUuid: String, updatedAt: Long, budgetAgorot: Long? = 600_000) =
+        SyncItem(SyncKind.BUDGET, tripUuid, tripUuid, updatedAt, ItemData.BudgetData(budgetAgorot))
 
     fun SyncItem.deletedAt(at: Long) = copy(updatedAt = at, data = null)
 

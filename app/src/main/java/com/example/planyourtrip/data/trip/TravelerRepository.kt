@@ -1,11 +1,11 @@
 package com.example.planyourtrip.data.trip
 
-import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
+import kotlinx.coroutines.flow.Flow
 
 /**
- * The travelers of the owner's trips ("You" is not one of them, see [ME]). Names are validated by the caller
- * (non-blank, unique within the trip); the repository trims them.
+ * The travelers of the owner's trips (name only; trip members are not travelers, see [LEGACY_ME_KEY]). Names are
+ * validated by the caller (non-blank, unique within the trip); the repository trims them.
  */
 interface TravelerRepository {
     /** In the order they were added. Empty when the trip isn't the owner's. */

@@ -6,6 +6,7 @@ import com.example.planyourtrip.FakeCurrencyRepository
 import com.example.planyourtrip.FakeExpenseRepository
 import com.example.planyourtrip.FakeTravelerRepository
 import com.example.planyourtrip.FakeTripRepository
+import com.example.planyourtrip.ME
 import com.example.planyourtrip.data.auth.AuthUser
 import com.example.planyourtrip.data.currency.ExchangeRate
 import com.example.planyourtrip.data.trip.ActivityType
@@ -13,7 +14,6 @@ import com.example.planyourtrip.data.trip.DeletedActivity
 import com.example.planyourtrip.data.trip.DeletedActivityStore
 import com.example.planyourtrip.data.trip.Expense
 import com.example.planyourtrip.data.trip.ExpenseCategory
-import com.example.planyourtrip.data.trip.ME
 import com.example.planyourtrip.data.trip.Traveler
 import com.example.planyourtrip.data.trip.TravelerColor
 import com.example.planyourtrip.data.trip.Trip
@@ -21,10 +21,16 @@ import com.example.planyourtrip.data.trip.TripActivity
 import com.example.planyourtrip.data.trip.TripColor
 import com.example.planyourtrip.ui.common.TripStatus
 import com.example.planyourtrip.ui.common.split.Person
+import java.math.BigDecimal
+import java.time.Clock
+import java.time.Duration
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.ZoneOffset
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -37,12 +43,6 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import java.math.BigDecimal
-import java.time.Clock
-import java.time.Duration
-import java.time.LocalDate
-import java.time.LocalTime
-import java.time.ZoneOffset
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TripDetailsViewModelTest {
@@ -94,8 +94,8 @@ class TripDetailsViewModelTest {
     fun budgetAndExpenses_areCombined_newestFirst() = runTest(dispatcher) {
         trips.trips.value = listOf("u1" to rome.copy(budgetAgorot = 600_000))
         expenses.expenses.value = listOf(
-            Expense(1, 1, "Flights", 300_000, ExpenseCategory.FLIGHTS, LocalDate.of(2026, 9, 1)),
-            Expense(2, 1, "Dinner", 45_000, ExpenseCategory.FOOD, LocalDate.of(2026, 9, 20)),
+            Expense(1, 1, "Flights", 300_000, ExpenseCategory.FLIGHTS, LocalDate.of(2026, 9, 1), paidBy = ME, splitBetween = listOf(ME)),
+            Expense(2, 1, "Dinner", 45_000, ExpenseCategory.FOOD, LocalDate.of(2026, 9, 20), paidBy = ME, splitBetween = listOf(ME)),
         )
         val state = vm().loaded()
 
@@ -124,7 +124,7 @@ class TripDetailsViewModelTest {
                 paidBy = "amit", splitBetween = listOf("noa", "amit"),
             ),
             // Mine, not shared.
-            Expense(3, 1, "SIM", 2_000, ExpenseCategory.OTHER, LocalDate.of(2026, 9, 22)),
+            Expense(3, 1, "SIM", 2_000, ExpenseCategory.OTHER, LocalDate.of(2026, 9, 22), paidBy = ME, splitBetween = listOf(ME)),
         )
         val state = vm().loaded()
 
@@ -149,7 +149,7 @@ class TripDetailsViewModelTest {
                 1, 1, "Dinner", 10_000, ExpenseCategory.FOOD, LocalDate.of(2026, 9, 20),
                 paidBy = "noa", splitBetween = listOf("amit", ME, "noa"),
             ),
-            Expense(2, 1, "SIM", 2_000, ExpenseCategory.OTHER, LocalDate.of(2026, 9, 22)),
+            Expense(2, 1, "SIM", 2_000, ExpenseCategory.OTHER, LocalDate.of(2026, 9, 22), paidBy = ME, splitBetween = listOf(ME)),
         )
         val vm = vm()
         // Only me: no split line on any row.
@@ -160,18 +160,18 @@ class TripDetailsViewModelTest {
         assertEquals(Person.Named("noa", "Noa", TravelerColor.ROSE), splits.getValue(1).payer)
         assertEquals(listOf(ME, "noa", "amit"), splits.getValue(1).splitWith.map { it.key })
         assertEquals(3_334L, splits.getValue(1).myShareAgorot)
-        assertEquals(Person.You, splits.getValue(2).payer)
-        assertEquals(listOf(Person.You), splits.getValue(2).splitWith)
+        assertEquals(Person.You(ME), splits.getValue(2).payer)
+        assertEquals(listOf(Person.You(ME)), splits.getValue(2).splitWith)
         assertEquals(2_000L, splits.getValue(2).myShareAgorot)
     }
 
     @Test
     fun existingTrip_withoutTravelers_keepsExactlyTheSameNumbers() = runTest(dispatcher) {
         trips.trips.value = listOf("u1" to rome.copy(budgetAgorot = 600_000))
-        // What the v13 migration makes of every existing expense: paid by me, not shared (the defaults).
+        // What the v13 migration made of every existing expense: paid by me, not shared ("me" is my uid since v14).
         expenses.expenses.value = listOf(
-            Expense(1, 1, "Flights", 300_000, ExpenseCategory.FLIGHTS, LocalDate.of(2026, 9, 1)),
-            Expense(2, 1, "Dinner", 45_000, ExpenseCategory.FOOD, LocalDate.of(2026, 9, 20)),
+            Expense(1, 1, "Flights", 300_000, ExpenseCategory.FLIGHTS, LocalDate.of(2026, 9, 1), paidBy = ME, splitBetween = listOf(ME)),
+            Expense(2, 1, "Dinner", 45_000, ExpenseCategory.FOOD, LocalDate.of(2026, 9, 20), paidBy = ME, splitBetween = listOf(ME)),
         )
         val state = vm().loaded()
         assertEquals(345_000L, state.summary?.spentAgorot)

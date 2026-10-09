@@ -3,8 +3,9 @@ package com.example.planyourtrip.ui.tripdetails.split
 import com.example.planyourtrip.data.trip.Settlement
 import com.example.planyourtrip.data.trip.Traveler
 import com.example.planyourtrip.ui.common.split.Person
-import com.example.planyourtrip.ui.common.split.TravelerNameError
 import com.example.planyourtrip.ui.common.split.Transfer
+import com.example.planyourtrip.ui.common.split.TravelerNameError
+import com.example.planyourtrip.ui.common.split.people
 import com.example.planyourtrip.ui.common.split.personOf
 
 /** The Budget tab's Travelers section, "Who owes whom" card and settle-up sheet of one trip. */
@@ -16,6 +17,8 @@ sealed interface SplitUiState {
     data object NotFound : SplitUiState
 
     data class Loaded(
+        /** The signed-in member's uid: their key ("You"). */
+        val me: String,
         /** Besides "You", in list order. */
         val travelers: List<Traveler>,
         /** Open debts, smallest number of transfers; rows involving "You" first. Empty = all settled up. */
@@ -26,12 +29,12 @@ sealed interface SplitUiState {
         val settlements: List<Settlement>,
     ) : SplitUiState {
         /** "You" and the travelers, in list order. */
-        val people: List<Person> get() = listOf(Person.You) + travelers.map { personOf(it.uuid, travelers) }
+        val people: List<Person> get() = people(me, travelers)
 
         /** "Who owes whom" (and "Paid by" / "Split between" elsewhere) only exist with more than one traveler. */
         val hasOthers: Boolean get() = travelers.isNotEmpty()
 
-        fun person(key: String): Person = personOf(key, travelers)
+        fun person(key: String): Person = personOf(key, me, travelers)
     }
 }
 

@@ -5,7 +5,7 @@ import com.example.planyourtrip.data.trip.ActivityType
 import com.example.planyourtrip.data.trip.ChecklistKind
 import com.example.planyourtrip.data.trip.ExpenseCategory
 import com.example.planyourtrip.data.trip.ForeignAmount
-import com.example.planyourtrip.data.trip.ME
+import com.example.planyourtrip.data.trip.LEGACY_ME_KEY
 import com.example.planyourtrip.data.trip.TravelerColor
 import com.example.planyourtrip.data.trip.TripColor
 import java.math.BigDecimal
@@ -18,11 +18,20 @@ import java.util.Locale
  * Cloud document fields (pure, no Firebase types, so it is unit-tested on the JVM). Must match firestore.rules.
  * Money is whole agorot (Long), dates are ISO "2026-11-12", times "HH:mm", rates and foreign amounts exact
  * decimal text. Every live document writes every key (null when empty); a tombstone has only
- * [DELETED] = true and [UPDATED_AT].
+ * [DELETED] = true and [UPDATED_AT] (a trip tombstone also keeps [OWNER_ID] / [MEMBER_IDS], see FirestoreCloudStore).
  */
 object SyncDocuments {
     const val UPDATED_AT = "updatedAt"
     const val DELETED = "deleted"
+
+    /** The trip's owner and members: who may read and write it (firestore.rules). */
+    const val OWNER_ID = "ownerId"
+    const val MEMBER_IDS = "memberIds"
+
+    /** The trip document's data fields: what an upload of an existing trip changes (never owner or members). */
+    val TRIP_DATA_FIELDS = listOf(
+        Field.DESTINATION, Field.START_DATE, Field.END_DATE, Field.CURRENCY_CODE, Field.COLOR,
+    )
 
     /** Document field names (besides [DELETED] and [UPDATED_AT]); written and read with the same constants. */
     private object Field {
@@ -67,10 +76,12 @@ object SyncDocuments {
                 Field.DESTINATION to data.destination,
                 Field.START_DATE to data.startDate.toString(),
                 Field.END_DATE to data.endDate.toString(),
-                Field.BUDGET_AGOROT to data.budgetAgorot,
                 Field.CURRENCY_CODE to data.currencyCode,
                 Field.COLOR to data.color.name,
+                OWNER_ID to data.ownerId,
+                MEMBER_IDS to data.memberIds,
             )
+            is ItemData.BudgetData -> mapOf(Field.BUDGET_AGOROT to data.budgetAgorot)
             is ItemData.ExpenseData -> mapOf(
                 Field.NAME to data.name,
                 Field.AMOUNT_AGOROT to data.amountAgorot,
@@ -121,7 +132,9 @@ object SyncDocuments {
     /**
      * Reads a cloud document; null when it can't be read (missing or wrong fields), so one bad document never
      * stops a sync. Unknown enum names fall back like in Room (first color, OTHER, BEFORE_TRIP). An expense without
-     * `paidBy` / `splitBetween` (written before expense splitting) is "paid by me, not shared".
+     * `paidBy` / `splitBetween` (only in the legacy copy, written before expense splitting) is paid by
+     * [LEGACY_ME_KEY], not shared. A legacy trip document has no owner / members ("" / empty until the migration
+     * fills them in).
      */
     fun fromDocument(kind: SyncKind, uuid: String, tripUuid: String?, doc: Map<String, Any?>): SyncItem? =
         runCatching {
@@ -132,12 +145,14 @@ object SyncDocuments {
                     startDate = LocalDate.parse(doc.string(Field.START_DATE)),
                     endDate = LocalDate.parse(doc.string(Field.END_DATE)),
                     color = TripColor.fromName(doc[Field.COLOR] as? String),
-                    budgetAgorot = doc.long(Field.BUDGET_AGOROT),
                     currencyCode = doc.string(Field.CURRENCY_CODE),
+                    ownerId = doc.string(OWNER_ID).orEmpty(),
+                    memberIds = (doc[MEMBER_IDS] as List<*>?).orEmpty().filterIsInstance<String>(),
                 )
+                SyncKind.BUDGET -> ItemData.BudgetData(doc.long(Field.BUDGET_AGOROT))
                 SyncKind.EXPENSE -> {
-                    // Documents written before expense splitting have no payer or split: paid by me, not shared.
-                    val paidBy = doc.string(Field.PAID_BY)?.takeIf { it.isNotEmpty() } ?: ME
+                    // Legacy documents written before expense splitting have no payer or split: paid by me, not shared.
+                    val paidBy = doc.string(Field.PAID_BY)?.takeIf { it.isNotEmpty() } ?: LEGACY_ME_KEY
                     val split = (doc[Field.SPLIT_BETWEEN] as List<*>?).orEmpty()
                         .filterIsInstance<String>().filter { it.isNotEmpty() }.distinct()
                     ItemData.ExpenseData(
@@ -163,7 +178,7 @@ object SyncDocuments {
                     ),
                     // Older documents may still hold "placeId" / "placeLookup" (removed with the Map tab): ignored.
                 )
-                SyncKind.CHECKLIST -> ItemData.ChecklistData(
+                SyncKind.CHECKLIST, SyncKind.PACKING -> ItemData.ChecklistData(
                     list = ChecklistKind.fromName(doc[Field.LIST] as? String),
                     text = doc.string(Field.TEXT)!!,
                     checked = doc[Field.CHECKED] as Boolean,
@@ -185,6 +200,18 @@ object SyncDocuments {
             }
             SyncItem(kind, uuid, tripUuid, updatedAt, data)
         }.getOrNull()
+
+    /**
+     * The budget kept in a **legacy** trip document (before shared trips): the owner's [SyncKind.BUDGET] item with
+     * the trip's `updatedAt`, or null for a tombstone or an unreadable document.
+     */
+    fun legacyBudget(tripUuid: String, doc: Map<String, Any?>): SyncItem? = runCatching {
+        if (doc[DELETED] == true) return null
+        SyncItem(
+            SyncKind.BUDGET, tripUuid, tripUuid, (doc[UPDATED_AT] as Number).toLong(),
+            ItemData.BudgetData(doc.long(Field.BUDGET_AGOROT)),
+        )
+    }.getOrNull()
 
     /** All four foreign fields together, or none (an expense entered in shekels). */
     private fun foreignAmount(doc: Map<String, Any?>): ForeignAmount? {

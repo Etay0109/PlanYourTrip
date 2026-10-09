@@ -7,14 +7,15 @@ import com.example.planyourtrip.FakeSyncFlags
 import com.example.planyourtrip.FakeSyncLocalStore
 import com.example.planyourtrip.data.auth.AuthUser
 import com.example.planyourtrip.data.sync.SyncTestData.activity
+import com.example.planyourtrip.data.sync.SyncTestData.budget
 import com.example.planyourtrip.data.sync.SyncTestData.checklistItem
 import com.example.planyourtrip.data.sync.SyncTestData.deletedAt
 import com.example.planyourtrip.data.sync.SyncTestData.expense
+import com.example.planyourtrip.data.sync.SyncTestData.renamed
 import com.example.planyourtrip.data.sync.SyncTestData.settlement
 import com.example.planyourtrip.data.sync.SyncTestData.traveler
-import com.example.planyourtrip.data.trip.ME
-import com.example.planyourtrip.data.sync.SyncTestData.renamed
 import com.example.planyourtrip.data.sync.SyncTestData.trip
+import com.example.planyourtrip.data.trip.ChecklistKind
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -311,68 +312,187 @@ class SyncManagerTest {
         assertEquals(1, pendingOf("alice"))
     }
 
-    // ---------- Old place documents (places were synced until the Map tab was removed) ----------
+    // ---------- The legacy copy (users/{uid}/trips, before shared trips) ----------
 
-    @Test
-    fun theFirstFullSync_removesTheAccountsOldPlaceDocuments_once() = runTest {
-        cloud.put("alice", rome)
-        cloud.legacyPlaces["alice"] = 3
-        val sync = manager()
-        sync.start()
-        settle()
-
-        assertNull(cloud.legacyPlaces["alice"])
-        assertTrue("alice" in flags.placesCleanupDone)
-
-        // Later full syncs (reconnect) don't ask the cloud again.
-        network.isOnline.value = false
-        network.isOnline.value = true
-        settle()
-        assertEquals(1, cloud.calls.count { it == "deleteLegacyPlaces:alice" })
+    /** Alice's legacy copy as the old app stored it: the key "me", the budget in the trip, both checklists together. */
+    private fun legacyCopy(): List<SyncItem> {
+        val trip = rome.copy(data = (rome.data as ItemData.TripData).copy(ownerId = "", memberIds = emptyList()))
+        val shared = dinner.copy(
+            data = (dinner.data as ItemData.ExpenseData).copy(paidBy = "me", splitBetween = listOf("me", "r1")),
+        )
+        val packing = checklistItem("c2", "t1", updatedAt = 100, text = "Charger").let {
+            it.copy(data = (it.data as ItemData.ChecklistData).copy(list = ChecklistKind.PACKING))
+        }
+        return listOf(
+            trip, budget("t1", updatedAt = 100), shared, colosseum, traveler("r1", "t1", updatedAt = 100),
+            settlement("s1", "t1", updatedAt = 100, from = "r1", to = "me"),
+            checklistItem("c1", "t1", updatedAt = 100), packing,
+        )
     }
 
+    /** The same data on this phone after the v14 Room migration ("me" is Alice's uid, synced). */
+    private fun migratedLocally(): List<SyncItem> = convertLegacy(legacyCopy(), "alice")
+
     @Test
-    fun aFailedCleanup_doesNotFailTheSync_andIsRetriedAtTheNextFullSync() = runTest {
-        cloud.put("alice", rome)
-        cloud.legacyPlaces["alice"] = 2
-        cloud.failLegacyPlaces = true
-        local.edit("alice", dinner)
+    fun theLegacyCopy_isMovedToSharedTrips_withTheSameData_andOnlyThenDeleted() = runTest {
+        cloud.legacy["alice"] = legacyCopy().toMutableList()
+        migratedLocally().forEach { local.edit("alice", it, pending = false) }
 
         assertTrue(manager().sync("alice", full = true))
+
+        val docs = cloud.docsOf("alice")
+        assertEquals(listOf("alice"), cloud.membersOf("t1"))
+        assertEquals(migratedLocally().toSet(), docs.values.toSet())
+        val expense = docs.getValue("e1").data as ItemData.ExpenseData
+        assertEquals("alice", expense.paidBy)
+        assertEquals(listOf("alice", "r1"), expense.splitBetween)
+        assertEquals("alice", (docs.getValue("s1").data as ItemData.SettlementData).toKey)
+        assertEquals(SyncKind.PACKING, docs.getValue("c2").kind)
+        assertEquals(600_000L, (docs.getValue("budget:t1").data as ItemData.BudgetData).budgetAgorot)
+        // Copied, checked, then marked and deleted; nothing on the phone changed.
+        assertNull(cloud.legacy["alice"])
+        assertTrue("alice" in cloud.legacyMigrated)
+        assertTrue("alice" in flags.sharedTripsMigrated)
+        assertEquals(migratedLocally().map { it.uuid to it.kind }.toSet(), local.rowsOf("alice").map { it.item.uuid to it.item.kind }.toSet())
         assertEquals(0, pendingOf("alice"))
-        assertEquals(2, cloud.legacyPlaces["alice"])
-        assertFalse("alice" in flags.placesCleanupDone)
-
-        cloud.failLegacyPlaces = false
-        assertTrue(manager().sync("alice", full = true))
-        assertNull(cloud.legacyPlaces["alice"])
-        assertTrue("alice" in flags.placesCleanupDone)
     }
 
     @Test
-    fun aQuickSync_orOffline_neverRunsTheCleanup() = runTest {
-        cloud.legacyPlaces["alice"] = 1
-        local.edit("alice", rome)
+    fun anInterruptedCopy_deletesNothing_keepsThePhonesTrips_andTheNextSyncFinishes() = runTest {
+        cloud.legacy["alice"] = legacyCopy().toMutableList()
+        migratedLocally().forEach { local.edit("alice", it, pending = false) }
+        cloud.failAfterWrites = 2 // the connection drops after two of the copy's chunks
+
+        assertFalse(manager(chunkSize = 2).sync("alice", full = true))
+
+        // The legacy copy is untouched and the half-copied new layout never made the phone delete anything.
+        assertEquals(legacyCopy(), cloud.legacy["alice"])
+        assertFalse("alice" in cloud.legacyMigrated)
+        assertFalse("alice" in flags.sharedTripsMigrated)
+        assertEquals(migratedLocally().size, local.rowsOf("alice").size)
+
+        cloud.failAfterWrites = null
+        assertTrue(manager(chunkSize = 2).sync("alice", full = true))
+        assertEquals(migratedLocally().toSet(), cloud.docsOf("alice").values.toSet())
+        assertNull(cloud.legacy["alice"])
+        assertEquals(migratedLocally().size, local.rowsOf("alice").size)
+    }
+
+    @Test
+    fun interruptedAfterTheMarker_theNextSyncOnlyDeletesTheLeftovers() = runTest {
+        cloud.legacy["alice"] = legacyCopy().toMutableList()
+        cloud.failLegacyDelete = true
+
+        assertFalse(manager().sync("alice", full = true))
+        assertTrue("alice" in cloud.legacyMigrated)
+        assertEquals(legacyCopy(), cloud.legacy["alice"])
+        assertFalse("alice" in flags.sharedTripsMigrated)
+
+        cloud.failLegacyDelete = false
+        cloud.calls.clear()
+        assertTrue(manager().sync("alice", full = true))
+        assertNull(cloud.legacy["alice"])
+        assertTrue("alice" in flags.sharedTripsMigrated)
+        // Everything was already copied: nothing is written again.
+        assertFalse(cloud.calls.any { it.startsWith("write:") })
+    }
+
+    @Test
+    fun theMigration_neverOverwritesANewerEditFromAnUpdatedPhone() = runTest {
+        // Another phone migrated first and renamed the trip since.
+        cloud.put("alice", rome.renamed("Rome (other phone)", at = 300))
+        cloud.legacy["alice"] = legacyCopy().toMutableList()
+
+        assertTrue(manager().sync("alice", full = true))
+
+        assertEquals("Rome (other phone)", (cloud.docsOf("alice").getValue("t1").data as ItemData.TripData).destination)
+        assertEquals("Rome (other phone)", (local.liveOf("alice").getValue("t1").data as ItemData.TripData).destination)
+    }
+
+    @Test
+    fun aQuickSync_movesTheLegacyCopyFirst() = runTest {
+        cloud.legacy["alice"] = legacyCopy().toMutableList()
+        local.edit("alice", colosseum.copy(updatedAt = 200))
+
         assertTrue(manager().sync("alice", full = false))
 
-        network.isOnline.value = false
-        assertFalse(manager().sync("alice", full = true))
-
-        assertFalse(cloud.calls.any { it.startsWith("deleteLegacyPlaces") })
-        assertEquals(1, cloud.legacyPlaces["alice"])
+        assertEquals(listOf("fetchLegacy:alice"), cloud.calls.take(1))
+        assertNull(cloud.legacy["alice"])
+        assertEquals(colosseum.copy(updatedAt = 200), cloud.docsOf("alice")["a1"])
     }
 
     @Test
-    fun eachAccount_getsItsOwnCleanup() = runTest {
-        cloud.legacyPlaces["alice"] = 1
-        cloud.legacyPlaces["bob"] = 1
-        flags.markPlacesCleanupDone("alice")
+    fun eachAccount_movesOnlyItsOwnLegacyCopy() = runTest {
+        cloud.legacy["alice"] = legacyCopy().toMutableList()
+        cloud.legacy["bob"] = mutableListOf(trip("t9", updatedAt = 50, destination = "Oslo", owner = ""))
 
         assertTrue(manager().sync("bob", full = true))
 
-        assertEquals(listOf("deleteLegacyPlaces:bob"), cloud.calls.filter { it.startsWith("deleteLegacyPlaces") })
-        assertEquals(1, cloud.legacyPlaces["alice"])
-        assertNull(cloud.legacyPlaces["bob"])
+        assertEquals(legacyCopy(), cloud.legacy["alice"])
+        assertNull(cloud.legacy["bob"])
+        assertEquals(listOf("bob"), cloud.membersOf("t9"))
+        assertNull(cloud.membersOf("t1"))
+        assertFalse(cloud.calls.any { it.contains("alice") })
+    }
+
+    @Test
+    fun anAccountWithoutLegacyData_isMarkedOnce() = runTest {
+        val sync = manager()
+        sync.start()
+        settle()
+        network.isOnline.value = false
+        network.isOnline.value = true
+        settle()
+
+        assertEquals(1, cloud.calls.count { it == "fetchLegacy:alice" })
+        assertTrue("alice" in flags.sharedTripsMigrated)
+    }
+
+    // ---------- Shared trips: personal data stays personal ----------
+
+    @Test
+    fun theBudgetAndPackingItems_areOnlySeenByTheirMember_andMembersSeeTheSharedItems() = runTest {
+        val packing = checklistItem("c2", "t1", updatedAt = 100, text = "Charger").let {
+            it.copy(kind = SyncKind.PACKING, data = (it.data as ItemData.ChecklistData).copy(list = ChecklistKind.PACKING))
+        }
+        listOf(rome, budget("t1", updatedAt = 100), dinner, checklistItem("c1", "t1", updatedAt = 100), packing)
+            .forEach { local.edit("alice", it) }
+        assertTrue(manager().sync("alice", full = true))
+        cloud.addMember("t1", "bob")
+
+        val bobSees = cloud.docsOf("bob")
+        assertEquals(setOf("t1", "e1", "c1"), bobSees.keys)
+        assertEquals(setOf("t1", "budget:t1", "e1", "c1", "c2"), cloud.docsOf("alice").keys)
+    }
+
+    @Test
+    fun uploadingATrip_neverChangesItsMembers() = runTest {
+        local.edit("alice", rome)
+        val sync = manager()
+        assertTrue(sync.sync("alice", full = true))
+        cloud.addMember("t1", "bob")
+
+        // Alice's phone still has the old member list and edits the trip.
+        local.edit("alice", rome.renamed("Rome and Naples", at = 200))
+        assertTrue(sync.sync("alice", full = false))
+
+        assertEquals(listOf("alice", "bob"), cloud.membersOf("t1"))
+        assertTrue(sync.sync("alice", full = true))
+        val here = local.liveOf("alice").getValue("t1").data as ItemData.TripData
+        assertEquals("Rome and Naples", here.destination)
+        assertEquals(listOf("alice", "bob"), here.memberIds)
+    }
+
+    @Test
+    fun refresh_isAFullSync_andFailsOffline() = runTest {
+        cloud.put("alice", rome)
+        val sync = manager()
+
+        assertTrue(sync.refresh())
+        assertEquals(setOf("t1"), local.liveOf("alice").keys)
+
+        network.isOnline.value = false
+        assertFalse(sync.refresh())
     }
 
     // ---------- Checklist items and the documents of deleted trips ----------
@@ -382,7 +502,8 @@ class SyncManagerTest {
         val passport = checklistItem("c1", "t1", updatedAt = 100)
         local.edit("alice", rome)
         local.edit("alice", passport)
-        cloud.put("alice", checklistItem("c2", "t1", updatedAt = 50, text = "Charger"))
+        // In shared trips a child item is always stored under its trip.
+        cloud.put("alice", rome, checklistItem("c2", "t1", updatedAt = 50, text = "Charger"))
 
         assertTrue(manager().sync("alice", full = true))
 
@@ -396,18 +517,19 @@ class SyncManagerTest {
         val noa = traveler("r1", "t1", updatedAt = 100, name = "Noa")
         val shared = dinner.copy(
             updatedAt = 110,
-            data = (dinner.data as ItemData.ExpenseData).copy(paidBy = "r1", splitBetween = listOf(ME, "r1")),
+            data = (dinner.data as ItemData.ExpenseData).copy(paidBy = "r1", splitBetween = listOf("alice", "r1")),
         )
         local.edit("alice", rome)
         local.edit("alice", noa)
         local.edit("alice", shared)
-        cloud.put("alice", settlement("s1", "t1", updatedAt = 50, from = ME, to = "r1"))
+        // In shared trips a child item is always stored under its trip.
+        cloud.put("alice", rome, settlement("s1", "t1", updatedAt = 50, from = "alice", to = "r1"))
 
         assertTrue(manager().sync("alice", full = true))
 
         assertEquals(noa, cloud.docsOf("alice")["r1"])
         assertEquals(shared, cloud.docsOf("alice")["e1"])
-        assertEquals(ME, (local.liveOf("alice")["s1"]?.data as ItemData.SettlementData).fromKey)
+        assertEquals("alice", (local.liveOf("alice")["s1"]?.data as ItemData.SettlementData).fromKey)
         assertEquals(0, pendingOf("alice"))
     }
 

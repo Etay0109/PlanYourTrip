@@ -3,11 +3,14 @@ package com.example.planyourtrip.data.trip
 import java.time.LocalDate
 
 /**
- * The key of the signed-in user ("You") in an expense's payer and split and in settlements. "You" is never stored as
- * a traveler row: every trip has it, it can't be renamed or removed, and it is always first in the list order.
- * Other travelers are referenced by their uuid.
+ * Traveler keys (an expense's payer and split, a settlement's two sides) are a trip member's **account uid** or a
+ * name-only traveler's uuid. Members are never stored as traveler rows: the signed-in member is shown as "You".
+ *
+ * Before shared trips, the account owner's key was the fixed text "me". The v14 Room migration and the cloud
+ * migration (`data/sync/LegacyMigration.kt`) replace it with the owner's uid; only legacy data still holds it.
+ * Also the SQL default of `expenses.paid_by` / `split_between` (SQLite can't change a column default).
  */
-const val ME = "me"
+const val LEGACY_ME_KEY = "me"
 
 /**
  * Someone the user travels with: just a name (not an account, never uses the app). [uuid] is the key used by
@@ -23,7 +26,7 @@ data class Traveler(
 
 /**
  * A payment between two travelers to settle a debt: [fromKey] paid [toKey] [amountAgorot] on [date]. Never changes
- * the budget, only the balances. Keys are [ME] or a traveler uuid.
+ * the budget, only the balances. Keys are member uids or traveler uuids.
  */
 data class Settlement(
     val id: Long,

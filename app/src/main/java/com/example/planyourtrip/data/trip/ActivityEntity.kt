@@ -22,7 +22,7 @@ import java.util.UUID
             onDelete = ForeignKey.CASCADE,
         ),
     ],
-    indices = [Index("trip_id"), Index(value = ["uuid"], unique = true)],
+    indices = [Index("trip_id"), Index(value = ["trip_id", "uuid"], unique = true)],
 )
 data class ActivityEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,

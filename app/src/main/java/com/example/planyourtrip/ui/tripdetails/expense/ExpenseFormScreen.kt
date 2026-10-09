@@ -42,7 +42,6 @@ import com.example.planyourtrip.R
 import com.example.planyourtrip.data.currency.ExchangeRate
 import com.example.planyourtrip.data.currency.ILS
 import com.example.planyourtrip.data.trip.ExpenseCategory
-import com.example.planyourtrip.data.trip.ME
 import com.example.planyourtrip.data.trip.TravelerColor
 import com.example.planyourtrip.ui.common.TripFormatting
 import com.example.planyourtrip.ui.common.components.DateField
@@ -395,8 +394,10 @@ private fun Preview(state: ExpenseFormUiState, darkTheme: Boolean = false) {
     }
 }
 
+private const val PREVIEW_ME = "me-uid"
+
 private val previewPeople = listOf(
-    Person.You,
+    Person.You(PREVIEW_ME),
     Person.Named("noa", "Noa", TravelerColor.ROSE),
     Person.Named("amit", "Amit", TravelerColor.INDIGO),
 )
@@ -405,7 +406,7 @@ private val previewForeign = ExpenseFormUiState(
     isLoading = false,
     people = previewPeople,
     paidBy = "noa",
-    splitBetween = listOf(ME, "noa", "amit"),
+    splitBetween = listOf(PREVIEW_ME, "noa", "amit"),
     name = "Lunch at Campo de' Fiori",
     amount = "10",
     currencyCode = "EUR",

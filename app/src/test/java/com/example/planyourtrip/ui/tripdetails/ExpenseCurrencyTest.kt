@@ -1,5 +1,6 @@
 package com.example.planyourtrip.ui.tripdetails
 
+import com.example.planyourtrip.ME
 import com.example.planyourtrip.data.currency.ExchangeRate
 import com.example.planyourtrip.data.currency.ILS
 import com.example.planyourtrip.data.trip.Expense
@@ -10,13 +11,13 @@ import com.example.planyourtrip.ui.tripdetails.expense.ConversionPreview
 import com.example.planyourtrip.ui.tripdetails.expense.EnteredAmount
 import com.example.planyourtrip.ui.tripdetails.expense.ExpenseCurrency
 import com.example.planyourtrip.ui.tripdetails.expense.ExpenseFieldError
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Test
 import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDate
 import java.util.Locale
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Test
 
 class ExpenseCurrencyTest {
 
@@ -111,6 +112,7 @@ class ExpenseCurrencyTest {
     private val storedEur = Expense(
         5, 1, "Gelato", 4_020, ExpenseCategory.FOOD, oct2,
         ForeignAmount(BigDecimal("10.00"), "EUR", BigDecimal("4.02"), oct2),
+        paidBy = ME, splitBetween = listOf(ME),
     )
     private val newerEur = ExchangeRate("EUR", BigDecimal("4.10"), oct5, Instant.EPOCH)
 
@@ -146,7 +148,7 @@ class ExpenseCurrencyTest {
         assertEquals(ok(4_020, storedEur.original), resolve("10.00", "EUR", newerEur, storedEur))
 
         // A shekel expense switched to EUR is converted with the latest rate.
-        val storedIls = Expense(6, 1, "Taxi", 1_000, ExpenseCategory.TRANSPORT, oct2)
+        val storedIls = Expense(6, 1, "Taxi", 1_000, ExpenseCategory.TRANSPORT, oct2, paidBy = ME, splitBetween = listOf(ME))
         assertEquals(EnteredAmount("10", ILS), ExpenseCurrency.entered(storedIls))
         assertEquals(ok(1_000), resolve("10", ILS, newerEur, storedIls))
         assertEquals(

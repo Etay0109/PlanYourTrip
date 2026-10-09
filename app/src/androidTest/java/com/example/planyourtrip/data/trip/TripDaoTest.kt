@@ -14,6 +14,12 @@ import com.example.planyourtrip.data.sync.RoomSyncLocalStore
 import com.example.planyourtrip.data.sync.SyncItem
 import com.example.planyourtrip.data.sync.SyncKind
 import com.example.planyourtrip.data.sync.planMerge
+import java.math.BigDecimal
+import java.time.Clock
+import java.time.Instant
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.ZoneOffset
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -23,15 +29,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.math.BigDecimal
-import java.time.Clock
-import java.time.Instant
-import java.time.LocalDate
-import java.time.LocalTime
-import java.time.ZoneOffset
 
 @RunWith(AndroidJUnit4::class)
 class TripDaoTest {
+
+    /** The signed-in account's uid: its traveler key ("You"). */
+    private val ME = "u1"
 
     private lateinit var db: AppDatabase
     private lateinit var repository: RoomTripRepository
@@ -157,16 +160,16 @@ class TripDaoTest {
     @Test
     fun expenses_newestFirst_scopedToOwner_andEditable() = runTest {
         val trip = repository.addTrip("u1", "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17))
-        val older = expenses.addExpense(trip, "u1", ExpenseInput(" Flights ", 180_000, ExpenseCategory.FLIGHTS, LocalDate.of(2026, 9, 1)))!!
-        val newer = expenses.addExpense(trip, "u1", ExpenseInput("Dinner", 12_050, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13)))!!
-        assertNull(expenses.addExpense(trip, "u2", ExpenseInput("Sneaky", 1, ExpenseCategory.OTHER, LocalDate.of(2026, 11, 13))))
+        val older = expenses.addExpense(trip, "u1", ExpenseInput(" Flights ", 180_000, ExpenseCategory.FLIGHTS, LocalDate.of(2026, 9, 1), paidBy = ME, splitBetween = listOf(ME)))!!
+        val newer = expenses.addExpense(trip, "u1", ExpenseInput("Dinner", 12_050, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13), paidBy = ME, splitBetween = listOf(ME)))!!
+        assertNull(expenses.addExpense(trip, "u2", ExpenseInput("Sneaky", 1, ExpenseCategory.OTHER, LocalDate.of(2026, 11, 13), paidBy = ME, splitBetween = listOf(ME))))
 
         assertEquals(listOf(newer, older), expenses.observeExpenses(trip, "u1").first().map { it.id })
         assertEquals("Flights", expenses.observeExpense(older, "u1").first()?.name)
         assertEquals(emptyList<Expense>(), expenses.observeExpenses(trip, "u2").first())
         assertNull(expenses.observeExpense(older, "u2").first())
 
-        expenses.updateExpense(newer, "u1", ExpenseInput("Dinner", 13_000, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13)))
+        expenses.updateExpense(newer, "u1", ExpenseInput("Dinner", 13_000, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13), paidBy = ME, splitBetween = listOf(ME)))
         expenses.deleteExpense(older, "u2") // another account deletes nothing
         assertEquals(listOf(13_000L, 180_000L), expenses.observeExpenses(trip, "u1").first().map { it.amountAgorot })
 
@@ -178,8 +181,8 @@ class TripDaoTest {
     fun deletingATrip_deletesItsExpenses() = runTest {
         val rome = repository.addTrip("u1", "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17))
         val oslo = repository.addTrip("u1", "Oslo", LocalDate.of(2026, 12, 1), LocalDate.of(2026, 12, 3))
-        expenses.addExpense(rome, "u1", ExpenseInput("Dinner", 12_050, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13)))
-        expenses.addExpense(oslo, "u1", ExpenseInput("Taxi", 9_000, ExpenseCategory.TRANSPORT, LocalDate.of(2026, 12, 1)))
+        expenses.addExpense(rome, "u1", ExpenseInput("Dinner", 12_050, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13), paidBy = ME, splitBetween = listOf(ME)))
+        expenses.addExpense(oslo, "u1", ExpenseInput("Taxi", 9_000, ExpenseCategory.TRANSPORT, LocalDate.of(2026, 12, 1), paidBy = ME, splitBetween = listOf(ME)))
 
         // No delete-trip API exists yet; delete the row directly to check the foreign key cascade.
         db.openHelper.writableDatabase.execSQL("DELETE FROM trips WHERE id = $rome")
@@ -256,6 +259,7 @@ class TripDaoTest {
             rome, "u1",
             ExpenseInput(
                 "Souvenirs", 3_768, ExpenseCategory.SHOPPING, LocalDate.of(2026, 11, 13), original,
+                paidBy = ME, splitBetween = listOf(ME),
             ),
         )!!
         val stored = expenses.observeExpense(id, "u1").first()!!
@@ -263,11 +267,11 @@ class TripDaoTest {
         assertEquals(original, stored.original) // BigDecimal text round-trips exactly
 
         // Switched to shekels in the form: the original is cleared.
-        expenses.updateExpense(id, "u1", ExpenseInput("Souvenirs", 4_000, ExpenseCategory.SHOPPING, LocalDate.of(2026, 11, 13), null))
+        expenses.updateExpense(id, "u1", ExpenseInput("Souvenirs", 4_000, ExpenseCategory.SHOPPING, LocalDate.of(2026, 11, 13), null, paidBy = ME, splitBetween = listOf(ME)))
         assertNull(expenses.observeExpense(id, "u1").first()!!.original)
 
         // A shekel expense has no original.
-        val ils = expenses.addExpense(rome, "u1", ExpenseInput("Taxi", 9_000, ExpenseCategory.TRANSPORT, LocalDate.of(2026, 11, 12)))!!
+        val ils = expenses.addExpense(rome, "u1", ExpenseInput("Taxi", 9_000, ExpenseCategory.TRANSPORT, LocalDate.of(2026, 11, 12), paidBy = ME, splitBetween = listOf(ME)))!!
         assertNull(expenses.observeExpense(ils, "u1").first()!!.original)
     }
 
@@ -275,7 +279,7 @@ class TripDaoTest {
     fun changes_arePendingUntilSynced_andDeletesAreRecordedForTheCloud() = runTest {
         val sync = RoomSyncLocalStore(db)
         val trip = repository.addTrip("u1", "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17))
-        val expense = expenses.addExpense(trip, "u1", ExpenseInput("Dinner", 12_050, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13)))!!
+        val expense = expenses.addExpense(trip, "u1", ExpenseInput("Dinner", 12_050, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13), paidBy = ME, splitBetween = listOf(ME)))!!
         assertEquals(2, sync.pendingCount("u1").first())
         assertEquals(0, sync.pendingCount("u2").first())
 
@@ -509,6 +513,99 @@ class TripDaoTest {
 
     // ---------- Deleting a trip ----------
 
+    // ---------- Shared trips ----------
+
+    @Test
+    fun aNewTrip_isOwnedByItsAccount_whichIsItsOnlyMember() = runTest {
+        val id = repository.addTrip("u1", "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17))
+
+        val trip = repository.observeTrip(id, "u1").first()!!
+        assertEquals("u1", trip.ownerId)
+        assertEquals(listOf("u1"), trip.memberIds)
+    }
+
+    @Test
+    fun theBudget_isSyncedOnItsOwn_andNeverMakesTheSharedTripPending() = runTest {
+        val sync = RoomSyncLocalStore(db)
+        val id = repository.addTrip("u1", "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17))
+        // No budget ever set: nothing personal to upload.
+        assertTrue(sync.snapshot("u1", pendingOnly = false).none { it.item.kind == SyncKind.BUDGET })
+        sync.snapshot("u1", pendingOnly = true).forEach { sync.markSynced("u1", it.item) }
+
+        repository.setBudget(id, "u1", 600_000)
+
+        val pending = sync.snapshot("u1", pendingOnly = true).map { it.item }
+        assertEquals(listOf(SyncKind.BUDGET), pending.map { it.kind })
+        assertEquals(ItemData.BudgetData(600_000), pending.single().data)
+        sync.markSynced("u1", pending.single())
+        assertTrue(sync.snapshot("u1", pendingOnly = true).isEmpty())
+        assertEquals(0, sync.pendingCount("u1").first())
+    }
+
+    @Test
+    fun aTripFromTheCloud_keepsMyBudget_andTheCloudsBudgetIsStoredUnlessMineIsNewer() = runTest {
+        val sync = RoomSyncLocalStore(db)
+        val trip = SyncItem(
+            SyncKind.TRIP, "t-1", null, 10,
+            ItemData.TripData("Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17), TripColor.SKY, null, "u9", listOf("u9", "u1")),
+        )
+        val budget = SyncItem(SyncKind.BUDGET, "t-1", "t-1", 10, ItemData.BudgetData(400_000))
+        sync.apply("u1", planMerge(emptyList(), listOf(budget, trip)))
+        val id = repository.observeTrips("u1").first().single().id
+        assertEquals(400_000L, repository.observeTrip(id, "u1").first()!!.budgetAgorot)
+        assertEquals(listOf("u9", "u1"), repository.observeTrip(id, "u1").first()!!.memberIds)
+
+        // A newer version of the shared trip doesn't touch my budget.
+        val renamed = trip.copy(updatedAt = 20, data = (trip.data as ItemData.TripData).copy(destination = "Rome, Italy"))
+        sync.apply("u1", planMerge(sync.snapshot("u1", false), listOf(renamed, budget)))
+        assertEquals(400_000L, repository.observeTrip(id, "u1").first()!!.budgetAgorot)
+
+        // My newer budget is not replaced by an older one from the cloud.
+        repository.setBudget(id, "u1", 700_000)
+        sync.apply("u1", planMerge(emptyList(), listOf(budget)))
+        assertEquals(700_000L, repository.observeTrip(id, "u1").first()!!.budgetAgorot)
+    }
+
+    @Test
+    fun packingItems_arePersonal_andTheirDeletesAreRecordedAsPacking() = runTest {
+        val sync = RoomSyncLocalStore(db)
+        val rome = repository.addTrip("u1", "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17))
+        checklist.addItem(rome, "u1", ChecklistKind.PACKING, "Charger")
+        checklist.addItem(rome, "u1", ChecklistKind.BEFORE_TRIP, "Passport")
+        assertEquals(
+            setOf(SyncKind.PACKING, SyncKind.CHECKLIST),
+            sync.snapshot("u1", false).map { it.item.kind }.filter { it != SyncKind.TRIP }.toSet(),
+        )
+
+        val items = checklist.observeItems(rome, "u1").first()
+        items.forEach { checklist.deleteItem(it.id, "u1") }
+
+        val tombstones = sync.snapshot("u1", pendingOnly = true).map { it.item }.filter { it.isDeleted }
+        assertEquals(setOf(SyncKind.PACKING, SyncKind.CHECKLIST), tombstones.map { it.kind }.toSet())
+    }
+
+    @Test
+    fun twoAccountsOnThisPhone_eachKeepTheirOwnCopyOfASharedTrip() = runTest {
+        val sync = RoomSyncLocalStore(db)
+        val trip = SyncItem(
+            SyncKind.TRIP, "t-1", null, 10,
+            ItemData.TripData("Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17), TripColor.SKY, null, "u1", listOf("u1", "u2")),
+        )
+        val dinner = SyncItem(
+            SyncKind.EXPENSE, "e-1", "t-1", 10,
+            ItemData.ExpenseData("Dinner", 10_000, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13), null, "u1", listOf("u1", "u2")),
+        )
+        sync.apply("u1", planMerge(emptyList(), listOf(trip, dinner)))
+        sync.apply("u2", planMerge(emptyList(), listOf(trip, dinner)))
+
+        assertEquals(setOf(trip, dinner), sync.snapshot("u1", false).map { it.item }.toSet())
+        assertEquals(setOf(trip, dinner), sync.snapshot("u2", false).map { it.item }.toSet())
+        // One account deleting its copy (sign out) leaves the other's.
+        sync.deleteAllFor("u1")
+        assertTrue(sync.snapshot("u1", false).isEmpty())
+        assertEquals(setOf(trip, dinner), sync.snapshot("u2", false).map { it.item }.toSet())
+    }
+
     private fun count(sql: String, vararg args: Any): Int =
         db.query(sql, args).use { c -> c.moveToFirst(); c.getInt(0) }
 
@@ -572,7 +669,7 @@ class TripDaoTest {
     @Test
     fun expenses_storePayerAndSplit_andOldDefaultsArePaidByMeNotShared() = runTest {
         val rome = repository.addTrip("u1", "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17))
-        val plain = expenses.addExpense(rome, "u1", ExpenseInput("SIM", 5_000, ExpenseCategory.OTHER, LocalDate.of(2026, 11, 12)))!!
+        val plain = expenses.addExpense(rome, "u1", ExpenseInput("SIM", 5_000, ExpenseCategory.OTHER, LocalDate.of(2026, 11, 12), paidBy = ME, splitBetween = listOf(ME)))!!
         val shared = expenses.addExpense(
             rome, "u1",
             ExpenseInput(
@@ -679,7 +776,9 @@ class TripDaoTest {
         val sync = RoomSyncLocalStore(db)
         val trip = SyncItem(
             SyncKind.TRIP, "t-1", null, 10,
-            ItemData.TripData("Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17), TripColor.SKY, null, null),
+            ItemData.TripData(
+                "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17), TripColor.SKY, null, "u1", listOf("u1"),
+            ),
         )
         val noa = SyncItem(SyncKind.TRAVELER, "r-1", "t-1", 10, ItemData.TravelerData("Noa", TravelerColor.SKY, 3))
         val dinner = SyncItem(

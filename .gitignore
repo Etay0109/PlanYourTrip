@@ -27,3 +27,6 @@ keystore.properties
 # OS and logs
 .DS_Store
 *.log
+
+# Firestore rules tests (rules-tests/): npm packages and emulator logs
+rules-tests/node_modules/

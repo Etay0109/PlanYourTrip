@@ -5,17 +5,20 @@ import com.example.planyourtrip.FakeExpenseRepository
 import com.example.planyourtrip.FakeSettlementRepository
 import com.example.planyourtrip.FakeTravelerRepository
 import com.example.planyourtrip.FakeTripRepository
+import com.example.planyourtrip.ME
 import com.example.planyourtrip.data.auth.AuthUser
 import com.example.planyourtrip.data.trip.Expense
 import com.example.planyourtrip.data.trip.ExpenseCategory
-import com.example.planyourtrip.data.trip.ME
 import com.example.planyourtrip.data.trip.Settlement
 import com.example.planyourtrip.data.trip.Traveler
 import com.example.planyourtrip.data.trip.TravelerColor
 import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.data.trip.TripColor
-import com.example.planyourtrip.ui.common.split.TravelerNameError
 import com.example.planyourtrip.ui.common.split.Transfer
+import com.example.planyourtrip.ui.common.split.TravelerNameError
+import java.time.Clock
+import java.time.LocalDate
+import java.time.ZoneOffset
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -32,9 +35,6 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import java.time.Clock
-import java.time.LocalDate
-import java.time.ZoneOffset
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SplitViewModelTest {
@@ -58,7 +58,7 @@ class SplitViewModelTest {
     )
 
     /** Mine only: never shared. */
-    private val sim = Expense(2, 1, "SIM", 5_000, ExpenseCategory.OTHER, LocalDate.of(2026, 10, 19))
+    private val sim = Expense(2, 1, "SIM", 5_000, ExpenseCategory.OTHER, LocalDate.of(2026, 10, 19), paidBy = ME, splitBetween = listOf(ME))
 
     private lateinit var trips: FakeTripRepository
     private lateinit var expenses: FakeExpenseRepository

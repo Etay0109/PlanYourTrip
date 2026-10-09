@@ -6,16 +6,18 @@ import com.example.planyourtrip.FakeExpenseRepository
 import com.example.planyourtrip.FakeTravelerRepository
 import com.example.planyourtrip.FakeTripPdfExporter
 import com.example.planyourtrip.FakeTripRepository
+import com.example.planyourtrip.ME
 import com.example.planyourtrip.data.auth.AuthUser
 import com.example.planyourtrip.data.trip.ActivityType
 import com.example.planyourtrip.data.trip.Expense
 import com.example.planyourtrip.data.trip.ExpenseCategory
-import com.example.planyourtrip.data.trip.ME
 import com.example.planyourtrip.data.trip.Traveler
 import com.example.planyourtrip.data.trip.TravelerColor
 import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.data.trip.TripActivity
 import com.example.planyourtrip.data.trip.TripColor
+import java.time.LocalDate
+import java.time.LocalTime
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -31,8 +33,6 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import java.time.LocalDate
-import java.time.LocalTime
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ShareTripViewModelTest {
@@ -56,7 +56,7 @@ class ShareTripViewModelTest {
         trips = FakeTripRepository(listOf("u1" to rome, "u2" to othersTrip))
         expenses = FakeExpenseRepository(
             trips,
-            listOf(Expense(1, 1, "Hotel", 250_000, ExpenseCategory.HOTELS, nov(12))),
+            listOf(Expense(1, 1, "Hotel", 250_000, ExpenseCategory.HOTELS, nov(12), paidBy = ME, splitBetween = listOf(ME))),
         )
         val activities = FakeActivityRepository(
             trips,

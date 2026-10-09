@@ -7,6 +7,9 @@ interface SyncController {
     /** Sync state of the signed-in account. */
     val status: StateFlow<SyncStatus>
 
+    /** A full sync now (pull to refresh). False when offline or the sync failed; the data on the device stays. */
+    suspend fun refresh(): Boolean
+
     /**
      * Signs out. Without [force]: pending changes are uploaded first; when that worked (or nothing was pending)
      * the account's data is removed from this device, otherwise nothing happens and [SignOutResult.NEEDS_CONFIRMATION]

@@ -32,6 +32,8 @@ import com.example.planyourtrip.ui.common.split.travelerOrder
 import com.example.planyourtrip.ui.common.tripStatus
 import com.example.planyourtrip.ui.navigation.TripDetails
 import com.example.planyourtrip.ui.tripdetails.components.ExpenseSplitInfo
+import java.time.Clock
+import java.time.LocalDate
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -49,8 +51,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.Clock
-import java.time.LocalDate
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TripDetailsViewModel(
@@ -91,8 +91,8 @@ class TripDetailsViewModel(
             ) { trip, (expenses, travelers), activities, planSelection, overviewSelection ->
                 if (trip == null) return@combine TripDetailsUiState.NotFound
                 // The budget counts only my share of each expense.
-                val order = travelerOrder(travelers)
-                val myShares = expenses.associate { it.id to it.myShare(order) }
+                val order = travelerOrder(user.uid, trip.memberIds, travelers)
+                val myShares = expenses.associate { it.id to it.myShare(order, user.uid) }
                 val today = LocalDate.now(clock)
                 val itinerary = itineraryState(
                     trip.startDate, trip.endDate, activities, planSelection, overviewSelection, today,
@@ -109,7 +109,7 @@ class TripDetailsViewModel(
                     expenses = expenses,
                     travelers = travelers,
                     myShares = myShares,
-                    expenseSplits = expenseSplits(expenses, travelers, myShares),
+                    expenseSplits = expenseSplits(expenses, travelers, myShares, user.uid, order),
                     itinerary = itinerary,
                 )
             }
@@ -335,20 +335,21 @@ class TripDetailsViewModel(
 }
 
 /**
- * What each expense row shows with other travelers: who paid, who shares it (in list order) and my share (from
- * [myShares]). Empty when the trip has only me, so the rows show no split line.
+ * What each expense row shows with other travelers: who paid, who shares it (in list [order]) and my ([me]) share
+ * (from [myShares]). Empty when the trip has only me, so the rows show no split line.
  */
 internal fun expenseSplits(
     expenses: List<Expense>,
     travelers: List<Traveler>,
     myShares: Map<Long, Long>,
+    me: String,
+    order: List<String>,
 ): Map<Long, ExpenseSplitInfo> {
     if (travelers.isEmpty()) return emptyMap()
-    val order = travelerOrder(travelers)
     return expenses.associate { expense ->
         expense.id to ExpenseSplitInfo(
-            payer = personOf(expense.paidBy, travelers),
-            splitWith = inListOrder(expense.splitBetween, order).map { personOf(it, travelers) },
+            payer = personOf(expense.paidBy, me, travelers),
+            splitWith = inListOrder(expense.splitBetween, order).map { personOf(it, me, travelers) },
             myShareAgorot = myShares[expense.id] ?: 0L,
         )
     }

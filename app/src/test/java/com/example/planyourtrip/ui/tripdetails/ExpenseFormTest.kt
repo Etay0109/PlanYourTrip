@@ -5,15 +5,15 @@ import com.example.planyourtrip.FakeCurrencyRepository
 import com.example.planyourtrip.FakeExpenseRepository
 import com.example.planyourtrip.FakeTravelerRepository
 import com.example.planyourtrip.FakeTripRepository
+import com.example.planyourtrip.ME
 import com.example.planyourtrip.data.auth.AuthUser
 import com.example.planyourtrip.data.currency.ExchangeRate
 import com.example.planyourtrip.data.currency.ILS
 import com.example.planyourtrip.data.trip.Expense
 import com.example.planyourtrip.data.trip.ExpenseCategory
-import com.example.planyourtrip.data.trip.ME
+import com.example.planyourtrip.data.trip.ForeignAmount
 import com.example.planyourtrip.data.trip.Traveler
 import com.example.planyourtrip.data.trip.TravelerColor
-import com.example.planyourtrip.data.trip.ForeignAmount
 import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.data.trip.TripColor
 import com.example.planyourtrip.ui.common.split.Person
@@ -22,6 +22,11 @@ import com.example.planyourtrip.ui.tripdetails.expense.ExpenseFieldError
 import com.example.planyourtrip.ui.tripdetails.expense.ExpenseFormViewModel
 import com.example.planyourtrip.ui.tripdetails.expense.ExpenseValidator
 import com.example.planyourtrip.ui.tripdetails.expense.ForeignRateState
+import java.math.BigDecimal
+import java.time.Clock
+import java.time.Duration
+import java.time.LocalDate
+import java.time.ZoneOffset
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -36,11 +41,6 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import java.math.BigDecimal
-import java.time.Clock
-import java.time.Duration
-import java.time.LocalDate
-import java.time.ZoneOffset
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ExpenseFormTest {
@@ -51,7 +51,7 @@ class ExpenseFormTest {
     private val auth = FakeAuthRepository(AuthUser("u1", "Etay", "etay@example.com"))
 
     private val rome = Trip(1, "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17), TripColor.SKY)
-    private val dinner = Expense(5, 1, "Dinner", 12_050, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13))
+    private val dinner = Expense(5, 1, "Dinner", 12_050, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13), paidBy = ME, splitBetween = listOf(ME))
     private val rateDate = LocalDate.of(2026, 10, 2)
     private lateinit var trips: FakeTripRepository
     private lateinit var repo: FakeExpenseRepository
@@ -139,7 +139,7 @@ class ExpenseFormTest {
         advanceUntilIdle()
 
         val added = repo.expenses.value.single { it.id != dinner.id }
-        assertEquals(Expense(added.id, 1, "Taxi to hotel", 8_550, ExpenseCategory.TRANSPORT, LocalDate.of(2026, 11, 12)), added)
+        assertEquals(Expense(added.id, 1, "Taxi to hotel", 8_550, ExpenseCategory.TRANSPORT, LocalDate.of(2026, 11, 12), paidBy = ME, splitBetween = listOf(ME)), added)
         assertEquals(2, repo.expenses.value.size)
         assertTrue(vm.uiState.value.done)
     }
@@ -343,6 +343,7 @@ class ExpenseFormTest {
     private val gelato = Expense(
         7, 1, "Gelato", 4_020, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13),
         ForeignAmount(BigDecimal("10.00"), "EUR", BigDecimal("4.02"), rateDate),
+        paidBy = ME, splitBetween = listOf(ME),
     )
 
     @Test
@@ -551,7 +552,7 @@ class ExpenseFormTest {
         advanceUntilIdle()
         val s = vm.uiState.value
         assertTrue(s.showSplit)
-        assertEquals(listOf(Person.You, Person.Removed("gone")), s.people)
+        assertEquals(listOf(Person.You(ME), Person.Removed("gone")), s.people)
         assertEquals("gone", s.paidBy)
     }
 }

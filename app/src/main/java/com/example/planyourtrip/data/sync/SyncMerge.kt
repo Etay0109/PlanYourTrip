@@ -16,7 +16,8 @@ data class MergePlan(
 )
 
 /**
- * Merges this device's items of one account with the cloud's, item by item (by uuid).
+ * Merges this device's items of one account with the cloud's, item by item (by kind and uuid: a trip's budget
+ * has the trip's uuid).
  * Pure: the same function serves the full sync (all items on both sides) and the quick upload after a local
  * change (only the pending items and their cloud versions).
  *
@@ -33,11 +34,11 @@ data class MergePlan(
  * Children (travelers, expenses, activities, checklist items, settlements) of a trip that ends up deleted are deleted here and neither saved nor uploaded.
  */
 fun planMerge(local: List<LocalItem>, cloud: List<SyncItem>): MergePlan {
-    val localByUuid = local.associateBy { it.item.uuid }
-    val cloudByUuid = cloud.associateBy { it.uuid }
-    val uuids = (localByUuid.keys + cloudByUuid.keys)
+    val localByKey = local.associateBy { it.item.key }
+    val cloudByKey = cloud.associateBy { it.key }
+    val keys = (localByKey.keys + cloudByKey.keys)
 
-    val decisions = uuids.map { uuid -> decide(localByUuid[uuid], cloudByUuid[uuid]) }
+    val decisions = keys.map { key -> decide(localByKey[key], cloudByKey[key]) }
 
     // Trips that are deleted after this merge (only trips this merge knows about).
     val deadTrips = decisions
@@ -53,7 +54,7 @@ fun planMerge(local: List<LocalItem>, cloud: List<SyncItem>): MergePlan {
         val orphan = d.kind != SyncKind.TRIP && d.tripUuid in deadTrips
         if (orphan) {
             // The trip's delete covers its children everywhere (the cloud tombstones them with the trip).
-            val localItem = localByUuid[d.uuid]?.item
+            val localItem = localByKey[d.kind to d.uuid]?.item
             if (localItem != null) {
                 if (localItem.isDeleted) drop += localItem else delete += localItem
             }
@@ -82,6 +83,8 @@ private val saveOrder: Comparator<SyncItem> = compareBy<SyncItem>(
     { it.createdAtForOrder() ?: 0L },
     { if (it.createdAtForOrder() != null) it.uuid else "" },
 )
+
+private val SyncItem.key: Pair<SyncKind, String> get() = kind to uuid
 
 private fun SyncItem.createdAtForOrder(): Long? = when (val d = data) {
     is ItemData.ChecklistData -> d.createdAt

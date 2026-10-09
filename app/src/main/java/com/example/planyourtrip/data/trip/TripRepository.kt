@@ -1,7 +1,7 @@
 package com.example.planyourtrip.data.trip
 
-import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
+import kotlinx.coroutines.flow.Flow
 
 /** Trips of one account at a time; callers pass the signed-in user's uid as [ownerId]. */
 interface TripRepository {
@@ -33,7 +33,7 @@ interface TripRepository {
         currencyCode: String?,
     )
 
-    /** Sets (or clears, with null) the total budget of one of the owner's trips, in agorot. */
+    /** Sets (or clears, with null) the owner's own budget for one of their trips, in agorot (personal). */
     suspend fun setBudget(id: Long, ownerId: String, budgetAgorot: Long?)
 
     /** Sets (or clears, with null) the destination currency of one of the owner's trips (3-letter code). */

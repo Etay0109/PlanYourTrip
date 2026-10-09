@@ -6,7 +6,8 @@ import java.time.LocalDate
 /**
  * Domain model of one trip expense. [amountAgorot] is the shekel amount in whole agorot (never floating point).
  * [original] is set when the expense was entered in another currency. [paidBy] (one traveler key) paid it, and it
- * is split equally between [splitBetween] (one or more keys, see [ME]); the budget counts only my share of it.
+ * is split equally between [splitBetween] (one or more keys: member uids or traveler uuids, see [LEGACY_ME_KEY]);
+ * the budget counts only my share of it.
  */
 data class Expense(
     val id: Long,
@@ -16,8 +17,8 @@ data class Expense(
     val category: ExpenseCategory,
     val date: LocalDate,
     val original: ForeignAmount? = null,
-    val paidBy: String = ME,
-    val splitBetween: List<String> = listOf(ME),
+    val paidBy: String,
+    val splitBetween: List<String>,
 )
 
 /**
@@ -30,8 +31,8 @@ data class ExpenseInput(
     val category: ExpenseCategory,
     val date: LocalDate,
     val original: ForeignAmount? = null,
-    val paidBy: String = ME,
-    val splitBetween: List<String> = listOf(ME),
+    val paidBy: String,
+    val splitBetween: List<String>,
 )
 
 /**

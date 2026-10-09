@@ -9,9 +9,9 @@ import com.example.planyourtrip.ui.common.CategoryTotal
 import com.example.planyourtrip.ui.common.TripFormatting
 import com.example.planyourtrip.ui.common.activitiesOn
 import com.example.planyourtrip.ui.common.categoryTotals
+import com.example.planyourtrip.ui.common.dayNumber
 import com.example.planyourtrip.ui.common.split.myShare
 import com.example.planyourtrip.ui.common.split.travelerOrder
-import com.example.planyourtrip.ui.common.dayNumber
 import com.example.planyourtrip.ui.common.tripDays
 import java.time.LocalDate
 import java.time.LocalTime
@@ -77,6 +77,8 @@ fun buildTripPdfContent(
     expenses: List<Expense>,
     activities: List<TripActivity>,
     includeCosts: Boolean,
+    /** The signed-in member's uid: the costs are my share. */
+    me: String,
     travelers: List<Traveler> = emptyList(),
 ): TripPdfContent {
     val days = tripDays(trip.startDate, trip.endDate).map { day ->
@@ -91,14 +93,18 @@ fun buildTripPdfContent(
         startDate = trip.startDate,
         endDate = trip.endDate,
         lengthDays = TripFormatting.lengthInDays(trip.startDate, trip.endDate),
-        costs = if (includeCosts) costSummary(trip.budgetAgorot, expenses, travelerOrder(travelers)) else null,
+        costs = if (includeCosts) {
+            costSummary(trip.budgetAgorot, expenses, travelerOrder(me, trip.memberIds, travelers), me)
+        } else {
+            null
+        },
         days = days.takeIf { list -> list.any { it.activities.isNotEmpty() } },
     )
 }
 
-private fun costSummary(budgetAgorot: Long?, expenses: List<Expense>, order: List<String>): CostSummary? {
+private fun costSummary(budgetAgorot: Long?, expenses: List<Expense>, order: List<String>, me: String): CostSummary? {
     if (expenses.isEmpty()) return null
-    val myShares = expenses.associate { it.id to it.myShare(order) }
+    val myShares = expenses.associate { it.id to it.myShare(order, me) }
     val spent = myShares.values.sum()
     val budget = budgetAgorot?.takeIf { it > 0 }
     val difference = budget?.let {

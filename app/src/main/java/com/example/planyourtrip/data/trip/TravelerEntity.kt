@@ -7,7 +7,10 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import java.util.UUID
 
-/** A traveler of a trip (not "You", see [ME]). Deleting the trip deletes its travelers (foreign key CASCADE). */
+/**
+ * A name-only traveler of a trip (members are not rows, see [LEGACY_ME_KEY]). Deleting the trip deletes its travelers
+ * (foreign key CASCADE).
+ */
 @Entity(
     tableName = "travelers",
     foreignKeys = [
@@ -18,7 +21,7 @@ import java.util.UUID
             onDelete = ForeignKey.CASCADE,
         ),
     ],
-    indices = [Index("trip_id"), Index(value = ["uuid"], unique = true)],
+    indices = [Index("trip_id"), Index(value = ["trip_id", "uuid"], unique = true)],
 )
 data class TravelerEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,

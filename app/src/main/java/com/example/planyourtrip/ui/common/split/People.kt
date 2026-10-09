@@ -1,6 +1,5 @@
 package com.example.planyourtrip.ui.common.split
 
-import com.example.planyourtrip.data.trip.ME
 import com.example.planyourtrip.data.trip.Traveler
 import com.example.planyourtrip.data.trip.TravelerColor
 
@@ -8,9 +7,8 @@ import com.example.planyourtrip.data.trip.TravelerColor
 sealed interface Person {
     val key: String
 
-    data object You : Person {
-        override val key: String = ME
-    }
+    /** The signed-in member; [key] is their account uid. */
+    data class You(override val key: String) : Person
 
     data class Named(override val key: String, val name: String, val color: TravelerColor) : Person
 
@@ -18,13 +16,13 @@ sealed interface Person {
     data class Removed(override val key: String) : Person
 }
 
-/** "You" and the trip's travelers, in list order. */
-fun people(travelers: List<Traveler>): List<Person> =
-    listOf(Person.You) + travelers.map { Person.Named(it.uuid, it.name, it.color) }
+/** "You" ([me]) and the trip's travelers, in list order. */
+fun people(me: String, travelers: List<Traveler>): List<Person> =
+    listOf(Person.You(me)) + travelers.map { Person.Named(it.uuid, it.name, it.color) }
 
-/** The person behind [key]; [Person.Removed] when no traveler has it. */
-fun personOf(key: String, travelers: List<Traveler>): Person =
-    if (key == ME) Person.You
+/** The person behind [key] ([me] = "You"); [Person.Removed] when no traveler has it. */
+fun personOf(key: String, me: String, travelers: List<Traveler>): Person =
+    if (key == me) Person.You(me)
     else travelers.firstOrNull { it.uuid == key }?.let { Person.Named(it.uuid, it.name, it.color) }
         ?: Person.Removed(key)
 
