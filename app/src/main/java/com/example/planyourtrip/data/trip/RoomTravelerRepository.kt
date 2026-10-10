@@ -41,6 +41,17 @@ class RoomTravelerRepository(
         changes.onLocalChange()
     }
 
+    override suspend fun mergeIntoMember(
+        tripId: Long,
+        ownerId: String,
+        id: Long,
+        memberUid: String,
+        plan: (TravelerMergeInput) -> TravelerMergePlan,
+    ): MergeTravelerResult =
+        travelerDao.mergeIntoMember(tripId, ownerId, id, memberUid, clock.millis(), plan).also {
+            if (it == MergeTravelerResult.MERGED) changes.onLocalChange()
+        }
+
     override suspend fun removeTraveler(id: Long, ownerId: String): RemoveTravelerResult =
         travelerDao.removeIfUnused(id, ownerId, clock.millis()).also {
             if (it == RemoveTravelerResult.REMOVED) changes.onLocalChange()

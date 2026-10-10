@@ -88,4 +88,7 @@ class RoomDocumentRepository(
 
     /** After a full sync this device has every trip of [ownerId]; documents of the others are removed. */
     override suspend fun afterFullSync(ownerId: String) = removeOrphans(ownerId)
+
+    /** [ownerId] lost the trip (left, removed, deleted by its owner): its documents and their files go. */
+    override suspend fun forgetTrip(ownerId: String, tripUuid: String) = deleteForTrip(tripUuid, ownerId)
 }

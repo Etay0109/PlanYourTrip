@@ -46,7 +46,8 @@ private enum class SwipeValue { Closed, Revealed, Dismissed }
  * A short swipe springs back; past [Dimens.SwipeRevealWidth] the card stays open and the red area can be tapped; a
  * full swipe (or a fast fling) calls [onDelete] right away. [onDelete] opens the confirmation dialog: while it is
  * open ([deletePending]) the card stays where it is, and when it closes without deleting the card returns to its
- * place. Only horizontal drags are taken, so a swipe never opens the trip and a tap still does.
+ * place. Only horizontal drags are taken, so a swipe never opens the trip and a tap still does. With [leave] (a
+ * shared trip someone else owns) the area reads "Leave" and [onDelete] asks to leave the trip instead.
  */
 @Composable
 fun SwipeToDeleteBox(
@@ -54,6 +55,7 @@ fun SwipeToDeleteBox(
     deletePending: Boolean,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
+    leave: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val currentOnDelete by rememberUpdatedState(onDelete)
@@ -69,7 +71,7 @@ fun SwipeToDeleteBox(
         if (!deletePending && state.settledValue != SwipeValue.Closed) state.animateTo(SwipeValue.Closed)
     }
 
-    val deleteLabel = stringResource(R.string.trip_delete)
+    val deleteLabel = stringResource(if (leave) R.string.trip_leave else R.string.trip_delete)
     Box(
         modifier
             .onSizeChanged { size ->
@@ -103,12 +105,12 @@ fun SwipeToDeleteBox(
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Icon(
-                        painter = painterResource(R.drawable.ic_delete),
+                        painter = painterResource(if (leave) R.drawable.ic_logout else R.drawable.ic_delete),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onError,
                     )
                     Text(
-                        text = stringResource(R.string.action_delete),
+                        text = stringResource(if (leave) R.string.action_leave else R.string.action_delete),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onError,
                     )

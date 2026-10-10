@@ -30,6 +30,7 @@ fun TravelerAvatar(person: Person, size: Dp, modifier: Modifier = Modifier) {
     val colors = avatarColors(person)
     val text = when (person) {
         is Person.You -> stringResource(R.string.traveler_you_initials)
+        is Person.Member -> person.name?.let(::avatarLetter) ?: "?"
         is Person.Named -> avatarLetter(person.name)
         is Person.Removed -> "?"
     }
@@ -54,14 +55,24 @@ fun TravelerAvatar(person: Person, size: Dp, modifier: Modifier = Modifier) {
 @ReadOnlyComposable
 fun avatarColors(person: Person): TintedColor = when (person) {
     is Person.You -> TintedColor(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary)
+    is Person.Member ->
+        if (person.left) ExtendedTheme.colors.removedTraveler else ExtendedTheme.colors.traveler(person.color)
     is Person.Named -> ExtendedTheme.colors.traveler(person.color)
     is Person.Removed -> ExtendedTheme.colors.removedTraveler
 }
 
-/** The name shown for [person]: "You", the traveler's name, or "Removed traveler". */
+/**
+ * The name shown for [person]: "You", the member's or traveler's name ("Noa (left)" for a member who left; "Trip
+ * member" before their name is known; "Noa (name only)" for a traveler whose name matches a member), or "Removed
+ * traveler".
+ */
 @Composable
 fun personName(person: Person): String = when (person) {
     is Person.You -> stringResource(R.string.traveler_you)
-    is Person.Named -> person.name
+    is Person.Member -> {
+        val name = person.name ?: stringResource(R.string.member_unnamed)
+        if (person.left) stringResource(R.string.member_left_name, name) else name
+    }
+    is Person.Named -> if (person.nameOnly) stringResource(R.string.traveler_name_only_name, person.name) else person.name
     is Person.Removed -> stringResource(R.string.traveler_removed)
 }

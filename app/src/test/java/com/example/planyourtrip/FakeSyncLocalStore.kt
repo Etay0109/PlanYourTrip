@@ -1,10 +1,12 @@
 package com.example.planyourtrip
 
+import com.example.planyourtrip.data.sync.ItemData
 import com.example.planyourtrip.data.sync.LocalItem
 import com.example.planyourtrip.data.sync.MergePlan
 import com.example.planyourtrip.data.sync.SyncItem
 import com.example.planyourtrip.data.sync.SyncKind
 import com.example.planyourtrip.data.sync.SyncLocalStore
+import com.example.planyourtrip.data.trip.TripMember
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
@@ -75,6 +77,26 @@ class FakeSyncLocalStore : SyncLocalStore {
 
     override fun pendingCount(ownerId: String): Flow<Int> =
         rows.map { all -> all.values.count { it.ownerId == ownerId && it.pending } }
+
+    override suspend fun tripOwners(ownerId: String): Map<String, String> =
+        rowsOf(ownerId).filter { it.item.kind == SyncKind.TRIP && !it.item.isDeleted }
+            .associate { it.item.uuid to (it.item.data as ItemData.TripData).ownerId }
+
+    override suspend fun removeTrips(ownerId: String, tripUuids: Set<String>) = rows.update { all ->
+        all.filterValues { row ->
+            val trip = if (row.item.kind == SyncKind.TRIP) row.item.uuid else row.item.tripUuid
+            row.ownerId != ownerId || trip !in tripUuids
+        }
+    }
+
+    /** (owner, trip uuid) → the member documents the last full sync stored. */
+    val members = mutableMapOf<Pair<String, String>, List<TripMember>>()
+
+    override suspend fun replaceMembers(ownerId: String, members: Map<String, List<TripMember>>) {
+        for ((trip, list) in members) {
+            if (rows.value[trip]?.ownerId == ownerId) this.members[ownerId to trip] = list
+        }
+    }
 
     override suspend fun deleteAllFor(ownerId: String) = rows.update { all -> all.filterValues { it.ownerId != ownerId } }
 

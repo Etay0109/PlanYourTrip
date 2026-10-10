@@ -47,6 +47,8 @@ fun UpcomingTripCard(
     onShare: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
+    /** False for a shared trip someone else owns: the menu offers "Leave trip". */
+    isOwner: Boolean = true,
 ) {
     val colors = ExtendedTheme.colors
     val pastel = colors.pastel(item.trip.color)
@@ -66,6 +68,7 @@ fun UpcomingTripCard(
             onClick = onClick,
             onShare = onShare,
             onDelete = onDelete,
+            isOwner = isOwner,
             belowDates = {
                 if (!badgeInline) {
                     Spacer(Modifier.height(8.dp))
@@ -90,6 +93,8 @@ fun PastTripCard(
     onShare: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
+    /** False for a shared trip someone else owns: the menu offers "Leave trip". */
+    isOwner: Boolean = true,
 ) {
     val colors = ExtendedTheme.colors
     TripListCard(
@@ -106,6 +111,7 @@ fun PastTripCard(
         onShare = onShare,
         onDelete = onDelete,
         modifier = modifier,
+        isOwner = isOwner,
     )
 }
 
@@ -127,6 +133,7 @@ private fun TripListCard(
     onShare: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
+    isOwner: Boolean = true,
     border: BorderStroke? = null,
     shadowElevation: Dp = 0.dp,
     belowDates: @Composable ColumnScope.() -> Unit = {},
@@ -164,7 +171,7 @@ private fun TripListCard(
             }
             beforeMenu()
             // The button's own inset gives the gap to the badge or the text.
-            TripMoreButton(destination, onShare, onDelete, tint = ExtendedTheme.colors.chevron)
+            TripMoreButton(destination, onShare, onDelete, tint = ExtendedTheme.colors.chevron, isOwner = isOwner)
         }
     }
 }

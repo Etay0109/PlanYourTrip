@@ -27,9 +27,24 @@ data class AccountState(
     val email: String,
     val initials: String,
     val syncStatus: SyncStatus = SyncStatus.SAVED,
-    /** Changes still wait to upload and there is no connection: ask before signing out. */
-    val showSignOutWarning: Boolean = false,
-)
+    /** Epoch millis of the last successful full sync on this device (shown with "Sync problem"); null = never. */
+    val lastSyncedAt: Long? = null,
+    /** Signing out would keep the account's data on this device: ask first, saying why. */
+    val signOutWarning: SignOutWarning? = null,
+    /** A retry ("tap to retry") is running. */
+    val isRetrying: Boolean = false,
+) {
+    val showSignOutWarning: Boolean get() = signOutWarning != null
+}
+
+/** Why signing out now would keep the account's data on this device. */
+enum class SignOutWarning {
+    /** Changes still wait to upload. */
+    PENDING_CHANGES,
+
+    /** Nothing is pending, but no full sync confirmed that the cloud holds the data. */
+    NOT_CONFIRMED,
+}
 
 /**
  * The profile menu: the signed-in user, the sync status and "Sign out". Used by every screen that shows the menu,
@@ -40,11 +55,14 @@ class AccountViewModel(
     private val syncController: SyncController,
 ) : ViewModel() {
 
-    private val signOutWarning = MutableStateFlow(false)
+    private val signOutWarning = MutableStateFlow<SignOutWarning?>(null)
+    private val retrying = MutableStateFlow(false)
 
     /** Null while nobody is signed in (nothing is drawn). */
     val state: StateFlow<AccountState?> =
-        combine(authRepository.currentUser, syncController.status, signOutWarning) { user, sync, warning ->
+        combine(
+            authRepository.currentUser, syncController.status, syncController.lastSyncedAt, signOutWarning, retrying,
+        ) { user, sync, lastSyncedAt, warning, isRetrying ->
             user?.let {
                 val name = it.greetingName()
                 AccountState(
@@ -52,7 +70,9 @@ class AccountViewModel(
                     email = it.email.orEmpty(),
                     initials = initials(name),
                     syncStatus = sync,
-                    showSignOutWarning = warning,
+                    lastSyncedAt = lastSyncedAt,
+                    signOutWarning = warning,
+                    isRetrying = isRetrying,
                 )
             }
         }.stateIn(viewModelScope, WhileUiSubscribed, null)
@@ -61,19 +81,32 @@ class AccountViewModel(
     private var signingOut = false
 
     /**
-     * Uploads what is still pending, then signs out and removes the account's data from this device. If changes
-     * can't be uploaded (offline), shows the warning instead.
+     * Syncs, then signs out and removes the account's data from this device when it is safely in the cloud;
+     * otherwise shows the warning (changes still pending, or the cloud copy not confirmed).
      */
     fun onSignOut() = signOut(force = false)
 
-    /** "Sign out anyway": the pending changes stay on this device and upload at the next sign in here. */
+    /** "Sign out anyway": the account's data stays on this device (hidden) and syncs at the next sign in here. */
     fun onConfirmSignOut() {
-        signOutWarning.value = false
+        signOutWarning.value = null
         signOut(force = true)
     }
 
     fun onDismissSignOutWarning() {
-        signOutWarning.value = false
+        signOutWarning.value = null
+    }
+
+    /** "Sync problem – tap to retry": a full sync now; the status shows its result. Double taps run one. */
+    fun onRetrySync() {
+        if (retrying.value) return
+        retrying.value = true
+        viewModelScope.launch {
+            try {
+                syncController.refresh()
+            } finally {
+                retrying.value = false
+            }
+        }
     }
 
     private fun signOut(force: Boolean) {
@@ -81,7 +114,11 @@ class AccountViewModel(
         signingOut = true
         viewModelScope.launch {
             try {
-                if (syncController.signOut(force) == SignOutResult.NEEDS_CONFIRMATION) signOutWarning.value = true
+                signOutWarning.value = when (syncController.signOut(force)) {
+                    SignOutResult.SIGNED_OUT -> null
+                    SignOutResult.NEEDS_CONFIRMATION -> SignOutWarning.PENDING_CHANGES
+                    SignOutResult.NOT_CONFIRMED -> SignOutWarning.NOT_CONFIRMED
+                }
             } finally {
                 signingOut = false
             }
@@ -103,4 +140,5 @@ fun AccountViewModel.actions() = AccountActions(
     onSignOut = ::onSignOut,
     onConfirmSignOut = ::onConfirmSignOut,
     onDismissSignOutWarning = ::onDismissSignOutWarning,
+    onRetrySync = ::onRetrySync,
 )

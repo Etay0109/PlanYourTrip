@@ -1,5 +1,7 @@
 package com.example.planyourtrip.data.sync
 
+import com.example.planyourtrip.data.trip.TripMember
+
 /**
  * The cloud copy of the trips an account can see: shared trips under trips/{tripUuid}/… (the account is one of
  * the trip's members) and the account's own personal items under trips/{tripUuid}/memberData/{uid}/… . ViewModels
@@ -23,6 +25,29 @@ interface CloudStore {
      */
     suspend fun write(uid: String, items: List<SyncItem>)
 
+    // ---------- Membership ----------
+
+    /** A direct read of each trip document (see [TripAccess]); a denied read is [TripAccess.NO_ACCESS], not a failure. */
+    suspend fun tripAccess(uid: String, tripUuids: Collection<String>): Map<String, TripAccess>
+
+    /** The member documents (trips/{trip}/members) of each trip, also of members who left. */
+    suspend fun fetchMembers(uid: String, tripUuids: Collection<String>): Map<String, List<TripMember>>
+
+    /**
+     * Deletes [uid]'s own personal data of a trip (budget and every Packing item). Allowed by the rules even after
+     * [uid] left or was removed.
+     */
+    suspend fun deletePersonal(uid: String, tripUuid: String)
+
+    /**
+     * [uid] leaves the trip, in one write: out of its members, their member document marked as left, and their budget
+     * and Packing items deleted (items that don't fit into that write are deleted just before it).
+     */
+    suspend fun leaveTrip(uid: String, tripUuid: String)
+
+    /** The owner [uid] removes [memberUid] from the trip: out of its members, member document marked as left. */
+    suspend fun removeMember(uid: String, tripUuid: String, memberUid: String)
+
     // ---------- The legacy copy (users/{uid}/trips/…, before shared trips), see LegacyMigration ----------
 
     /**
@@ -39,4 +64,13 @@ interface CloudStore {
     suspend fun deleteLegacy(uid: String)
 }
 
-class CloudUnavailableException(cause: Throwable? = null) : Exception(cause)
+/**
+ * A cloud call or a sync step failed; nothing local was lost. [isProblem] = false: the cloud couldn't be reached
+ * (offline, timeout), it will work again by itself. True: something else went wrong (refused by the rules, a
+ * migration that can't finish, …); the profile menu shows "Sync problem" until a full sync succeeds.
+ */
+class CloudUnavailableException(
+    cause: Throwable? = null,
+    val isProblem: Boolean = false,
+    message: String? = cause?.toString(),
+) : Exception(message, cause)

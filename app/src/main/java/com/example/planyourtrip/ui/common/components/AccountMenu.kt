@@ -20,6 +20,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -32,13 +33,18 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.R
 import com.example.planyourtrip.data.sync.SyncStatus
+import com.example.planyourtrip.ui.common.TripFormatting
 import com.example.planyourtrip.ui.common.account.AccountState
+import com.example.planyourtrip.ui.common.account.SignOutWarning
+import java.time.ZoneId
 
 /** Callbacks of [AccountButton] (from `AccountViewModel`). */
 class AccountActions(
     val onSignOut: () -> Unit,
     val onConfirmSignOut: () -> Unit,
     val onDismissSignOutWarning: () -> Unit,
+    /** "Sync problem – tap to retry". */
+    val onRetrySync: () -> Unit = {},
 )
 
 /**
@@ -52,8 +58,8 @@ fun AccountButton(
     size: Dp,
     modifier: Modifier = Modifier,
 ) {
-    if (state.showSignOutWarning) {
-        SignOutWarningDialog(onConfirm = actions.onConfirmSignOut, onDismiss = actions.onDismissSignOutWarning)
+    state.signOutWarning?.let { warning ->
+        SignOutWarningDialog(warning, onConfirm = actions.onConfirmSignOut, onDismiss = actions.onDismissSignOutWarning)
     }
     var menuOpen by rememberSaveable { mutableStateOf(false) }
     val profileDescription = stringResource(R.string.home_profile, state.userName)
@@ -85,7 +91,12 @@ fun AccountButton(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                SyncStatusRow(state.syncStatus, modifier = Modifier.padding(top = 8.dp))
+                if (state.syncStatus != SyncStatus.PROBLEM) {
+                    SyncStatusRow(state.syncStatus, modifier = Modifier.padding(top = 8.dp))
+                }
+            }
+            if (state.syncStatus == SyncStatus.PROBLEM) {
+                SyncProblemItem(state.lastSyncedAt, isRetrying = state.isRetrying, onRetry = actions.onRetrySync)
             }
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
             DropdownMenuItem(
@@ -106,7 +117,7 @@ private fun SyncStatusRow(status: SyncStatus, modifier: Modifier = Modifier) {
     val (icon, text) = when (status) {
         SyncStatus.SAVED -> R.drawable.ic_cloud_done to R.string.home_sync_saved
         SyncStatus.SYNCING -> R.drawable.ic_sync to R.string.home_sync_syncing
-        SyncStatus.OFFLINE -> R.drawable.ic_cloud_off to R.string.home_sync_offline
+        SyncStatus.OFFLINE, SyncStatus.PROBLEM -> R.drawable.ic_cloud_off to R.string.home_sync_offline
     }
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         Icon(
@@ -124,13 +135,54 @@ private fun SyncStatusRow(status: SyncStatus, modifier: Modifier = Modifier) {
     }
 }
 
-/** Shown when changes still wait to upload and there is no connection. */
+/**
+ * "Sync problem – tap to retry" in the error color, with the time of the last successful sync under it; a menu row
+ * (48dp touch target) that starts a full sync. While it runs, the row reads "Syncing…" and ignores taps.
+ */
 @Composable
-private fun SignOutWarningDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+private fun SyncProblemItem(lastSyncedAt: Long?, isRetrying: Boolean, onRetry: () -> Unit) {
+    val zone = remember { ZoneId.systemDefault() }
+    val last = lastSyncedAt?.let { stringResource(R.string.home_sync_last, TripFormatting.dayMonthTime(it, zone)) }
+        ?: stringResource(R.string.home_sync_never)
+    val description = stringResource(R.string.home_sync_problem_a11y, last)
+    DropdownMenuItem(
+        text = {
+            Column {
+                Text(
+                    text = stringResource(if (isRetrying) R.string.home_sync_syncing else R.string.home_sync_problem),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+                Text(
+                    text = last,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        leadingIcon = {
+            Icon(
+                painter = painterResource(if (isRetrying) R.drawable.ic_sync else R.drawable.ic_cloud_off),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+            )
+        },
+        onClick = { if (!isRetrying) onRetry() },
+        modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = description },
+    )
+}
+
+/** Shown when signing out would keep the account's data on this device ([SignOutWarning] says why). */
+@Composable
+private fun SignOutWarningDialog(warning: SignOutWarning, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    val (title, body) = when (warning) {
+        SignOutWarning.PENDING_CHANGES -> R.string.home_sign_out_warning_title to R.string.home_sign_out_warning_body
+        SignOutWarning.NOT_CONFIRMED -> R.string.home_sign_out_unconfirmed_title to R.string.home_sign_out_unconfirmed_body
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.home_sign_out_warning_title)) },
-        text = { Text(stringResource(R.string.home_sign_out_warning_body)) },
+        title = { Text(stringResource(title)) },
+        text = { Text(stringResource(body)) },
         confirmButton = {
             TextButton(onClick = onConfirm) { Text(stringResource(R.string.home_sign_out_anyway)) }
         },

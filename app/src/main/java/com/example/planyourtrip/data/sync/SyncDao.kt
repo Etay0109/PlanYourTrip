@@ -12,6 +12,7 @@ import com.example.planyourtrip.data.trip.ExpenseEntity
 import com.example.planyourtrip.data.trip.SettlementEntity
 import com.example.planyourtrip.data.trip.TravelerEntity
 import com.example.planyourtrip.data.trip.TripEntity
+import com.example.planyourtrip.data.trip.TripMemberEntity
 import kotlinx.coroutines.flow.Flow
 
 /** Room queries of the sync layer. Like every other DAO, everything is scoped to one owner. */
@@ -245,9 +246,34 @@ interface SyncDao {
     @Query("DELETE FROM trips WHERE owner_id = :ownerId")
     suspend fun deleteTripsOf(ownerId: String)
 
+    @Query("SELECT uuid, cloud_owner_id FROM trips WHERE owner_id = :ownerId")
+    suspend fun tripOwners(ownerId: String): List<TripOwnerRow>
+
+    /** Removes the owner's copies of these trips; their items go with them (foreign key CASCADE). */
+    @Query("DELETE FROM trips WHERE owner_id = :ownerId AND uuid IN (:tripUuids)")
+    suspend fun deleteTrips(ownerId: String, tripUuids: List<String>)
+
+    /** Drops the owner's tombstones of these trips and of their items (deletes that will never be uploaded). */
+    @Query(
+        "DELETE FROM deletions WHERE owner_id = :ownerId " +
+            "AND (trip_uuid IN (:tripUuids) OR (kind = 'TRIP' AND uuid IN (:tripUuids)))"
+    )
+    suspend fun deleteDeletionsOfTrips(ownerId: String, tripUuids: List<String>)
+
+    @Query("DELETE FROM trip_members WHERE trip_id = :tripId")
+    suspend fun deleteMembersOfTrip(tripId: Long)
+
+    @Insert
+    suspend fun insertMembers(members: List<TripMemberEntity>)
+
     @Query("DELETE FROM deletions WHERE owner_id = :ownerId")
     suspend fun deleteDeletionsOf(ownerId: String)
 }
+
+data class TripOwnerRow(
+    val uuid: String,
+    @ColumnInfo(name = "cloud_owner_id") val cloudOwnerId: String,
+)
 
 data class ExpenseRow(
     @Embedded val expense: ExpenseEntity,

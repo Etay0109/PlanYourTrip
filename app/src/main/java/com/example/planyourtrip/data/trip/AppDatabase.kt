@@ -21,9 +21,9 @@ import com.example.planyourtrip.data.sync.SyncDao
     entities = [
         TripEntity::class, ExpenseEntity::class, ExchangeRateEntity::class, ActivityEntity::class,
         DeletionEntity::class, ChecklistItemEntity::class, DocumentEntity::class, TravelerEntity::class,
-        SettlementEntity::class,
+        SettlementEntity::class, TripMemberEntity::class,
     ],
-    version = 14,
+    version = 15,
     exportSchema = true,
     autoMigrations = [
         // v2: trips.owner_id. Trips from v1 get "" and are not shown to any account.
@@ -57,6 +57,9 @@ import com.example.planyourtrip.data.sync.SyncDao
         AutoMigration(from = 12, to = 13),
         // v14 (shared trips) is the manual MIGRATION_13_14: "me" becomes the owner's uid, trips get their cloud owner,
         // members and the budget's own sync state, local copies become per account.
+        // v15 (invites and joining): the trip_members table (the cloud's member documents), empty until the next full
+        // sync. All existing data is kept.
+        AutoMigration(from = 14, to = 15),
     ],
 )
 @TypeConverters(Converters::class)
@@ -78,6 +81,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun travelerDao(): TravelerDao
 
     abstract fun settlementDao(): SettlementDao
+
+    abstract fun tripMemberDao(): TripMemberDao
 
     companion object {
         fun create(context: Context): AppDatabase =

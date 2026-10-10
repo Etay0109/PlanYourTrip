@@ -53,6 +53,8 @@ fun TripHeader(
     onShare: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
+    /** False for a shared trip someone else owns: the menu offers "Leave trip" instead of "Delete trip". */
+    isOwner: Boolean = true,
 ) {
     val colors = ExtendedTheme.colors
     val shape = MaterialTheme.shapes.extraLarge.copy(topStart = CornerSize(0.dp), topEnd = CornerSize(0.dp))
@@ -81,7 +83,9 @@ fun TripHeader(
                     HeaderButton(R.drawable.ic_edit, stringResource(R.string.trip_edit), onEdit)
                     Spacer(Modifier.width(8.dp))
                     val moreDescription = stringResource(R.string.share_more_options, trip.destination)
-                    TripMoreMenu(onShare, onDelete) { open -> HeaderButton(R.drawable.ic_more_vert, moreDescription, open) }
+                    TripMoreMenu(onShare, onDelete, isOwner = isOwner) { open ->
+                        HeaderButton(R.drawable.ic_more_vert, moreDescription, open)
+                    }
                 }
                 if (status != null && !badgeInline) {
                     Spacer(Modifier.height(16.dp))

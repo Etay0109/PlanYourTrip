@@ -10,6 +10,8 @@ import com.example.planyourtrip.data.trip.ExpenseEntity
 import com.example.planyourtrip.data.trip.SettlementEntity
 import com.example.planyourtrip.data.trip.TravelerEntity
 import com.example.planyourtrip.data.trip.TripEntity
+import com.example.planyourtrip.data.trip.TripMember
+import com.example.planyourtrip.data.trip.TripMemberEntity
 import com.example.planyourtrip.data.trip.toExpense
 import kotlinx.coroutines.flow.Flow
 
@@ -57,6 +59,31 @@ class RoomSyncLocalStore(private val db: AppDatabase) : SyncLocalStore {
     }
 
     override fun pendingCount(ownerId: String): Flow<Int> = dao.pendingCount(ownerId)
+
+    override suspend fun tripOwners(ownerId: String): Map<String, String> =
+        dao.tripOwners(ownerId).associate { it.uuid to it.cloudOwnerId }
+
+    override suspend fun removeTrips(ownerId: String, tripUuids: Set<String>) {
+        if (tripUuids.isEmpty()) return
+        val uuids = tripUuids.toList()
+        db.withTransaction {
+            // Every item of these trips goes with them (foreign key CASCADE), pending changes included.
+            dao.deleteDeletionsOfTrips(ownerId, uuids)
+            dao.deleteTrips(ownerId, uuids)
+        }
+    }
+
+    override suspend fun replaceMembers(ownerId: String, members: Map<String, List<TripMember>>) = db.withTransaction {
+        for ((tripUuid, list) in members) {
+            val trip = dao.tripByUuid(tripUuid, ownerId) ?: continue
+            dao.deleteMembersOfTrip(trip.id)
+            dao.insertMembers(
+                list.distinctBy { it.uid }.map {
+                    TripMemberEntity(tripId = trip.id, uid = it.uid, name = it.name, joinedAt = it.joinedAt, left = it.left)
+                },
+            )
+        }
+    }
 
     override suspend fun deleteAllFor(ownerId: String) = db.withTransaction {
         // Travelers, expenses, activities, checklist items and settlements go with their trips (foreign key CASCADE). Documents are not

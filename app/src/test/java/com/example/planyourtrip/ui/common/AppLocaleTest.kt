@@ -11,7 +11,9 @@ import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import java.math.BigDecimal
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.LocalTime
+import java.time.ZoneOffset
 import java.util.Locale
 
 /** Every formatter's default output is English, whatever the device's (JVM default) locale is. */
@@ -57,6 +59,8 @@ class AppLocaleTest(private val deviceLocale: Locale) {
         assertEquals("09:05", TripFormatting.time(LocalTime.of(9, 5)))
         assertEquals("Nov 2026", TripFormatting.monthYear(nov12))
         assertEquals("Nov 12, 2026", TripFormatting.fieldDate(nov12))
+        val oct9At1607 = LocalDateTime.of(2026, 10, 9, 16, 7).atZone(ZoneOffset.UTC).toInstant().toEpochMilli()
+        assertEquals("9 Oct, 16:07", TripFormatting.dayMonthTime(oct9At1607, ZoneOffset.UTC))
     }
 
     @Test

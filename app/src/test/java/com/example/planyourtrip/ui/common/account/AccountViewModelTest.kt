@@ -4,6 +4,7 @@ import com.example.planyourtrip.FakeAuthRepository
 import com.example.planyourtrip.FakeSyncController
 import com.example.planyourtrip.data.auth.AuthUser
 import com.example.planyourtrip.data.sync.SyncStatus
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.filterNotNull
@@ -102,5 +103,59 @@ class AccountViewModelTest {
 
         assertEquals(listOf(false, true), sync.signOutCalls)
         assertNull(auth.currentUser.value)
+    }
+
+    @Test
+    fun signOut_notConfirmedInTheCloud_showsThatWarning_andSignOutAnywayKeepsTheData() = runTest(dispatcher) {
+        val auth = FakeAuthRepository(etay)
+        val sync = FakeSyncController(auth).apply { notConfirmed = true }
+        val vm = AccountViewModel(auth, sync)
+
+        vm.onSignOut()
+        assertEquals(SignOutWarning.NOT_CONFIRMED, vm.current().signOutWarning)
+        assertEquals(etay, auth.currentUser.value)
+
+        vm.onConfirmSignOut()
+        assertEquals(listOf(false, true), sync.signOutCalls)
+        assertNull(auth.currentUser.value)
+    }
+
+    @Test
+    fun signOut_withPendingChanges_showsThePendingWarning() = runTest(dispatcher) {
+        val auth = FakeAuthRepository(etay)
+        val vm = AccountViewModel(auth, FakeSyncController(auth).apply { pendingOffline = true })
+
+        vm.onSignOut()
+
+        assertEquals(SignOutWarning.PENDING_CHANGES, vm.current().signOutWarning)
+    }
+
+    @Test
+    fun syncProblem_isShown_withTheTimeOfTheLastSuccessfulSync() = runTest(dispatcher) {
+        val auth = FakeAuthRepository(etay)
+        val sync = FakeSyncController(auth)
+        val vm = AccountViewModel(auth, sync)
+
+        sync.status.value = SyncStatus.PROBLEM
+        sync.lastSyncedAt.value = 1_791_000_000_000
+
+        assertEquals(SyncStatus.PROBLEM, vm.current().syncStatus)
+        assertEquals(1_791_000_000_000, vm.current().lastSyncedAt)
+    }
+
+    @Test
+    fun tapToRetry_runsOneFullSync_evenWhenTappedTwice() = runTest(dispatcher) {
+        val auth = FakeAuthRepository(etay)
+        val sync = FakeSyncController(auth).apply { refreshGate = CompletableDeferred() }
+        val vm = AccountViewModel(auth, sync)
+        sync.status.value = SyncStatus.PROBLEM
+
+        vm.onRetrySync()
+        vm.onRetrySync()
+        assertTrue(vm.current().isRetrying)
+
+        sync.refreshGate!!.complete(Unit)
+        assertEquals(1, sync.refreshCalls)
+        assertFalse(vm.current().isRetrying)
     }
 }

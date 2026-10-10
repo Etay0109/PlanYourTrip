@@ -12,17 +12,23 @@ import com.example.planyourtrip.appContainer
 import com.example.planyourtrip.data.auth.AuthRepository
 import com.example.planyourtrip.data.trip.Expense
 import com.example.planyourtrip.data.trip.ExpenseRepository
+import com.example.planyourtrip.data.trip.InMemoryMergeSuggestionStore
+import com.example.planyourtrip.data.trip.MergeSuggestionStore
 import com.example.planyourtrip.data.trip.RemoveTravelerResult
 import com.example.planyourtrip.data.trip.Settlement
 import com.example.planyourtrip.data.trip.SettlementRepository
 import com.example.planyourtrip.data.trip.Traveler
 import com.example.planyourtrip.data.trip.TravelerRepository
+import com.example.planyourtrip.data.trip.TripMemberRepository
 import com.example.planyourtrip.data.trip.TripRepository
 import com.example.planyourtrip.ui.common.Money
 import com.example.planyourtrip.ui.common.WhileUiSubscribed
+import com.example.planyourtrip.ui.common.split.MergeSuggestion
 import com.example.planyourtrip.ui.common.split.Transfer
 import com.example.planyourtrip.ui.common.split.balances
 import com.example.planyourtrip.ui.common.split.isTravelerUsed
+import com.example.planyourtrip.ui.common.split.mergeSuggestions
+import com.example.planyourtrip.ui.common.split.planTravelerMerge
 import com.example.planyourtrip.ui.common.split.sharedExpenseCount
 import com.example.planyourtrip.ui.common.split.simplifyTransfers
 import com.example.planyourtrip.ui.common.split.travelerOrder
@@ -60,13 +66,21 @@ class SplitViewModel(
     private val clock: Clock,
     /** Where balances and transfers are computed; tests pass their test dispatcher. */
     computeDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    /** Names of the trip's other members (shared trips). */
+    memberRepository: TripMemberRepository = TripMemberRepository.None,
+    /** The "Merge with the traveler?" suggestions answered "Keep separate" (this device only). */
+    private val suggestionStore: MergeSuggestionStore = InMemoryMergeSuggestionStore(),
 ) : ViewModel() {
 
     /** The latest expenses and settlements, for the "can't be removed" check when a traveler is tapped. */
     private var expenses: List<Expense> = emptyList()
     private var settlements: List<Settlement> = emptyList()
+    private var tripUuid: String = ""
 
-    val uiState: StateFlow<SplitUiState> = authRepository.currentUser
+    /** A merge is being written (set synchronously, so a double tap merges once). */
+    private val merging = MutableStateFlow(false)
+
+    private val loadedState = authRepository.currentUser
         .flatMapLatest { user ->
             if (user == null) return@flatMapLatest flowOf(SplitUiState.NotFound)
             combine(
@@ -74,10 +88,13 @@ class SplitViewModel(
                 expenseRepository.observeExpenses(tripId, user.uid),
                 travelerRepository.observeTravelers(tripId, user.uid),
                 settlementRepository.observeSettlements(tripId, user.uid),
-            ) { trip, expenseList, travelers, settlementList ->
+                memberRepository.observeMembers(tripId, user.uid),
+            ) { trip, expenseList, travelers, settlementList, members ->
                 if (trip == null) return@combine SplitUiState.NotFound
                 expenses = expenseList
                 settlements = settlementList
+                tripUuid = trip.uuid
+                val memberIds = trip.memberIds.ifEmpty { listOf(user.uid) }
                 val order = travelerOrder(user.uid, trip.memberIds, travelers)
                 SplitUiState.Loaded(
                     me = user.uid,
@@ -85,11 +102,53 @@ class SplitViewModel(
                     transfers = simplifyTransfers(balances(expenseList, settlementList, order), order, user.uid),
                     sharedExpenseCount = sharedExpenseCount(expenseList),
                     settlements = settlementList,
+                    memberIds = memberIds,
+                    members = members,
+                    suggestions = mergeSuggestions(user.uid, memberIds, members, travelers, expenseList, settlementList),
                 )
             }
         }
         .flowOn(computeDispatcher)
-        .stateIn(viewModelScope, WhileUiSubscribed, SplitUiState.Loading)
+
+    val uiState: StateFlow<SplitUiState> =
+        combine(loadedState, suggestionStore.dismissed, merging) { state, dismissed, isMerging ->
+            if (state !is SplitUiState.Loaded) return@combine state
+            state.copy(
+                suggestion = state.suggestions.firstOrNull { suggestionKey(state.me, it) !in dismissed },
+                isMerging = isMerging,
+            )
+        }.stateIn(viewModelScope, WhileUiSubscribed, SplitUiState.Loading)
+
+    private fun suggestionKey(me: String, suggestion: MergeSuggestion) =
+        MergeSuggestionStore.key(me, tripUuid, suggestion.traveler.uuid, suggestion.memberKey)
+
+    // ---- Merging a name-only traveler into a member who joined ----
+
+    /**
+     * "Merge": the traveler's expenses, splits and settlements move to the member and the traveler is removed, in one
+     * change (only when every balance stays the same; the repository checks again against its current rows).
+     */
+    fun onMergeSuggestion() {
+        val suggestion = loaded()?.suggestion ?: return
+        if (suggestion.blocked != null || merging.value) return
+        val owner = ownerId ?: return
+        merging.value = true
+        viewModelScope.launch {
+            try {
+                travelerRepository.mergeIntoMember(tripId, owner, suggestion.traveler.id, suggestion.memberKey, ::planTravelerMerge)
+            } finally {
+                merging.value = false
+            }
+        }
+    }
+
+    /** "Keep separate" (or "OK" when it can't be merged): never suggested again on this device. */
+    fun onDismissSuggestion() {
+        val state = loaded() ?: return
+        val suggestion = state.suggestion ?: return
+        if (merging.value) return
+        suggestionStore.dismiss(suggestionKey(state.me, suggestion))
+    }
 
     private val ownerId: String? get() = authRepository.currentUser.value?.uid
 
@@ -256,6 +315,8 @@ class SplitViewModel(
                     settlementRepository = container.settlementRepository,
                     authRepository = container.authRepository,
                     clock = container.clock,
+                    memberRepository = container.tripMemberRepository,
+                    suggestionStore = container.mergeSuggestionStore,
                 )
             }
         }

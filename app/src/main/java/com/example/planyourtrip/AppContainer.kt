@@ -1,6 +1,7 @@
 package com.example.planyourtrip
 
 import android.content.Context
+import android.util.Log
 import com.example.planyourtrip.data.assistant.AssistantRepository
 import com.example.planyourtrip.data.assistant.FirebaseAssistantRepository
 import com.example.planyourtrip.data.auth.AuthRepository
@@ -12,6 +13,8 @@ import com.example.planyourtrip.data.document.AndroidDocumentFileStore
 import com.example.planyourtrip.data.document.DocumentFileStore
 import com.example.planyourtrip.data.document.DocumentRepository
 import com.example.planyourtrip.data.document.RoomDocumentRepository
+import com.example.planyourtrip.data.sharing.FirestoreInviteRepository
+import com.example.planyourtrip.data.sharing.InviteRepository
 import com.example.planyourtrip.data.sync.AndroidNetworkMonitor
 import com.example.planyourtrip.data.sync.FirestoreCloudStore
 import com.example.planyourtrip.data.sync.NetworkMonitor
@@ -25,13 +28,17 @@ import com.example.planyourtrip.data.trip.AppDatabase
 import com.example.planyourtrip.data.trip.ChecklistRepository
 import com.example.planyourtrip.data.trip.RoomChecklistRepository
 import com.example.planyourtrip.data.trip.ExpenseRepository
+import com.example.planyourtrip.data.trip.MergeSuggestionStore
+import com.example.planyourtrip.data.trip.SharedPreferencesMergeSuggestionStore
 import com.example.planyourtrip.data.trip.RoomActivityRepository
 import com.example.planyourtrip.data.trip.RoomExpenseRepository
 import com.example.planyourtrip.data.trip.RoomSettlementRepository
 import com.example.planyourtrip.data.trip.RoomTravelerRepository
+import com.example.planyourtrip.data.trip.RoomTripMemberRepository
 import com.example.planyourtrip.data.trip.RoomTripRepository
 import com.example.planyourtrip.data.trip.SettlementRepository
 import com.example.planyourtrip.data.trip.TravelerRepository
+import com.example.planyourtrip.data.trip.TripMemberRepository
 import com.example.planyourtrip.data.trip.TripRepository
 import com.example.planyourtrip.ui.common.share.AndroidTripPdfExporter
 import com.example.planyourtrip.ui.common.share.TripPdfExporter
@@ -60,16 +67,23 @@ class AppContainer(context: Context) {
     /** Lives as long as the process; runs the cloud sync. */
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    private val firestore: FirebaseFirestore by lazy { FirebaseFirestore.getInstance() }
+
+    /** Configures Firestore (memory cache only) before anything else uses it. */
+    private val cloudStore: FirestoreCloudStore by lazy { FirestoreCloudStore.create(firestore) }
+
     /** Room ⇄ Firestore. Started in PlanYourTripApplication; the repositories report every local change to it. */
     val syncManager: SyncManager by lazy {
         SyncManager(
             authRepository = authRepository,
-            cloud = FirestoreCloudStore.create(FirebaseFirestore.getInstance()),
+            cloud = cloudStore,
             local = RoomSyncLocalStore(database),
             network = networkMonitor,
             flags = SharedPreferencesSyncFlags(context.getSharedPreferences("sync", Context.MODE_PRIVATE)),
             tripCleanup = roomDocumentRepository,
             scope = appScope,
+            clock = clock,
+            log = { message, error -> Log.w("CloudSync", message, error) },
         )
     }
 
@@ -98,6 +112,20 @@ class AppContainer(context: Context) {
     /** Payments between travelers ("Settle up"). */
     val settlementRepository: SettlementRepository by lazy {
         RoomSettlementRepository(database.settlementDao(), database.tripDao(), clock, syncManager)
+    }
+
+    /** The member documents of shared trips (names, also of members who left), downloaded by the full sync. */
+    val tripMemberRepository: TripMemberRepository by lazy { RoomTripMemberRepository(database.tripMemberDao()) }
+
+    /** "Merge with the traveler?" suggestions answered "Keep separate" (this device only, never synced). */
+    val mergeSuggestionStore: MergeSuggestionStore by lazy {
+        SharedPreferencesMergeSuggestionStore(context.getSharedPreferences("merge_suggestions", Context.MODE_PRIVATE))
+    }
+
+    /** Invites and joining (Firestore only). [cloudStore] first, so Firestore is configured before its first use. */
+    val inviteRepository: InviteRepository by lazy {
+        cloudStore
+        FirestoreInviteRepository(firestore, networkMonitor)
     }
 
     /** The documents' files in private storage (picked files are copied there; FileProvider for viewing). */

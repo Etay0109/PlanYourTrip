@@ -135,8 +135,11 @@ object SyncDocuments {
      * `paidBy` / `splitBetween` (only in the legacy copy, written before expense splitting) is paid by
      * [LEGACY_ME_KEY], not shared. A legacy trip document has no owner / members ("" / empty until the migration
      * fills them in).
+     *
+     * [documentId] is the document's own id: the item's uuid, except for a [SyncKind.BUDGET], whose document
+     * trips/{trip}/memberData/{uid} is named after the member; a budget item always has its trip's uuid ([tripUuid]).
      */
-    fun fromDocument(kind: SyncKind, uuid: String, tripUuid: String?, doc: Map<String, Any?>): SyncItem? =
+    fun fromDocument(kind: SyncKind, documentId: String, tripUuid: String?, doc: Map<String, Any?>): SyncItem? =
         runCatching {
             val updatedAt = (doc[UPDATED_AT] as Number).toLong()
             val data = if (doc[DELETED] == true) null else when (kind) {
@@ -198,6 +201,7 @@ object SyncDocuments {
                     createdAt = doc.long(Field.CREATED_AT)!!,
                 )
             }
+            val uuid = if (kind == SyncKind.BUDGET) checkNotNull(tripUuid) else documentId
             SyncItem(kind, uuid, tripUuid, updatedAt, data)
         }.getOrNull()
 

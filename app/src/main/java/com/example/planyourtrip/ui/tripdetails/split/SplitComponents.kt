@@ -6,6 +6,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -42,10 +45,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.R
+import com.example.planyourtrip.data.trip.MergeBlock
 import com.example.planyourtrip.data.trip.Settlement
 import com.example.planyourtrip.data.trip.Traveler
 import com.example.planyourtrip.ui.common.components.Pill
 import com.example.planyourtrip.ui.common.shekels
+import com.example.planyourtrip.ui.common.split.MergeSuggestion
 import com.example.planyourtrip.ui.common.split.Person
 import com.example.planyourtrip.ui.common.split.Transfer
 import com.example.planyourtrip.ui.theme.Dimens
@@ -59,6 +64,10 @@ data class SplitActions(
     val onTravelerClick: (Traveler) -> Unit,
     val onSettleUp: () -> Unit,
     val onShowHistory: () -> Unit,
+    /** "Merge" on the merge suggestion card. */
+    val onMerge: () -> Unit = {},
+    /** "Keep separate" / "OK" on the merge suggestion card. */
+    val onKeepSeparate: () -> Unit = {},
 ) {
     companion object {
         val None = SplitActions({}, {}, {}, {})
@@ -113,11 +122,16 @@ fun TravelersSection(
     }
 }
 
-/** One avatar with the name under it; [onClick] null = not tappable ("You"). */
+/**
+ * One avatar with the name under it; [onClick] null = not tappable ("You"). A traveler whose name matches a member
+ * gets a small "name only" label under the name, so the two are easy to tell apart.
+ */
 @Composable
 private fun TravelerItem(person: Person, onClick: (() -> Unit)?) {
-    val name = personName(person)
-    val description = if (onClick != null) stringResource(R.string.traveler_edit_description, name) else name
+    val nameOnly = person is Person.Named && person.nameOnly
+    val name = if (person is Person.Named) person.name else personName(person)
+    val spoken = personName(person)
+    val description = if (onClick != null) stringResource(R.string.traveler_edit_description, spoken) else spoken
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
@@ -137,6 +151,81 @@ private fun TravelerItem(person: Person, onClick: (() -> Unit)?) {
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center,
         )
+        if (nameOnly) {
+            Text(
+                text = stringResource(R.string.traveler_name_only),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+            )
+        }
+    }
+}
+
+/**
+ * "Noa joined this trip. Merge with the traveler 'Noa'?" with what merging does, "Keep separate" and "Merge"; when
+ * merging would change a balance, why not and "OK". Shown once per traveler and member (see SplitViewModel).
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun MergeSuggestionCard(
+    suggestion: MergeSuggestion,
+    isMerging: Boolean,
+    actions: SplitActions,
+    modifier: Modifier = Modifier,
+) {
+    val traveler = suggestion.traveler.name
+    val question = if (suggestion.isYou) {
+        stringResource(R.string.merge_suggestion_you, traveler)
+    } else {
+        stringResource(R.string.merge_suggestion_member, suggestion.memberName, traveler)
+    }
+    val body = when (suggestion.blocked) {
+        null -> if (suggestion.isYou) {
+            stringResource(R.string.merge_suggestion_body_you, traveler)
+        } else {
+            stringResource(R.string.merge_suggestion_body_member, traveler, suggestion.memberName)
+        }
+        MergeBlock.SHARED_TOGETHER -> stringResource(R.string.merge_blocked_shared, traveler)
+        MergeBlock.BALANCES_WOULD_CHANGE -> stringResource(R.string.merge_blocked_balances, traveler)
+    }
+    Surface(
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shadowElevation = 1.dp,
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(24.dp)) {
+            Text(
+                text = question,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = body,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(12.dp))
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                if (suggestion.blocked != null) {
+                    TextButton(onClick = actions.onKeepSeparate) { Text(stringResource(R.string.merge_ok)) }
+                } else {
+                    TextButton(onClick = actions.onKeepSeparate, enabled = !isMerging) {
+                        Text(stringResource(R.string.merge_keep_separate))
+                    }
+                    FilledTonalButton(onClick = actions.onMerge, enabled = !isMerging) {
+                        Text(stringResource(R.string.merge_action))
+                    }
+                }
+            }
+        }
     }
 }
 

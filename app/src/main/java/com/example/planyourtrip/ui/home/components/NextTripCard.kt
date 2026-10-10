@@ -44,6 +44,8 @@ fun NextTripCard(
     onShare: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
+    /** False for a shared trip someone else owns: the menu offers "Leave trip". */
+    isOwner: Boolean = true,
 ) {
     val colors = ExtendedTheme.colors
     val shape = MaterialTheme.shapes.extraLarge
@@ -91,7 +93,7 @@ fun NextTripCard(
             Spacer(Modifier.width(12.dp))
             CountdownBox(next.status)
             // The button's own inset gives the gap to the countdown box.
-            TripMoreButton(next.trip.destination, onShare, onDelete, tint = colors.onHeroMuted)
+            TripMoreButton(next.trip.destination, onShare, onDelete, tint = colors.onHeroMuted, isOwner = isOwner)
         }
     }
 }

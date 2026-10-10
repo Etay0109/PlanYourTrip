@@ -1,10 +1,13 @@
 package com.example.planyourtrip
 
+import com.example.planyourtrip.data.trip.MergeTravelerResult
 import com.example.planyourtrip.data.trip.RemoveTravelerResult
 import com.example.planyourtrip.data.trip.Settlement
 import com.example.planyourtrip.data.trip.SettlementRepository
 import com.example.planyourtrip.data.trip.Traveler
 import com.example.planyourtrip.data.trip.TravelerColor
+import com.example.planyourtrip.data.trip.TravelerMergeInput
+import com.example.planyourtrip.data.trip.TravelerMergePlan
 import com.example.planyourtrip.data.trip.TravelerRepository
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
@@ -69,6 +72,40 @@ class FakeTravelerRepository(
         if (usedByExpense || usedBySettlement) return RemoveTravelerResult.IN_USE
         travelers.update { list -> list.filterNot { it.id == id } }
         return RemoveTravelerResult.REMOVED
+    }
+
+    /** [merges] = (traveler id, member uid) of every merge that was written. */
+    val merges = mutableListOf<Pair<Long, String>>()
+
+    /** Like Room: plans against the current expenses and settlements, then writes all of it or nothing. */
+    override suspend fun mergeIntoMember(
+        tripId: Long,
+        ownerId: String,
+        id: Long,
+        memberUid: String,
+        plan: (TravelerMergeInput) -> TravelerMergePlan,
+    ): MergeTravelerResult {
+        gate?.await()
+        val trip = trips.trips.value.firstOrNull { (owner, t) -> owner == ownerId && t.id == tripId }?.second
+            ?: return MergeTravelerResult.NOT_FOUND
+        val traveler = travelers.value.firstOrNull { it.id == id && it.tripId == tripId }
+            ?: return MergeTravelerResult.NOT_FOUND
+        if (memberUid !in trip.memberIds) return MergeTravelerResult.NOT_FOUND
+        val tripExpenses = expenses?.expenses?.value.orEmpty().filter { it.tripId == tripId }
+        val tripSettlements = settlements?.settlements?.value.orEmpty().filter { it.tripId == tripId }
+        val input = TravelerMergeInput(
+            traveler.uuid, memberUid, ownerId, trip.memberIds, travelers.value.filter { it.tripId == tripId },
+            tripExpenses, tripSettlements,
+        )
+        val changes = (plan(input) as? TravelerMergePlan.Ready)?.changes ?: return MergeTravelerResult.BLOCKED
+        expenses?.expenses?.update { list -> list.map { e -> changes.expenses.firstOrNull { it.id == e.id } ?: e } }
+        settlements?.settlements?.update { list ->
+            list.filterNot { it.id in changes.deletedSettlementIds }
+                .map { s -> changes.settlements.firstOrNull { it.id == s.id } ?: s }
+        }
+        travelers.update { list -> list.filterNot { it.id == id } }
+        merges += id to memberUid
+        return MergeTravelerResult.MERGED
     }
 }
 

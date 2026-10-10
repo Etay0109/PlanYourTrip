@@ -1,8 +1,10 @@
 package com.example.planyourtrip.ui.common
 
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+import java.time.ZoneId
 import java.time.format.FormatStyle
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
@@ -19,6 +21,7 @@ object TripFormatting {
         val full: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM yyyy", locale)
         val monthYear: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM yyyy", locale)
         val field: DateTimeFormatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale)
+        val dayMonthTime: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM, HH:mm", locale)
     }
 
     private val cache = ConcurrentHashMap<Locale, Formatters>()
@@ -56,6 +59,10 @@ object TripFormatting {
     /** "Thu 12 Nov" — itinerary day chips and the Overview day section. */
     fun weekdayDayMonth(date: LocalDate, locale: Locale = AppLocale.locale): String =
         date.format(formatters(locale).weekdayDayMonth)
+
+    /** "9 Oct, 16:07" in [zone] — the last successful sync (profile menu), always 24-hour. */
+    fun dayMonthTime(epochMillis: Long, zone: ZoneId, locale: Locale = AppLocale.locale): String =
+        Instant.ofEpochMilli(epochMillis).atZone(zone).format(formatters(locale).dayMonthTime)
 
     /** "13:00" — activity start times, always 24-hour. */
     fun time(time: LocalTime, locale: Locale = AppLocale.locale): String = time.format(formatters(locale).time)

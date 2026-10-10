@@ -23,14 +23,17 @@ import com.example.planyourtrip.R
 import com.example.planyourtrip.ui.theme.Dimens
 
 /**
- * The three-dots menu of a trip ("Share trip", "Delete trip"). [anchor] draws the button that opens it, so the home cards and
- * the trip header can each use their own button style. [menuOffset] shifts the menu from its anchor.
+ * The three-dots menu of a trip ("Share trip", "Delete trip"; "Leave trip" instead of "Delete trip" when [isOwner] is
+ * false: only the owner deletes a shared trip). [anchor] draws the button that opens it, so the home cards and the trip
+ * header can each use their own button style. [menuOffset] shifts the menu from its anchor. [onDelete] deletes or
+ * leaves.
  */
 @Composable
 fun TripMoreMenu(
     onShare: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
+    isOwner: Boolean = true,
     menuOffset: DpOffset = DpOffset.Zero,
     anchor: @Composable (open: () -> Unit) -> Unit,
 ) {
@@ -47,10 +50,15 @@ fun TripMoreMenu(
                 },
             )
             DropdownMenuItem(
-                text = { Text(stringResource(R.string.trip_delete), color = MaterialTheme.colorScheme.error) },
+                text = {
+                    Text(
+                        stringResource(if (isOwner) R.string.trip_delete else R.string.trip_leave),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                },
                 leadingIcon = {
                     Icon(
-                        painterResource(R.drawable.ic_delete),
+                        painterResource(if (isOwner) R.drawable.ic_delete else R.drawable.ic_logout),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.error,
                     )
@@ -77,8 +85,11 @@ fun TripMoreButton(
     onDelete: () -> Unit,
     tint: Color,
     modifier: Modifier = Modifier,
+    isOwner: Boolean = true,
 ) {
-    TripMoreMenu(onShare, onDelete, modifier, menuOffset = DpOffset(Dimens.CardMenuEndPadding, 0.dp)) { open ->
+    TripMoreMenu(
+        onShare, onDelete, modifier, isOwner = isOwner, menuOffset = DpOffset(Dimens.CardMenuEndPadding, 0.dp),
+    ) { open ->
         IconButton(onClick = open, modifier = Modifier.size(Dimens.TouchTarget)) {
             Icon(
                 painter = painterResource(R.drawable.ic_more_vert),

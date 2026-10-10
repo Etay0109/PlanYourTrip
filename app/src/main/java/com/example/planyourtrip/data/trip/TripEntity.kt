@@ -61,4 +61,5 @@ fun TripEntity.toTrip() = Trip(
     currencyCode = currencyCode,
     ownerId = cloudOwnerId,
     memberIds = memberIds,
+    uuid = uuid,
 )

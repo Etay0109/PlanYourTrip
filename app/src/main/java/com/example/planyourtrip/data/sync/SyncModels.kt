@@ -95,5 +95,9 @@ sealed interface ItemData {
 /** An item on this device: [pending] = changed here and not uploaded yet. Local tombstones are always pending. */
 data class LocalItem(val item: SyncItem, val pending: Boolean)
 
-/** "All changes saved" / "Syncing…" / "Offline – changes will sync later" in the Home profile menu. */
-enum class SyncStatus { SAVED, SYNCING, OFFLINE }
+/**
+ * "All changes saved" / "Syncing…" / "Offline – changes will sync later" / "Sync problem – tap to retry" in the Home
+ * profile menu. [SAVED] only after a full sync succeeded and nothing is pending; [PROBLEM] while the last full sync
+ * failed for a reason other than the connection.
+ */
+enum class SyncStatus { SAVED, SYNCING, OFFLINE, PROBLEM }

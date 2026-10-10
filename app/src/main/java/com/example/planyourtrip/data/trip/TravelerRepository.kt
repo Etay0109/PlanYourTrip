@@ -18,6 +18,18 @@ interface TravelerRepository {
 
     /** Removes the traveler unless an expense or a settlement uses them. */
     suspend fun removeTraveler(id: Long, ownerId: String): RemoveTravelerResult
+
+    /**
+     * Merges traveler [id] into the trip's member [memberUid] (see TravelerMerge.kt) in one transaction: [plan] gets
+     * the trip's current expenses, settlements and travelers and decides; nothing changes unless it is ready.
+     */
+    suspend fun mergeIntoMember(
+        tripId: Long,
+        ownerId: String,
+        id: Long,
+        memberUid: String,
+        plan: (TravelerMergeInput) -> TravelerMergePlan,
+    ): MergeTravelerResult
 }
 
 /** Payments between travelers. They change the balances only, never the budget. */

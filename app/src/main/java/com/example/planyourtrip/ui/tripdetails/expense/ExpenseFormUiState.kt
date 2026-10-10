@@ -40,6 +40,8 @@ data class ExpenseFormUiState(
     val dateError: ExpenseFieldError? = null,
     /** "You" and the trip's travelers in list order (+ removed travelers the edited expense still uses). */
     val people: List<Person> = emptyList(),
+    /** Everyone's key in list order (the trip's owner first), for storing the split; empty = [people]'s order. */
+    val order: List<String> = emptyList(),
     /** Key of the payer ("Paid by"); a new expense is paid by me (my uid; set when the form loads). */
     val paidBy: String = "",
     /** Keys sharing the expense equally ("Split between"), in list order; a new expense is split with everyone. */

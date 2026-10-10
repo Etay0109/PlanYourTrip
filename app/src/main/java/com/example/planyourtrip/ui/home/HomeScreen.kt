@@ -16,7 +16,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FabPosition
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -35,6 +38,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -61,6 +65,8 @@ import com.example.planyourtrip.ui.home.components.NextTripCard
 import com.example.planyourtrip.ui.home.components.PastTripCard
 import com.example.planyourtrip.ui.home.components.SwipeToDeleteBox
 import com.example.planyourtrip.ui.home.components.UpcomingTripCard
+import com.example.planyourtrip.ui.home.join.JoinTripHost
+import com.example.planyourtrip.ui.home.join.JoinTripViewModel
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
 import com.example.planyourtrip.ui.theme.PlanYourTripTheme
@@ -73,13 +79,18 @@ fun HomeScreen(
     /** A trip whose delete was confirmed on the trip screen; deleted here, then [onPendingDeleteHandled]. */
     pendingDeleteTripId: Long? = null,
     onPendingDeleteHandled: () -> Unit = {},
+    /** A shared trip whose leave was confirmed on the trip screen; left here, then [onPendingLeaveHandled]. */
+    pendingLeaveTripId: Long? = null,
+    onPendingLeaveHandled: () -> Unit = {},
     viewModel: HomeViewModel = viewModel(factory = HomeViewModel.Factory),
     shareViewModel: ShareTripViewModel = viewModel(factory = ShareTripViewModel.Factory),
     accountViewModel: AccountViewModel = viewModel(factory = AccountViewModel.Factory),
     deleteViewModel: DeleteTripViewModel = viewModel(factory = DeleteTripViewModel.Factory),
     refreshViewModel: RefreshViewModel = viewModel(factory = RefreshViewModel.Factory),
+    joinViewModel: JoinTripViewModel = viewModel(factory = JoinTripViewModel.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val joinState by joinViewModel.uiState.collectAsStateWithLifecycle()
     val refresh by refreshViewModel.state.collectAsStateWithLifecycle()
     val account by accountViewModel.state.collectAsStateWithLifecycle()
     val deleteState by deleteViewModel.uiState.collectAsStateWithLifecycle()
@@ -90,12 +101,33 @@ fun HomeScreen(
         onPendingDeleteHandled()
         deleteViewModel.deleteConfirmed(id)
     }
+    LaunchedEffect(pendingLeaveTripId) {
+        val id = pendingLeaveTripId ?: return@LaunchedEffect
+        onPendingLeaveHandled()
+        deleteViewModel.leaveConfirmed(id)
+    }
     val deletedText = stringResource(R.string.trip_deleted)
     val failedText = stringResource(R.string.trip_delete_failed)
+    val leftText = stringResource(R.string.trip_left)
+    val leaveFailedText = stringResource(R.string.trip_leave_failed)
     LaunchedEffect(deleteState.message) {
         val message = deleteState.message ?: return@LaunchedEffect
         deleteViewModel.onMessageShown()
-        snackbarHostState.showSnackbar(if (message == DeleteTripMessage.DELETED) deletedText else failedText)
+        snackbarHostState.showSnackbar(
+            when (message) {
+                DeleteTripMessage.DELETED -> deletedText
+                DeleteTripMessage.FAILED -> failedText
+                DeleteTripMessage.LEFT -> leftText
+                DeleteTripMessage.LEAVE_FAILED -> leaveFailedText
+            },
+        )
+    }
+    val joinedDestination = joinState.joinedDestination
+    val joinedText = joinedDestination?.let { stringResource(R.string.join_joined, it) }
+    LaunchedEffect(joinedDestination) {
+        val text = joinedText ?: return@LaunchedEffect
+        joinViewModel.onJoinedShown()
+        snackbarHostState.showSnackbar(text)
     }
     val refreshFailedText = stringResource(R.string.refresh_failed)
     LaunchedEffect(refresh.failed) {
@@ -106,13 +138,15 @@ fun HomeScreen(
 
     ShareTripHost(shareViewModel)
     DeleteTripHost(deleteViewModel)
+    JoinTripHost(joinViewModel, joinState)
     HomeContent(
         state = state,
         account = account,
         onAddTrip = onAddTrip,
+        onJoinTrip = joinViewModel::onOpen,
         onTripClick = onTripClick,
         onShareTrip = shareViewModel::onShareTrip,
-        onDeleteTrip = { trip -> deleteViewModel.onDeleteTrip(trip.id, trip.destination) },
+        onDeleteTrip = deleteViewModel::onRemoveTrip,
         deletingTripId = deleteState.dialog?.tripId,
         snackbarHostState = snackbarHostState,
         accountActions = remember(accountViewModel) { accountViewModel.actions() },
@@ -129,7 +163,9 @@ fun HomeContent(
     onAddTrip: () -> Unit,
     onTripClick: (Long) -> Unit,
     onShareTrip: (Long) -> Unit,
-    /** Opens the "Delete this trip?" dialog (card menu, swipe). */
+    /** Opens the "Join a trip" sheet. */
+    onJoinTrip: () -> Unit = {},
+    /** Opens the "Delete this trip?" (or, for a shared trip someone else owns, "Leave this trip?") dialog. */
     onDeleteTrip: (Trip) -> Unit = {},
     /** The trip whose delete dialog is open: its card stays swiped open until the dialog closes. */
     deletingTripId: Long? = null,
@@ -142,15 +178,54 @@ fun HomeContent(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        floatingActionButtonPosition = FabPosition.Center,
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = onAddTrip,
-                shape = CircleShape,
-                containerColor = MaterialTheme.colorScheme.secondary,
-                contentColor = MaterialTheme.colorScheme.onSecondary,
-                icon = { Icon(painterResource(R.drawable.ic_add), contentDescription = null) },
-                text = { Text(stringResource(R.string.home_add_trip), style = MaterialTheme.typography.titleMedium) },
-            )
+            // "Join trip" next to "Add trip", across the bottom (design/home_join.png).
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Dimens.ScreenPadding),
+            ) {
+                OutlinedButton(
+                    onClick = onJoinTrip,
+                    shape = CircleShape,
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                        contentColor = MaterialTheme.colorScheme.primary,
+                    ),
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(56.dp),
+                ) {
+                    Icon(painterResource(R.drawable.ic_key), contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        stringResource(R.string.join_trip),
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                ExtendedFloatingActionButton(
+                    onClick = onAddTrip,
+                    shape = CircleShape,
+                    containerColor = MaterialTheme.colorScheme.secondary,
+                    contentColor = MaterialTheme.colorScheme.onSecondary,
+                    icon = { Icon(painterResource(R.drawable.ic_add), contentDescription = null) },
+                    text = {
+                        Text(
+                            stringResource(R.string.home_add_trip),
+                            style = MaterialTheme.typography.titleMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+            }
         },
     ) { innerPadding ->
         val content = state as? HomeUiState.Content ?: return@Scaffold
@@ -165,7 +240,7 @@ fun HomeContent(
         ) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                // Extra bottom space so the FAB (56dp + 16dp margin) never covers the last card.
+                // Extra bottom space so the buttons (56dp + 16dp margin) never cover the last card.
                 contentPadding = PaddingValues(
                     start = innerPadding.calculateStartPadding(layoutDirection) + Dimens.ScreenPadding,
                     end = innerPadding.calculateEndPadding(layoutDirection) + Dimens.ScreenPadding,
@@ -191,6 +266,7 @@ fun HomeContent(
                             shape = MaterialTheme.shapes.extraLarge,
                             deletePending = deletingTripId == next.trip.id,
                             onDelete = { onDeleteTrip(next.trip) },
+                            leave = !content.isOwner(next.trip),
                             modifier = Modifier.animateItem().padding(top = 8.dp),
                         ) {
                             NextTripCard(
@@ -198,6 +274,7 @@ fun HomeContent(
                                 onClick = { onTripClick(next.trip.id) },
                                 onShare = { onShareTrip(next.trip.id) },
                                 onDelete = { onDeleteTrip(next.trip) },
+                                isOwner = content.isOwner(next.trip),
                             )
                         }
                     }
@@ -224,6 +301,7 @@ fun HomeContent(
                             shape = MaterialTheme.shapes.large,
                             deletePending = deletingTripId == item.trip.id,
                             onDelete = { onDeleteTrip(item.trip) },
+                            leave = !content.isOwner(item.trip),
                             modifier = Modifier.animateItem(),
                         ) {
                             UpcomingTripCard(
@@ -231,6 +309,7 @@ fun HomeContent(
                                 onClick = { onTripClick(item.trip.id) },
                                 onShare = { onShareTrip(item.trip.id) },
                                 onDelete = { onDeleteTrip(item.trip) },
+                                isOwner = content.isOwner(item.trip),
                             )
                         }
                     }
@@ -257,6 +336,7 @@ fun HomeContent(
                             shape = MaterialTheme.shapes.large,
                             deletePending = deletingTripId == trip.id,
                             onDelete = { onDeleteTrip(trip) },
+                            leave = !content.isOwner(trip),
                             modifier = Modifier.animateItem(),
                         ) {
                             PastTripCard(
@@ -264,6 +344,7 @@ fun HomeContent(
                                 onClick = { onTripClick(trip.id) },
                                 onShare = { onShareTrip(trip.id) },
                                 onDelete = { onDeleteTrip(trip) },
+                                isOwner = content.isOwner(trip),
                             )
                         }
                     }

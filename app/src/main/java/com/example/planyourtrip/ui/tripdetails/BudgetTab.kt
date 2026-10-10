@@ -23,6 +23,7 @@ import com.example.planyourtrip.ui.common.categoryTotals
 import com.example.planyourtrip.ui.tripdetails.components.BudgetCard
 import com.example.planyourtrip.ui.tripdetails.components.CategoryChartCard
 import com.example.planyourtrip.ui.tripdetails.components.ExpenseRow
+import com.example.planyourtrip.ui.tripdetails.split.MergeSuggestionCard
 import com.example.planyourtrip.ui.tripdetails.split.SplitActions
 import com.example.planyourtrip.ui.tripdetails.split.SplitUiState
 import com.example.planyourtrip.ui.tripdetails.split.TravelersSection
@@ -57,6 +58,16 @@ internal fun LazyListScope.budgetTab(
         )
     }
     if (split is SplitUiState.Loaded) {
+        split.suggestion?.let { suggestion ->
+            item(key = "merge-${suggestion.traveler.uuid}") {
+                MergeSuggestionCard(
+                    suggestion = suggestion,
+                    isMerging = split.isMerging,
+                    actions = splitActions,
+                    modifier = cardPadding.padding(top = 8.dp),
+                )
+            }
+        }
         item(key = "travelers") {
             TravelersSection(split, splitActions, modifier = Modifier.padding(top = 8.dp))
         }

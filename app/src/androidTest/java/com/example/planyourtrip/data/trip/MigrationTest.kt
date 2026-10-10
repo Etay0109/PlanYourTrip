@@ -548,6 +548,65 @@ class MigrationTest {
         db.close()
     }
 
+    @Test
+    fun migrate14To15_keepsEverything_andAddsAnEmptyMembersTableThatGoesWithItsTrip() {
+        helper.createDatabase(DB, 14).use { db ->
+            db.execSQL(
+                "INSERT INTO trips (id, owner_id, destination, start_date, end_date, color, budget_agorot, " +
+                    "currency_code, uuid, updated_at, pending_sync, cloud_owner_id, member_ids, budget_updated_at, " +
+                    "budget_pending) VALUES " +
+                    "(1, 'u1', 'Rome', 20769, 20774, 'SKY', 500000, 'EUR', 't-1', 5, 0, 'u1', 'u1', 5, 0), " +
+                    "(2, 'u2', 'Rome', 20769, 20774, 'SKY', NULL, 'EUR', 't-1', 5, 0, 'u1', 'u1,u2', 0, 0)"
+            )
+            db.execSQL(
+                "INSERT INTO expenses (id, trip_id, name, amount_agorot, category, date, paid_by, split_between, " +
+                    "uuid, updated_at, pending_sync) VALUES (1, 1, 'Dinner', 10000, 'FOOD', 20770, 'u1', 'u1,r-1', 'e-1', 6, 1)"
+            )
+            db.execSQL(
+                "INSERT INTO deletions (uuid, owner_id, kind, trip_uuid, deleted_at) VALUES ('a-9', 'u1', 'ACTIVITY', 't-1', 8)"
+            )
+        }
+
+        val db = helper.runMigrationsAndValidate(DB, 15, true)
+
+        db.query("SELECT id, owner_id, member_ids, budget_agorot, updated_at, pending_sync FROM trips ORDER BY id").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(listOf(1, 500000, 5, 0), listOf(c.getInt(0), c.getInt(3), c.getInt(4), c.getInt(5)))
+            assertTrue(c.moveToNext())
+            assertEquals("u1,u2", c.getString(2))
+        }
+        db.query("SELECT paid_by, split_between, updated_at, pending_sync FROM expenses").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(listOf("u1", "u1,r-1"), listOf(c.getString(0), c.getString(1)))
+            assertEquals(listOf(6, 1), listOf(c.getInt(2), c.getInt(3)))
+        }
+        db.query("SELECT COUNT(*) FROM deletions").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(1, c.getInt(0))
+        }
+        db.query("SELECT COUNT(*) FROM trip_members").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(0, c.getInt(0))
+        }
+
+        // One member document per uid and trip; the same uid may be in two accounts' copies.
+        db.execSQL("INSERT INTO trip_members (trip_id, uid, name, joined_at, `left`) VALUES (1, 'u2', 'Noa', 9, 0)")
+        db.execSQL("INSERT INTO trip_members (trip_id, uid, name, joined_at, `left`) VALUES (2, 'u2', 'Noa', 9, 0)")
+        assertTrue(
+            runCatching {
+                db.execSQL("INSERT INTO trip_members (trip_id, uid, name, joined_at, `left`) VALUES (1, 'u2', 'Noa', 9, 0)")
+            }.isFailure
+        )
+        db.execSQL("PRAGMA foreign_keys = ON")
+        db.execSQL("DELETE FROM trips WHERE id = 1")
+        db.query("SELECT trip_id FROM trip_members").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(2, c.getInt(0))
+            assertTrue(!c.moveToNext())
+        }
+        db.close()
+    }
+
     private companion object {
         const val DB = "migration-test.db"
     }

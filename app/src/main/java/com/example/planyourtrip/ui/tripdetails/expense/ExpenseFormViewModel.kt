@@ -17,7 +17,9 @@ import com.example.planyourtrip.data.trip.ExpenseCategory
 import com.example.planyourtrip.data.trip.ExpenseInput
 import com.example.planyourtrip.data.trip.ExpenseRepository
 import com.example.planyourtrip.data.trip.TravelerRepository
+import com.example.planyourtrip.data.trip.TripMemberRepository
 import com.example.planyourtrip.data.trip.TripRepository
+import com.example.planyourtrip.ui.common.split.Person
 import com.example.planyourtrip.ui.common.split.inListOrder
 import com.example.planyourtrip.ui.common.split.personOf
 import com.example.planyourtrip.ui.common.split.travelerOrder
@@ -45,6 +47,8 @@ class ExpenseFormViewModel(
     private val authRepository: AuthRepository,
     private val clock: Clock,
     private val travelerRepository: TravelerRepository,
+    /** Names of the trip's other members (shared trips). */
+    private val memberRepository: TripMemberRepository = TripMemberRepository.None,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -66,11 +70,15 @@ class ExpenseFormViewModel(
             val trip = tripRepository.observeTrip(tripId, ownerId).first()
             val expense = expenseId?.let { repository.observeExpense(it, ownerId).first() }
             val travelers = travelerRepository.observeTravelers(tripId, ownerId).first()
+            val members = memberRepository.observeMembers(tripId, ownerId).first()
             stored = expense
-            val order = travelerOrder(ownerId, trip?.memberIds.orEmpty(), travelers)
-            // An edited expense keeps its payer and split, even a traveler removed on another device since.
+            val memberIds = trip?.memberIds.orEmpty()
+            val order = travelerOrder(ownerId, memberIds, travelers)
+            // An edited expense keeps its payer and split, even a traveler removed (or a member who left) since.
             val usedKeys = expense?.let { listOf(it.paidBy) + it.splitBetween }.orEmpty()
-            val people = inListOrder(order + usedKeys, order).map { personOf(it, ownerId, travelers) }
+            val keys = inListOrder(order + usedKeys, order)
+            // Shown with "You" first (the list order puts the trip's owner first).
+            val people = keys.map { personOf(it, ownerId, travelers, memberIds, members) }.sortedBy { it !is Person.You }
             // Editing keeps the expense's own currency even if the trip currency changed since.
             val foreignCode = expense?.original?.currencyCode ?: trip?.currencyCode?.takeIf { it != ILS }
             _uiState.update { state ->
@@ -82,6 +90,7 @@ class ExpenseFormViewModel(
                     // A new expense starts in the trip currency when there is one.
                     currencyCode = foreignCode ?: ILS,
                     people = people,
+                    order = keys,
                 )
                 if (expense == null) {
                     // Paid by me, split between everyone.
@@ -171,7 +180,7 @@ class ExpenseFormViewModel(
 
     /** Adds or removes one person from "Split between". */
     fun onSplitToggle(key: String) = _uiState.update { state ->
-        val order = state.people.map { it.key }
+        val order = state.order.ifEmpty { state.people.map { it.key } }
         if (key !in order) return@update state
         val split = if (key in state.splitBetween) state.splitBetween - key else state.splitBetween + key
         state.copy(splitBetween = inListOrder(split, order), splitError = null)
@@ -245,6 +254,7 @@ class ExpenseFormViewModel(
                     authRepository = container.authRepository,
                     clock = container.clock,
                     travelerRepository = container.travelerRepository,
+                    memberRepository = container.tripMemberRepository,
                 )
             }
         }

@@ -20,6 +20,8 @@ import com.example.planyourtrip.data.trip.Expense
 import com.example.planyourtrip.data.trip.ExpenseRepository
 import com.example.planyourtrip.data.trip.Traveler
 import com.example.planyourtrip.data.trip.TravelerRepository
+import com.example.planyourtrip.data.trip.TripMember
+import com.example.planyourtrip.data.trip.TripMemberRepository
 import com.example.planyourtrip.data.trip.TripRepository
 import com.example.planyourtrip.ui.common.CurrencyPickerState
 import com.example.planyourtrip.ui.common.Money
@@ -32,6 +34,7 @@ import com.example.planyourtrip.ui.common.split.travelerOrder
 import com.example.planyourtrip.ui.common.tripStatus
 import com.example.planyourtrip.ui.navigation.TripDetails
 import com.example.planyourtrip.ui.tripdetails.components.ExpenseSplitInfo
+import com.example.planyourtrip.ui.tripdetails.members.membersState
 import java.time.Clock
 import java.time.LocalDate
 import kotlinx.coroutines.CoroutineDispatcher
@@ -66,6 +69,8 @@ class TripDetailsViewModel(
     computeDispatcher: CoroutineDispatcher = Dispatchers.Default,
     /** The last deleted activity (from the activity form): "Activity deleted" with "Undo". */
     private val deletedActivities: DeletedActivityStore = DeletedActivityStore(),
+    /** Names of the trip's members (shared trips). */
+    memberRepository: TripMemberRepository = TripMemberRepository.None,
 ) : ViewModel() {
 
     /** Day chosen on the Plan tab; null = the default day (first day, or today during the trip). */
@@ -83,12 +88,13 @@ class TripDetailsViewModel(
                 combine(
                     expenseRepository.observeExpenses(tripId, user.uid),
                     travelerRepository.observeTravelers(tripId, user.uid),
-                    ::Pair,
+                    memberRepository.observeMembers(tripId, user.uid),
+                    ::Triple,
                 ),
                 activityRepository.observeActivities(tripId, user.uid),
                 planDay,
                 overviewDay,
-            ) { trip, (expenses, travelers), activities, planSelection, overviewSelection ->
+            ) { trip, (expenses, travelers, members), activities, planSelection, overviewSelection ->
                 if (trip == null) return@combine TripDetailsUiState.NotFound
                 // The budget counts only my share of each expense.
                 val order = travelerOrder(user.uid, trip.memberIds, travelers)
@@ -109,8 +115,11 @@ class TripDetailsViewModel(
                     expenses = expenses,
                     travelers = travelers,
                     myShares = myShares,
-                    expenseSplits = expenseSplits(expenses, travelers, myShares, user.uid, order),
+                    expenseSplits = expenseSplits(
+                        expenses, travelers, myShares, user.uid, order, trip.memberIds, members,
+                    ),
                     itinerary = itinerary,
+                    members = membersState(user.uid, trip, members, clock.zone),
                 )
             }
         }
@@ -328,6 +337,7 @@ class TripDetailsViewModel(
                     currencyRepository = container.currencyRepository,
                     clock = container.clock,
                     deletedActivities = container.deletedActivities,
+                    memberRepository = container.tripMemberRepository,
                 )
             }
         }
@@ -344,12 +354,15 @@ internal fun expenseSplits(
     myShares: Map<Long, Long>,
     me: String,
     order: List<String>,
+    memberIds: List<String> = emptyList(),
+    members: List<TripMember> = emptyList(),
 ): Map<Long, ExpenseSplitInfo> {
-    if (travelers.isEmpty()) return emptyMap()
+    if (order.none { it != me }) return emptyMap()
+    fun person(key: String) = personOf(key, me, travelers, memberIds, members)
     return expenses.associate { expense ->
         expense.id to ExpenseSplitInfo(
-            payer = personOf(expense.paidBy, me, travelers),
-            splitWith = inListOrder(expense.splitBetween, order).map { personOf(it, me, travelers) },
+            payer = person(expense.paidBy),
+            splitWith = inListOrder(expense.splitBetween, order).map(::person),
             myShareAgorot = myShares[expense.id] ?: 0L,
         )
     }

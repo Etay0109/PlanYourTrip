@@ -1,12 +1,14 @@
 package com.example.planyourtrip.data.sync
 
 import android.util.Log
+import com.example.planyourtrip.data.trip.TripMember
 import com.google.firebase.firestore.CollectionReference
 import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.Source
@@ -135,6 +137,88 @@ class FirestoreCloudStore private constructor(private val firestore: FirebaseFir
         writes.values.forEach { commit(it) }
     }
 
+    override suspend fun tripAccess(uid: String, tripUuids: Collection<String>): Map<String, TripAccess> =
+        call("tripAccess") {
+            coroutineScope {
+                tripUuids.map { id -> async { id to access(id) } }.awaitAll().toMap()
+            }
+        }
+
+    /** Only a denied read means "no access"; any other failure (offline, timeout) fails the sync. */
+    private suspend fun access(tripUuid: String): TripAccess =
+        try {
+            val doc = trips().document(tripUuid).get(Source.SERVER).await()
+            when {
+                !doc.exists() -> TripAccess.MISSING
+                doc.getBoolean(SyncDocuments.DELETED) == true -> TripAccess.DELETED
+                else -> TripAccess.LIVE
+            }
+        } catch (e: FirebaseFirestoreException) {
+            if (e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) TripAccess.NO_ACCESS else throw e
+        }
+
+    override suspend fun fetchMembers(uid: String, tripUuids: Collection<String>): Map<String, List<TripMember>> =
+        call("fetchMembers") {
+            coroutineScope {
+                tripUuids.map { id ->
+                    async {
+                        val docs = trips().document(id).collection(SharedTripDocuments.MEMBERS).get(Source.SERVER)
+                            .await().documents
+                        id to docs.mapNotNull { readMember(it) }
+                    }
+                }.awaitAll().toMap()
+            }
+        }
+
+    private fun readMember(doc: DocumentSnapshot): TripMember? {
+        val name = doc.getString(SharedTripDocuments.Member.NAME)?.trim()?.takeIf { it.isNotEmpty() }
+            ?: return null.also { Log.w(TAG, "Skipping unreadable member document ${doc.reference.path}") }
+        return TripMember(
+            uid = doc.id,
+            name = name,
+            joinedAt = doc.getTimestamp(SharedTripDocuments.Member.JOINED_AT)?.toDate()?.time,
+            left = doc.getBoolean(SharedTripDocuments.Member.LEFT) == true,
+        )
+    }
+
+    override suspend fun deletePersonal(uid: String, tripUuid: String) = call("deletePersonal") {
+        val mine = memberData(tripUuid, uid)
+        val packing = mine.collection(PACKING).get(Source.SERVER).await().documents
+        // Packing items first, so an interruption never leaves items without their budget document's delete pending.
+        val refs = packing.map { it.reference } + mine
+        commit(refs.map { ref -> { batch: WriteBatch -> batch.delete(ref); Unit } })
+    }
+
+    override suspend fun leaveTrip(uid: String, tripUuid: String) = call("leaveTrip") {
+        val trip = trips().document(tripUuid)
+        val mine = memberData(tripUuid, uid)
+        val member = trip.collection(SharedTripDocuments.MEMBERS).document(uid)
+        val packing = mine.collection(PACKING).get(Source.SERVER).await().documents
+        val hasMemberDoc = member.get(Source.SERVER).await().exists()
+        // The leave write holds the trip, my member document, my budget and as many Packing items as fit; any others
+        // are deleted just before it (deleting my own personal data is always allowed).
+        val room = MAX_BATCH - 3
+        commit(packing.drop(room).map { doc -> { batch: WriteBatch -> batch.delete(doc.reference); Unit } })
+        val batch = firestore.batch()
+        batch.update(trip, SyncDocuments.MEMBER_IDS, FieldValue.arrayRemove(uid))
+        if (hasMemberDoc) batch.update(member, SharedTripDocuments.Member.LEFT, true)
+        batch.delete(mine)
+        packing.take(room).forEach { batch.delete(it.reference) }
+        batch.commit().await()
+        Unit
+    }
+
+    override suspend fun removeMember(uid: String, tripUuid: String, memberUid: String) = call("removeMember") {
+        val trip = trips().document(tripUuid)
+        val member = trip.collection(SharedTripDocuments.MEMBERS).document(memberUid)
+        val hasMemberDoc = member.get(Source.SERVER).await().exists()
+        val batch = firestore.batch()
+        batch.update(trip, SyncDocuments.MEMBER_IDS, FieldValue.arrayRemove(memberUid))
+        if (hasMemberDoc) batch.update(member, SharedTripDocuments.Member.LEFT, true)
+        batch.commit().await()
+        Unit
+    }
+
     override suspend fun fetchLegacy(uid: String): List<SyncItem> = call("fetchLegacy") {
         val tripDocs = legacyList(legacyTrips(uid))
         coroutineScope {
@@ -203,22 +287,19 @@ class FirestoreCloudStore private constructor(private val firestore: FirebaseFir
     private fun legacyTrips(uid: String): CollectionReference =
         firestore.collection(USERS).document(uid).collection(TRIPS)
 
-    private fun ref(uid: String, item: SyncItem): DocumentReference {
-        val tripUuid = item.tripUuid ?: item.uuid
-        val trip = trips().document(tripUuid)
-        return when (item.kind) {
-            SyncKind.TRIP -> trip
-            SyncKind.BUDGET -> memberData(tripUuid, uid)
-            SyncKind.PACKING -> memberData(tripUuid, uid).collection(PACKING).document(item.uuid)
-            else -> trip.collection(SHARED_CHILDREN.first { it.first == item.kind }.second).document(item.uuid)
-        }
-    }
+    private fun ref(uid: String, item: SyncItem): DocumentReference =
+        firestore.document(SyncPaths.of(uid, item).joinToString("/"))
 
+    /** [tripUuid] = the trip the document belongs to (null for a trip document); see [SyncDocuments.fromDocument]. */
     private fun read(kind: SyncKind, doc: DocumentSnapshot, tripUuid: String?): SyncItem? =
         SyncDocuments.fromDocument(kind, doc.id, tripUuid, doc.data.orEmpty())
             ?: null.also { Log.w(TAG, "Skipping unreadable ${kind.name} document ${doc.reference.path}") }
 
-    /** Every failure becomes a [CloudUnavailableException]; the sync then keeps the changes pending. */
+    /**
+     * Every failure becomes a [CloudUnavailableException]; the sync then keeps the changes pending. Only "the server
+     * can't be reached" counts as a connection failure; anything else (denied by the rules, invalid data, quota) is a
+     * sync problem the user should see.
+     */
     private suspend fun <T> call(name: String, block: suspend () -> T): T =
         try {
             block()
@@ -226,16 +307,22 @@ class FirestoreCloudStore private constructor(private val firestore: FirebaseFir
             throw e
         } catch (e: Exception) {
             Log.w(TAG, "$name failed", e)
-            throw CloudUnavailableException(e)
+            val connection = e is FirebaseFirestoreException && e.code in CONNECTION_FAILURES
+            throw CloudUnavailableException(e, isProblem = !connection)
         }
 
     companion object {
         private const val TAG = "CloudSync"
         private const val USERS = "users"
-        private const val TRIPS = "trips"
-        private const val MEMBER_DATA = "memberData"
-        private const val PACKING = "packing"
-        private const val CHECKLIST = "checklist"
+        private const val TRIPS = SyncPaths.TRIPS
+        private const val MEMBER_DATA = SyncPaths.MEMBER_DATA
+        private const val PACKING = SyncPaths.PACKING
+
+        /** Failures that mean the server couldn't be reached (offline, timed out on the server's side). */
+        private val CONNECTION_FAILURES = setOf(
+            FirebaseFirestoreException.Code.UNAVAILABLE,
+            FirebaseFirestoreException.Code.DEADLINE_EXCEEDED,
+        )
 
         /** The legacy copy's migration marker in users/{uid}. */
         private const val MIGRATED = "sharedTripsMigrated"
@@ -247,13 +334,7 @@ class FirestoreCloudStore private constructor(private val firestore: FirebaseFir
         private const val LEGACY_PAGE = 450L
 
         /** The shared children of a trip: kind → subcollection. */
-        private val SHARED_CHILDREN = listOf(
-            SyncKind.TRAVELER to "travelers",
-            SyncKind.EXPENSE to "expenses",
-            SyncKind.ACTIVITY to "activities",
-            SyncKind.CHECKLIST to CHECKLIST,
-            SyncKind.SETTLEMENT to "settlements",
-        )
+        private val SHARED_CHILDREN = SyncPaths.SHARED_CHILDREN
 
         /** The legacy copy kept both checklists in one subcollection. */
         private val LEGACY_CHILDREN = SHARED_CHILDREN

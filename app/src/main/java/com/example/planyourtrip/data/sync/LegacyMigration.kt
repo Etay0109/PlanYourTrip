@@ -37,12 +37,15 @@ fun convertLegacy(items: List<SyncItem>, uid: String): List<SyncItem> = items.fl
  * account sees it) doesn't have, or has in an older version. A tombstone of an item the new layout never had is
  * copied too (so a pending edit on another phone can't bring a deleted item back), except children of trips that
  * end up deleted: the trip's tombstone covers them, and the rules accept no live child of a deleted trip.
+ *
+ * A budget is copied only when the new layout has no budget document of that trip at all: a legacy budget carries
+ * the legacy *trip's* `updatedAt` (not the time the budget was set), so it must never replace one that exists.
  */
 fun planLegacyCopy(legacy: List<SyncItem>, current: List<SyncItem>): List<SyncItem> {
     val currentByKey = current.associateBy { it.kind to it.uuid }
     fun isNewer(item: SyncItem): Boolean {
         val existing = currentByKey[item.kind to item.uuid] ?: return true
-        return item.updatedAt > existing.updatedAt
+        return item.kind != SyncKind.BUDGET && item.updatedAt > existing.updatedAt
     }
     // The version of each trip after the copy: the legacy one where it is newer, else the current one.
     val tripAfter = (current + legacy).filter { it.kind == SyncKind.TRIP }

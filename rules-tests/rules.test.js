@@ -8,6 +8,8 @@ import {
   initializeTestEnvironment,
 } from '@firebase/rules-unit-testing';
 import {
+  Timestamp,
+  arrayRemove,
   arrayUnion,
   collection,
   deleteDoc,
@@ -19,6 +21,7 @@ import {
   orderBy,
   query,
   documentId,
+  serverTimestamp,
   setDoc,
   setLogLevel,
   updateDoc,
@@ -260,7 +263,7 @@ describe('someone who is not a member', () => {
     await assertFails(deleteDoc(doc(db, 'trips/t1')));
   });
 
-  it('can not add themselves as a member (joining needs an invite, Stage 2)', async () => {
+  it('can not add themselves as a member without an invite', async () => {
     await assertFails(updateDoc(doc(as('mallory'), 'trips/t1'), { memberIds: arrayUnion('mallory') }));
   });
 });
@@ -298,9 +301,15 @@ describe('a member', () => {
     await assertFails(updateDoc(doc(as('alice'), 'trips/t1'), { memberIds: ['alice', 'bob', 'bob'] }));
   });
 
-  it('can remove only themselves', async () => {
-    await assertFails(updateDoc(doc(as('bob'), 'trips/t1'), { memberIds: ['bob'] }));
-    await assertSucceeds(updateDoc(doc(as('bob'), 'trips/t1'), { memberIds: ['alice'] }));
+  it('can remove only themselves, deleting their own budget in the same write', async () => {
+    const db = as('bob');
+    await assertFails(updateDoc(doc(db, 'trips/t1'), { memberIds: ['bob'] }));
+    // Leaving without deleting the budget fails.
+    await assertFails(updateDoc(doc(db, 'trips/t1'), { memberIds: ['alice'] }));
+    const batch = writeBatch(db);
+    batch.update(doc(db, 'trips/t1'), { memberIds: ['alice'] });
+    batch.delete(doc(db, 'trips/t1/memberData/bob'));
+    await assertSucceeds(batch.commit());
   });
 
   it('can not change the members together with anything else', async () => {
@@ -491,22 +500,429 @@ describe('field validation', () => {
   });
 });
 
-// ---------- Members and invites: Stage 2, nothing allowed yet ----------
+// ---------- Invites, joining, leaving, removing ----------
 
-describe('members and invites (not in Stage 1)', () => {
-  beforeEach(seedSharedTrip);
+const CODE = 'K7M4XP2R';
+const CODE2 = 'ABCD2345';
+const DAY = 24 * 60 * 60 * 1000;
 
-  it('no member document can be written, with or without extra fields', async () => {
-    await assertFails(setDoc(doc(as('bob'), 'trips/t1/members/bob'), { name: 'Bob', joinedAt: 1 }));
-    await assertFails(setDoc(doc(as('bob'), 'trips/t1/members/bob'), { name: 'Bob', joinedAt: 1, email: 'bob@example.com' }));
-    await assertFails(getDoc(doc(as('bob'), 'trips/t1/members/alice')));
+const invite = (tripId = 't1', extra = {}) => ({
+  tripId,
+  inviterName: 'Alice',
+  destination: 'Rome',
+  startDate: '2026-11-12',
+  endDate: '2026-11-17',
+  createdAt: serverTimestamp(),
+  status: 'open',
+  usedBy: null,
+  ...extra,
+});
+
+const member = (name, inviteCode = null, extra = {}) => ({ name, joinedAt: serverTimestamp(), left: false, inviteCode, ...extra });
+
+/** The app's create-invite batch: the owner's member document, the invite and the owner's pointer to it. */
+function createInvite(owner = 'alice', code = CODE, tripId = 't1', inviteExtra = {}) {
+  const db = as(owner);
+  const batch = writeBatch(db);
+  batch.set(doc(db, `trips/${tripId}/members/${owner}`), member('Alice'));
+  batch.set(doc(db, `invites/${code}`), invite(tripId, inviteExtra));
+  batch.set(doc(db, `trips/${tripId}/private/invite`), { code });
+  return batch.commit();
+}
+
+/** The app's join batch; [skip] leaves one of its three writes out. */
+function join(uid, code = CODE, tripId = 't1', { skip = null, memberTrip = tripId, memberCode = code } = {}) {
+  const db = as(uid);
+  const batch = writeBatch(db);
+  if (skip !== 'invite') batch.update(doc(db, `invites/${code}`), { status: 'used', usedBy: uid });
+  if (skip !== 'trip') batch.update(doc(db, `trips/${tripId}`), { memberIds: arrayUnion(uid) });
+  if (skip !== 'member') batch.set(doc(db, `trips/${memberTrip}/members/${uid}`), member(uid, memberCode));
+  return batch.commit();
+}
+
+/** The app's leave batch: out of memberIds, member document left, budget and every Packing item deleted. */
+function leave(uid, tripId = 't1', packingIds = []) {
+  const db = as(uid);
+  const batch = writeBatch(db);
+  batch.update(doc(db, `trips/${tripId}`), { memberIds: arrayRemove(uid) });
+  batch.update(doc(db, `trips/${tripId}/members/${uid}`), { left: true });
+  batch.delete(doc(db, `trips/${tripId}/memberData/${uid}`));
+  for (const id of packingIds) batch.delete(doc(db, `trips/${tripId}/memberData/${uid}/packing/${id}`));
+  return batch.commit();
+}
+
+/** The app's remove-member batch, by the owner. */
+function removeMember(owner, uid, tripId = 't1') {
+  const db = as(owner);
+  const batch = writeBatch(db);
+  batch.update(doc(db, `trips/${tripId}`), { memberIds: arrayRemove(uid) });
+  batch.update(doc(db, `trips/${tripId}/members/${uid}`), { left: true });
+  return batch.commit();
+}
+
+async function expectMembers(tripId, members) {
+  let actual;
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    actual = (await getDoc(doc(ctx.firestore(), `trips/${tripId}`))).data().memberIds;
+  });
+  if (JSON.stringify(actual) !== JSON.stringify(members)) {
+    throw new Error(`expected members ${JSON.stringify(members)}, got ${JSON.stringify(actual)}`);
+  }
+}
+
+/** Makes [code]'s invite [days] old, without rules (the server time can't be moved). */
+async function ageInvite(code, days) {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await updateDoc(doc(ctx.firestore(), `invites/${code}`), { createdAt: Timestamp.fromMillis(Date.now() - days * DAY) });
+  });
+}
+
+describe('creating and cancelling an invite', () => {
+  beforeEach(async () => {
+    await seed({ 'trips/t1': trip('alice'), 'trips/t2': trip('carol') });
   });
 
-  it('no invite can be created, read or listed', async () => {
-    await assertFails(setDoc(doc(as('alice'), 'invites/ABCD2345'), { tripId: 't1' }));
-    await seed({ 'invites/ABCD2345': { tripId: 't1' } });
-    await assertFails(getDoc(doc(as('mallory'), 'invites/ABCD2345')));
-    await assertFails(getDocs(collection(as('mallory'), 'invites')));
+  it('the owner creates an invite with their member document and the pointer, and reads it back', async () => {
+    await assertSucceeds(createInvite());
+    await assertSucceeds(getDoc(doc(as('alice'), `invites/${CODE}`)));
+    await assertSucceeds(getDoc(doc(as('alice'), 'trips/t1/private/invite')));
+  });
+
+  it('a member who is not the owner, or anyone else, can not create one', async () => {
+    await seed({ 'trips/t1': trip('alice', ['alice', 'bob']) });
+    const db = as('bob');
+    const batch = writeBatch(db);
+    batch.set(doc(db, `invites/${CODE}`), invite('t1', { inviterName: 'Bob' }));
+    await assertFails(batch.commit());
+    await assertFails(setDoc(doc(as('mallory'), `invites/${CODE}`), invite('t1')));
+    await assertFails(createInvite('bob'));
+  });
+
+  it('the owner can not create one for someone else\'s trip', async () => {
+    await assertFails(createInvite('alice', CODE, 't2'));
+  });
+
+  it('copies the trip\'s destination and dates and the inviter\'s own name, and starts open now', async () => {
+    await assertFails(createInvite('alice', CODE, 't1', { destination: 'Paris' }));
+    await assertFails(createInvite('alice', CODE, 't1', { endDate: '2026-12-01' }));
+    await assertFails(createInvite('alice', CODE, 't1', { inviterName: 'Someone else' }));
+    await assertFails(createInvite('alice', CODE, 't1', { createdAt: Timestamp.fromMillis(Date.now() + 30 * DAY) }));
+    await assertFails(createInvite('alice', CODE, 't1', { status: 'used' }));
+    await assertFails(createInvite('alice', CODE, 't1', { usedBy: 'bob' }));
+    await assertFails(createInvite('alice', CODE, 't1', { expiresAt: Timestamp.fromMillis(Date.now() + 365 * DAY) }));
+    await assertFails(createInvite('alice', CODE, 't1', { inviterEmail: 'alice@example.com' }));
+  });
+
+  it('needs a well-formed code', async () => {
+    await assertFails(createInvite('alice', 'K7M4XP2'));
+    await assertFails(createInvite('alice', 'K7M4XP20'));
+    await assertFails(createInvite('alice', 'k7m4xp2r'));
+    await assertFails(createInvite('alice', 'K7M4XP2RR'));
+  });
+
+  it('can not overwrite an existing code (the app then tries another)', async () => {
+    await assertSucceeds(createInvite());
+    await assertFails(createInvite());
+    await seed({ 'trips/t3': trip('dave') });
+    await assertFails(createInvite('dave', CODE, 't3'));
+  });
+
+  it('can not be created for a deleted trip or a trip with 10 members', async () => {
+    await seed({ 'trips/t1': tripTombstone('alice') });
+    await assertFails(createInvite());
+    const ten = ['alice', ...Array.from({ length: 9 }, (_, i) => `m${i}`)];
+    await seed({ 'trips/t1': trip('alice', ten) });
+    await assertFails(createInvite());
+  });
+
+  it('only the owner cancels it, and a cancelled code can not be read or used', async () => {
+    await assertSucceeds(createInvite());
+    await seed({ 'trips/t1': trip('alice', ['alice', 'bob']) });
+    await assertFails(updateDoc(doc(as('bob'), `invites/${CODE}`), { status: 'cancelled' }));
+    await assertFails(updateDoc(doc(as('mallory'), `invites/${CODE}`), { status: 'cancelled' }));
+    await assertFails(updateDoc(doc(as('alice'), `invites/${CODE}`), { status: 'cancelled', destination: 'Oslo' }));
+    await assertSucceeds(updateDoc(doc(as('alice'), `invites/${CODE}`), { status: 'cancelled' }));
+    await assertFails(getDoc(doc(as('carol'), `invites/${CODE}`)));
+    await assertFails(join('carol'));
+    await assertFails(updateDoc(doc(as('alice'), `invites/${CODE}`), { status: 'open' }));
+  });
+
+  it('nobody can delete an invite', async () => {
+    await assertSucceeds(createInvite());
+    await assertFails(deleteDoc(doc(as('alice'), `invites/${CODE}`)));
+  });
+
+  it('the pointer to the current code is the owner\'s only', async () => {
+    await assertSucceeds(createInvite());
+    await seed({ 'trips/t1': trip('alice', ['alice', 'bob']) });
+    await assertFails(getDoc(doc(as('bob'), 'trips/t1/private/invite')));
+    await assertFails(setDoc(doc(as('bob'), 'trips/t1/private/invite'), { code: CODE2 }));
+    await assertSucceeds(setDoc(doc(as('alice'), 'trips/t1/private/invite'), { code: null }));
+    await assertFails(setDoc(doc(as('alice'), 'trips/t1/private/invite'), { code: 'nope' }));
+    await assertFails(setDoc(doc(as('alice'), 'trips/t1/private/other'), { code: null }));
+  });
+});
+
+describe('reading an invite', () => {
+  beforeEach(async () => {
+    await seed({ 'trips/t1': trip('alice') });
+    await createInvite();
+  });
+
+  it('works only with its exact code while it is open', async () => {
+    const snap = await assertSucceeds(getDoc(doc(as('bob'), `invites/${CODE}`)));
+    const keys = Object.keys(snap.data()).sort();
+    const expected = ['createdAt', 'destination', 'endDate', 'inviterName', 'startDate', 'status', 'tripId', 'usedBy'];
+    if (JSON.stringify(keys) !== JSON.stringify(expected)) throw new Error(`unexpected fields ${keys}`);
+  });
+
+  it('guessing a code looks the same as any invalid code', async () => {
+    await assertFails(getDoc(doc(as('mallory'), `invites/${CODE2}`)));
+    await assertFails(getDoc(doc(as('mallory'), 'invites/nonsense')));
+  });
+
+  it('invites can never be listed or queried', async () => {
+    const db = as('mallory');
+    await assertFails(getDocs(collection(db, 'invites')));
+    await assertFails(getDocs(query(collection(db, 'invites'), where('status', '==', 'open'))));
+    await assertFails(getDocs(query(collection(db, 'invites'), where('tripId', '==', 't1'))));
+    await assertFails(getDocs(collection(as('alice'), 'invites')));
+  });
+
+  it('signed out can not read it', async () => {
+    await assertFails(getDoc(doc(anonymous(), `invites/${CODE}`)));
+  });
+
+  it('an expired invite can not be read or used', async () => {
+    await ageInvite(CODE, 6.9);
+    await assertSucceeds(getDoc(doc(as('bob'), `invites/${CODE}`)));
+    await ageInvite(CODE, 7.01);
+    await assertFails(getDoc(doc(as('bob'), `invites/${CODE}`)));
+    await assertFails(getDoc(doc(as('alice'), `invites/${CODE}`)));
+    await assertFails(join('bob'));
+  });
+
+  it('a used invite can not be read', async () => {
+    await assertSucceeds(join('bob'));
+    await assertFails(getDoc(doc(as('carol'), `invites/${CODE}`)));
+    await assertFails(getDoc(doc(as('bob'), `invites/${CODE}`)));
+  });
+
+  it('the invite of a deleted trip can not be read or used', async () => {
+    await seed({ 'trips/t1': tripTombstone('alice') });
+    await assertFails(getDoc(doc(as('bob'), `invites/${CODE}`)));
+    await assertFails(join('bob'));
+  });
+});
+
+describe('joining a trip', () => {
+  beforeEach(async () => {
+    await seed({ 'trips/t1': trip('alice'), 'trips/t2': trip('alice'), 'trips/t9': trip('zoe') });
+    await createInvite();
+  });
+
+  it('with an open invite, one batch makes me a member and uses the code', async () => {
+    await assertSucceeds(join('bob'));
+    await expectMembers('t1', ['alice', 'bob']);
+    const db = as('bob');
+    await assertSucceeds(getDoc(doc(db, 'trips/t1')));
+    await assertSucceeds(getDocs(collection(db, 'trips/t1/members')));
+    await assertSucceeds(setDoc(doc(db, 'trips/t1/expenses/e2'), expense({ paidBy: 'bob' })));
+    await assertSucceeds(setDoc(doc(db, 'trips/t1/memberData/bob'), budget()));
+  });
+
+  it('re-using a code fails, also for the one who used it', async () => {
+    await assertSucceeds(join('bob'));
+    await assertFails(join('carol'));
+    await expectMembers('t1', ['alice', 'bob']);
+  });
+
+  it('joining twice fails', async () => {
+    await assertSucceeds(join('bob'));
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), `invites/${CODE2}`), invite('t1', { createdAt: Timestamp.now() }));
+    });
+    await assertFails(join('bob', CODE2));
+    await expectMembers('t1', ['alice', 'bob']);
+  });
+
+  it('can not join a trip other than the invite\'s', async () => {
+    await assertFails(join('bob', CODE, 't2'));
+    await assertFails(join('bob', CODE, 't9'));
+    // Using the code while writing the member document of another trip fails too.
+    await assertFails(join('bob', CODE, 't2', { memberTrip: 't2' }));
+  });
+
+  it('a join batch missing any of its three writes fails', async () => {
+    await assertFails(join('bob', CODE, 't1', { skip: 'invite' }));
+    await assertFails(join('bob', CODE, 't1', { skip: 'trip' }));
+    await assertFails(join('bob', CODE, 't1', { skip: 'member' }));
+    await expectMembers('t1', ['alice']);
+  });
+
+  it('a member document must name the code that is used', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), `invites/${CODE2}`), invite('t1', { createdAt: Timestamp.now() }));
+    });
+    await assertFails(join('bob', CODE, 't1', { memberCode: CODE2 }));
+  });
+
+  it('nobody can add another person, not even the owner or with a valid code', async () => {
+    const db = as('bob');
+    const batch = writeBatch(db);
+    batch.update(doc(db, `invites/${CODE}`), { status: 'used', usedBy: 'carol' });
+    batch.update(doc(db, 'trips/t1'), { memberIds: arrayUnion('carol') });
+    batch.set(doc(db, 'trips/t1/members/carol'), member('Carol', CODE));
+    await assertFails(batch.commit());
+    const owner = as('alice');
+    const ownerBatch = writeBatch(owner);
+    ownerBatch.update(doc(owner, `invites/${CODE}`), { status: 'used', usedBy: 'carol' });
+    ownerBatch.update(doc(owner, 'trips/t1'), { memberIds: arrayUnion('carol') });
+    await assertFails(ownerBatch.commit());
+    // Adding myself and someone else in one go fails as well.
+    const both = writeBatch(db);
+    both.update(doc(db, `invites/${CODE}`), { status: 'used', usedBy: 'bob' });
+    both.update(doc(db, 'trips/t1'), { memberIds: arrayUnion('bob', 'carol') });
+    both.set(doc(db, 'trips/t1/members/bob'), member('Bob', CODE));
+    await assertFails(both.commit());
+    await expectMembers('t1', ['alice']);
+  });
+
+  it('can not change anything else of the trip while joining, or join before the owner', async () => {
+    const db = as('bob');
+    const batch = writeBatch(db);
+    batch.update(doc(db, `invites/${CODE}`), { status: 'used', usedBy: 'bob' });
+    batch.update(doc(db, 'trips/t1'), { memberIds: arrayUnion('bob'), destination: 'Hacked' });
+    batch.set(doc(db, 'trips/t1/members/bob'), member('Bob', CODE));
+    await assertFails(batch.commit());
+    const first = writeBatch(db);
+    first.update(doc(db, `invites/${CODE}`), { status: 'used', usedBy: 'bob' });
+    first.update(doc(db, 'trips/t1'), { memberIds: ['bob', 'alice'] });
+    first.set(doc(db, 'trips/t1/members/bob'), member('Bob', CODE));
+    await assertFails(first.commit());
+  });
+
+  it('a trip never has more than 10 members', async () => {
+    // The owner made two codes while the trip had 9 members; the first one fills it.
+    const nine = ['alice', ...Array.from({ length: 8 }, (_, i) => `m${i}`)];
+    await seed({ 'trips/t1': trip('alice', nine) });
+    await assertSucceeds(createInvite('alice', CODE2));
+    await assertSucceeds(join('bob')); // the largest join: into a trip of 9 members
+    await expectMembers('t1', [...nine, 'bob']);
+    // The second code is still open (the app then says "this trip already has 10 members"), but joining fails.
+    await assertSucceeds(getDoc(doc(as('carol'), `invites/${CODE2}`)));
+    await assertFails(join('carol', CODE2));
+  });
+
+  it('a member document with an extra field such as an email is rejected', async () => {
+    const db = as('bob');
+    const batch = writeBatch(db);
+    batch.update(doc(db, `invites/${CODE}`), { status: 'used', usedBy: 'bob' });
+    batch.update(doc(db, 'trips/t1'), { memberIds: arrayUnion('bob') });
+    batch.set(doc(db, 'trips/t1/members/bob'), member('Bob', CODE, { email: 'bob@example.com' }));
+    await assertFails(batch.commit());
+    await assertFails(setDoc(doc(as('alice'), 'trips/t1/members/alice'), member('Alice', null, { email: 'alice@example.com' })));
+  });
+
+  it('member documents are validated and read only by members', async () => {
+    await assertFails(setDoc(doc(as('alice'), 'trips/t1/members/alice'), member('')));
+    await assertFails(setDoc(doc(as('alice'), 'trips/t1/members/alice'), member('x'.repeat(101))));
+    await assertFails(setDoc(doc(as('alice'), 'trips/t1/members/alice'), member('Alice', null, { joinedAt: Timestamp.fromMillis(1) })));
+    await assertFails(setDoc(doc(as('alice'), 'trips/t1/members/bob'), member('Bob')));
+    await assertFails(getDocs(collection(as('mallory'), 'trips/t1/members')));
+    await assertFails(getDoc(doc(as('mallory'), 'trips/t1/members/alice')));
+    await assertFails(deleteDoc(doc(as('alice'), 'trips/t1/members/alice')));
+  });
+});
+
+describe('leaving and being removed', () => {
+  beforeEach(async () => {
+    await seed({
+      'trips/t1': trip('alice'),
+      'trips/t1/expenses/e1': expense(),
+    });
+    await createInvite();
+    await assertSucceeds(join('bob'));
+    await seed({
+      'trips/t1/memberData/bob': budget(),
+      'trips/t1/memberData/bob/packing/p1': checklistItem('PACKING'),
+    });
+  });
+
+  it('a member leaves in one batch with their budget and Packing list', async () => {
+    await assertSucceeds(leave('bob', 't1', ['p1']));
+    await expectMembers('t1', ['alice']);
+    await assertFails(getDoc(doc(as('bob'), 'trips/t1')));
+  });
+
+  it('leaving with the largest Packing list fits in one batch', async () => {
+    const ids = Array.from({ length: 446 }, (_, i) => `p${i}`);
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const batch = writeBatch(ctx.firestore());
+      for (const id of ids) batch.set(doc(ctx.firestore(), `trips/t1/memberData/bob/packing/${id}`), checklistItem('PACKING'));
+      await batch.commit();
+    });
+    await assertSucceeds(leave('bob', 't1', ids));
+  });
+
+  it('leaving without deleting the budget, or without marking the member document, fails', async () => {
+    const db = as('bob');
+    const noBudget = writeBatch(db);
+    noBudget.update(doc(db, 'trips/t1'), { memberIds: arrayRemove('bob') });
+    noBudget.update(doc(db, 'trips/t1/members/bob'), { left: true });
+    await assertFails(noBudget.commit());
+    const notLeft = writeBatch(db);
+    notLeft.update(doc(db, 'trips/t1'), { memberIds: arrayRemove('bob') });
+    notLeft.delete(doc(db, 'trips/t1/memberData/bob'));
+    await assertFails(notLeft.commit());
+  });
+
+  it('a member can not mark someone else as left, nor themselves while staying', async () => {
+    await assertFails(updateDoc(doc(as('bob'), 'trips/t1/members/alice'), { left: true }));
+    await assertFails(updateDoc(doc(as('bob'), 'trips/t1/members/bob'), { left: true }));
+  });
+
+  it('the owner removes a member and marks them as left', async () => {
+    await assertFails(updateDoc(doc(as('alice'), 'trips/t1/members/bob'), { left: true }));
+    await assertFails(updateDoc(doc(as('alice'), 'trips/t1/members/bob'), { name: 'Robert' }));
+    await assertSucceeds(removeMember('alice', 'bob'));
+    await expectMembers('t1', ['alice']);
+  });
+
+  it('a removed member can not read or write the trip any more', async () => {
+    await assertSucceeds(removeMember('alice', 'bob'));
+    const db = as('bob');
+    await assertFails(getDoc(doc(db, 'trips/t1')));
+    await assertFails(getDoc(doc(db, 'trips/t1/expenses/e1')));
+    await assertFails(getDocs(collection(db, 'trips/t1/expenses')));
+    await assertFails(getDocs(collection(db, 'trips/t1/members')));
+    await assertFails(setDoc(doc(db, 'trips/t1/expenses/e2'), expense({ paidBy: 'bob' })));
+    await assertFails(setDoc(doc(db, 'trips/t1/expenses/e1'), tombstone));
+    await assertFails(setDoc(doc(db, 'trips/t1'), { destination: 'Oslo', updatedAt: 5 }, { merge: true }));
+    await assertFails(setDoc(doc(db, 'trips/t1/memberData/bob'), budget({ updatedAt: 3 })));
+    // ...but cleans up their own personal data on their next sync.
+    await assertSucceeds(getDocs(collection(db, 'trips/t1/memberData/bob/packing')));
+    await assertSucceeds(deleteDoc(doc(db, 'trips/t1/memberData/bob/packing/p1')));
+    await assertSucceeds(deleteDoc(doc(db, 'trips/t1/memberData/bob')));
+  });
+
+  it('a removed member can not rejoin with their old code, or by adding themselves', async () => {
+    await assertSucceeds(removeMember('alice', 'bob'));
+    await assertFails(join('bob'));
+    await assertFails(updateDoc(doc(as('bob'), 'trips/t1'), { memberIds: arrayUnion('bob') }));
+    const db = as('bob');
+    const batch = writeBatch(db);
+    batch.update(doc(db, 'trips/t1'), { memberIds: arrayUnion('bob') });
+    batch.set(doc(db, 'trips/t1/members/bob'), member('Bob', CODE));
+    await assertFails(batch.commit());
+    await expectMembers('t1', ['alice']);
+  });
+
+  it('a new invite brings a removed member back', async () => {
+    await assertSucceeds(removeMember('alice', 'bob'));
+    await assertSucceeds(createInvite('alice', CODE2));
+    await assertSucceeds(join('bob', CODE2));
+    await expectMembers('t1', ['alice', 'bob']);
   });
 });
 

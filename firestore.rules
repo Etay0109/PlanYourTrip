@@ -6,6 +6,9 @@ rules_version = '2';
 // trips/{tripId}/expenses|activities|checklist|travelers|settlements/{id}   shared with every member
 // trips/{tripId}/memberData/{uid}                 one member's own budget (only that member)
 // trips/{tripId}/memberData/{uid}/packing/{id}    one member's own Packing list (only that member)
+// trips/{tripId}/members/{uid}                    a member's display name, join time, left flag, the code they used
+// trips/{tripId}/private/invite                   the owner's current invite code (only the owner)
+// invites/{code}                                  a single-use invite: get by its exact code while open, never listed
 // users/{uid}                                     the legacy copy's migration marker
 // users/{uid}/trips/**                            the legacy copy (before shared trips): read until migrated, delete
 //
@@ -54,6 +57,18 @@ service cloud.firestore {
       return /databases/$(database)/documents/trips/$(tripId);
     }
 
+    function memberPath(tripId, uid) {
+      return /databases/$(database)/documents/trips/$(tripId)/members/$(uid);
+    }
+
+    function memberDataPath(tripId, uid) {
+      return /databases/$(database)/documents/trips/$(tripId)/memberData/$(uid);
+    }
+
+    function invitePath(code) {
+      return /databases/$(database)/documents/invites/$(code);
+    }
+
     // Reads: a member of the trip as it is now.
     function isMember(tripId) {
       return signedIn()
@@ -100,6 +115,42 @@ service cloud.firestore {
         || (kind == 'settlement' && validSettlement(d))
         || (kind == 'budget' && validBudget(d))
         || (kind == 'packing' && validChecklistItem(d, 'PACKING'));
+    }
+
+    // ---------- Invites ----------
+
+    // 8 characters without look-alikes (no 0/O, 1/I/L): 31^8 ≈ 8.5·10^11 codes.
+    function isCode(v) {
+      return v is string && v.matches('^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{8}$');
+    }
+
+    // A trip id as the app makes them (UUID); nothing that could point into another path.
+    function isTripId(v) {
+      return v is string && v.matches('^[A-Za-z0-9-]{1,64}$');
+    }
+
+    // Open and not older than 7 days. Expiry is computed from the server's createdAt, never stored by a client.
+    function isOpenInvite(inv) {
+      return inv.status == 'open'
+        && inv.createdAt is timestamp
+        && request.time < inv.createdAt + duration.value(7, 'd');
+    }
+
+    // [me] joins trip [tripId] in this very write: my member document names an invite that was open, unexpired and
+    // for this trip before the write, and is used by me after it; I was not a member before and am one after.
+    // Checked by all three documents of the join batch (trip, invite, member), so none can be written alone.
+    function validJoin(tripId, me) {
+      let code = getAfter(memberPath(tripId, me)).data.inviteCode;
+      let before = get(invitePath(code)).data;
+      let after = getAfter(invitePath(code)).data;
+      return isCode(code)
+        && before.tripId == tripId
+        && isOpenInvite(before)
+        && after.tripId == tripId
+        && after.status == 'used'
+        && after.usedBy == me
+        && !(me in get(tripPath(tripId)).data.memberIds)
+        && me in getAfter(tripPath(tripId)).data.memberIds;
     }
 
     // ---------- Field validation ----------
@@ -204,32 +255,54 @@ service cloud.firestore {
         && d.deleted == false;
     }
 
+    // A member document: the display name only (never an email), when they joined (server time), whether they left,
+    // and the invite code they joined with (null for the owner).
+    function validMember(d) {
+      return d.keys().hasOnly(['name', 'joinedAt', 'left', 'inviteCode'])
+        && d.keys().hasAll(['name', 'joinedAt', 'left', 'inviteCode'])
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 100
+        && d.joinedAt == request.time
+        && d.left == false
+        && (d.inviteCode == null || isCode(d.inviteCode));
+    }
+
     // ---------- Trips ----------
 
-    // Changes of an existing trip by one of its members. The owner never changes.
-    function validTripUpdate() {
+    // Changes of an existing trip: by one of its members, or joining with an invite.
+    function validTripUpdate(tripId) {
       let before = resource.data;
       let after = request.resource.data;
       let me = request.auth.uid;
       let isOwner = me == before.ownerId;
-      return me in before.memberIds
-        && after.ownerId == before.ownerId
+      return after.ownerId == before.ownerId
         && (
-          // The data (destination, dates, currency, color). Reviving a deleted trip: owner only.
-          (after.memberIds == before.memberIds && validTrip(after) && (before.deleted == false || isOwner))
-          // Deleting (tombstone): owner only.
-          || (after.memberIds == before.memberIds && validTripTombstone(after) && isOwner)
-          // The member list, nothing else: the owner removes others (and stays), a member removes only themselves.
-          // Nobody is ever added here (joining needs an invite, Stage 2).
-          || (after.diff(before).affectedKeys().hasOnly(['memberIds'])
+          (me in before.memberIds && (
+            // The data (destination, dates, currency, color). Reviving a deleted trip: owner only.
+            (after.memberIds == before.memberIds && validTrip(after) && (before.deleted == false || isOwner))
+            // Deleting (tombstone): owner only.
+            || (after.memberIds == before.memberIds && validTripTombstone(after) && isOwner)
+            // The member list, nothing else: the owner removes others (and stays); a member removes only themselves
+            // and deletes their own budget in the same write (marking their member document as left, if any).
+            || (after.diff(before).affectedKeys().hasOnly(['memberIds'])
+                && validMembers(after.memberIds)
+                && (
+                  (isOwner
+                    && before.memberIds.hasAll(after.memberIds)
+                    && after.memberIds.size() < before.memberIds.size()
+                    && before.ownerId in after.memberIds)
+                  || (!isOwner
+                    && after.memberIds == before.memberIds.removeAll([me])
+                    && !existsAfter(memberDataPath(tripId, me))
+                    && (!existsAfter(memberPath(tripId, me)) || getAfter(memberPath(tripId, me)).data.left == true))
+                ))
+          ))
+          // Joining: only my own uid is appended, to a live trip of at most 10 members, with a valid invite.
+          || (!(me in before.memberIds)
+              && before.deleted == false
+              && after.diff(before).affectedKeys().hasOnly(['memberIds'])
+              && after.memberIds == before.memberIds.concat([me])
               && validMembers(after.memberIds)
-              && (
-                (isOwner
-                  && before.memberIds.hasAll(after.memberIds)
-                  && after.memberIds.size() < before.memberIds.size()
-                  && before.ownerId in after.memberIds)
-                || (!isOwner && after.memberIds == before.memberIds.removeAll([me]))
-              ))
+              && validJoin(tripId, me))
         );
     }
 
@@ -244,8 +317,39 @@ service cloud.firestore {
         && request.resource.data.ownerId == request.auth.uid
         && request.resource.data.memberIds == [request.auth.uid]
         && (validTrip(request.resource.data) || validTripTombstone(request.resource.data));
-      allow update: if signedIn() && validTripUpdate();
+      allow update: if signedIn() && validTripUpdate(tripId);
       allow delete: if signedIn() && request.auth.uid == resource.data.ownerId;
+
+      // ---------- Members ----------
+      // Read by the members only. Written by that member themselves: the owner (no code) or someone joining with an
+      // invite (validJoin). Marked as left (nothing else changes) when they leave or the owner removes them, in the
+      // same write that takes them out of memberIds. Never deleted, so names stay on old expenses.
+
+      match /members/{uid} {
+        allow read: if isMember(tripId);
+        allow create, update: if isSelf(uid)
+          && validMember(request.resource.data)
+          && (
+            (request.resource.data.inviteCode == null && get(tripPath(tripId)).data.ownerId == uid)
+            || (request.resource.data.inviteCode != null && validJoin(tripId, uid))
+          );
+        allow update: if signedIn()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['left'])
+          && request.resource.data.left == true
+          && uid in get(tripPath(tripId)).data.memberIds
+          && !(uid in getAfter(tripPath(tripId)).data.memberIds)
+          && (isSelf(uid) || get(tripPath(tripId)).data.ownerId == request.auth.uid);
+      }
+
+      // The owner's current invite code (invites can't be listed): only the owner.
+      match /private/{docId} {
+        allow read, delete: if isTripOwner(tripId);
+        allow create, update: if isTripOwner(tripId)
+          && docId == 'invite'
+          && request.resource.data.keys().hasOnly(['code'])
+          && request.resource.data.keys().hasAll(['code'])
+          && (request.resource.data.code == null || isCode(request.resource.data.code));
+      }
 
       // ---------- Shared with every member ----------
 
@@ -296,6 +400,74 @@ service cloud.firestore {
             && canWriteChild(tripId, 'packing', request.resource.data);
         }
       }
+    }
+
+    // ---------- Invites ----------
+    // invites/{code}: tripId, inviterName, destination, startDate, endDate, createdAt, status, usedBy.
+    // Read only by its exact code while open and unexpired (a missing, used, cancelled or expired code, or a deleted
+    // trip, are all denied the same way); never listed or deleted. Created only by the trip's owner, for a live trip
+    // with fewer than 10 members, copying the trip's destination and dates; an existing code is an update and denied.
+    // Cancelled by the owner; used once, in the join batch (validJoin).
+    //
+    // Rule lookups per batch (Firestore allows 20 per batch and 10 per document; the same document counts once):
+    //   create invite (invite, pointer, owner's member document): trip, member            → 2 documents
+    //   join (trip, invite, my member document):                  trip, invite, member      → 3 documents
+    //   leave (trip, my member document, budget + packing deletes): trip, memberData, member → 3 documents
+    //   remove a member (trip, their member document):            trip                      → 1 document
+    // rules-tests run each batch at its largest size.
+
+    function validNewInvite(code) {
+      let d = request.resource.data;
+      let trip = get(tripPath(d.tripId)).data;
+      let me = request.auth.uid;
+      return isCode(code)
+        && d.keys().hasOnly(['tripId', 'inviterName', 'destination', 'startDate', 'endDate', 'createdAt', 'status',
+                             'usedBy'])
+        && d.keys().hasAll(['tripId', 'inviterName', 'destination', 'startDate', 'endDate', 'createdAt', 'status',
+                            'usedBy'])
+        && isTripId(d.tripId)
+        && trip.ownerId == me
+        && trip.deleted == false
+        && trip.memberIds.size() < 10
+        && d.destination == trip.destination
+        && d.startDate == trip.startDate
+        && d.endDate == trip.endDate
+        && d.createdAt == request.time
+        && d.status == 'open'
+        && d.usedBy == null
+        && d.inviterName == getAfter(memberPath(d.tripId, me)).data.name;
+    }
+
+    function validCancel() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return after.diff(before).affectedKeys().hasOnly(['status'])
+        && before.status == 'open'
+        && after.status == 'cancelled'
+        && get(tripPath(before.tripId)).data.ownerId == request.auth.uid;
+    }
+
+    function validUse(code) {
+      let before = resource.data;
+      let after = request.resource.data;
+      let me = request.auth.uid;
+      return after.diff(before).affectedKeys().hasOnly(['status', 'usedBy'])
+        && isOpenInvite(before)
+        && after.status == 'used'
+        && after.usedBy == me
+        && !(me in get(tripPath(before.tripId)).data.memberIds)
+        && me in getAfter(tripPath(before.tripId)).data.memberIds
+        && getAfter(memberPath(before.tripId, me)).data.inviteCode == code;
+    }
+
+    match /invites/{code} {
+      allow get: if signedIn()
+        && isOpenInvite(resource.data)
+        && get(tripPath(resource.data.tripId)).data.deleted == false;
+      allow list: if false;
+      allow create: if signedIn() && validNewInvite(code);
+      allow update: if signedIn() && (validCancel() || validUse(code));
+      allow delete: if false;
     }
 
     // ---------- Legacy copy (before shared trips) ----------

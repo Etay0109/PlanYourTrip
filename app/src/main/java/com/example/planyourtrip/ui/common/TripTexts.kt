@@ -5,14 +5,19 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.example.planyourtrip.R
 import com.example.planyourtrip.data.trip.Trip
+import java.time.LocalDate
 
 /** "12–17 Nov 2026 · 6 days" */
 @Composable
-fun datesWithLength(trip: Trip): String {
-    val length = TripFormatting.lengthInDays(trip.startDate, trip.endDate)
+fun datesWithLength(trip: Trip): String = datesWithLength(trip.startDate, trip.endDate)
+
+/** "12–17 Nov 2026 · 6 days" for any date range (an invite's trip). */
+@Composable
+fun datesWithLength(start: LocalDate, end: LocalDate): String {
+    val length = TripFormatting.lengthInDays(start, end)
     return stringResource(
         R.string.home_dates_with_length,
-        TripFormatting.dateRange(trip.startDate, trip.endDate),
+        TripFormatting.dateRange(start, end),
         pluralStringResource(R.plurals.trip_length_days, length, length),
     )
 }

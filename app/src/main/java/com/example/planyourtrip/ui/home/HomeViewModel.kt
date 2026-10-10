@@ -42,6 +42,7 @@ class HomeViewModel(
                     userName = name,
                     firstName = firstName(name),
                     sections = groupTrips(trips, LocalDate.now(clock)),
+                    uid = user.uid,
                 )
             }
         }

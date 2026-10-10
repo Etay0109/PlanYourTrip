@@ -25,6 +25,8 @@ import com.example.planyourtrip.ui.tripdetails.components.DayPreviewCard
 import com.example.planyourtrip.ui.tripdetails.components.FeatureCard
 import com.example.planyourtrip.ui.tripdetails.components.ItineraryActions
 import com.example.planyourtrip.ui.tripdetails.components.OverviewMapIllustration
+import com.example.planyourtrip.ui.tripdetails.members.MemberActions
+import com.example.planyourtrip.ui.tripdetails.members.MembersCard
 
 internal fun LazyListScope.overviewTab(
     state: TripDetailsUiState.Loaded,
@@ -34,14 +36,26 @@ internal fun LazyListScope.overviewTab(
     onTabSelected: (TripTab) -> Unit,
     onSetBudget: () -> Unit,
     onOpenMaps: (String) -> Unit,
+    memberActions: MemberActions = MemberActions.None,
 ) {
     val itinerary = state.itinerary
+    // "Traveling together" first (design/trip_members.png: only this card is new on the Overview).
+    state.members?.let { members ->
+        item(key = "members") {
+            MembersCard(
+                state = members,
+                onShowMembers = memberActions.onShowMembers,
+                onInvite = memberActions.onInvite,
+                modifier = cardPadding.padding(top = 8.dp),
+            )
+        }
+    }
     item(key = "budget") {
         BudgetCard(
             summary = state.summary,
             onSetBudget = onSetBudget,
             onClick = { onTabSelected(TripTab.BUDGET) },
-            modifier = cardPadding.padding(top = 8.dp),
+            modifier = if (state.members == null) cardPadding.padding(top = 8.dp) else cardPadding,
         )
     }
     if (currencyCard != null) {

@@ -28,13 +28,18 @@ fun DeleteTripHost(viewModel: DeleteTripViewModel, onConfirm: () -> Unit = viewM
     }
 }
 
-/** Names the trip and what goes with it; "Cancel" and a red "Delete" (a small spinner while the delete runs). */
+/**
+ * Names the trip and what goes with it; "Cancel" and a red "Delete" (a small spinner while the delete runs). For a
+ * shared trip I don't own: "Leave this trip?" with a red "Leave".
+ */
 @Composable
 fun DeleteTripDialog(state: DeleteDialogState, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.trip_delete_title)) },
-        text = { Text(stringResource(R.string.trip_delete_body, state.destination)) },
+        title = { Text(stringResource(if (state.leave) R.string.trip_leave_title else R.string.trip_delete_title)) },
+        text = {
+            Text(stringResource(if (state.leave) R.string.trip_leave_body else R.string.trip_delete_body, state.destination))
+        },
         confirmButton = {
             TextButton(onClick = onConfirm, enabled = !state.isDeleting) {
                 if (state.isDeleting) {
@@ -44,7 +49,10 @@ fun DeleteTripDialog(state: DeleteDialogState, onConfirm: () -> Unit, onDismiss:
                         color = MaterialTheme.colorScheme.error,
                     )
                 } else {
-                    Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error)
+                    Text(
+                        stringResource(if (state.leave) R.string.action_leave else R.string.action_delete),
+                        color = MaterialTheme.colorScheme.error,
+                    )
                 }
             }
         },
@@ -61,6 +69,14 @@ fun DeleteTripDialog(state: DeleteDialogState, onConfirm: () -> Unit, onDismiss:
 private fun DeleteTripDialogPreview() {
     PlanYourTripTheme(darkTheme = false) {
         DeleteTripDialog(DeleteDialogState(tripId = 1, destination = "Rome, Italy"), onConfirm = {}, onDismiss = {})
+    }
+}
+
+@Preview
+@Composable
+private fun LeaveTripDialogPreview() {
+    PlanYourTripTheme(darkTheme = false) {
+        DeleteTripDialog(DeleteDialogState(tripId = 1, destination = "Rome, Italy", leave = true), onConfirm = {}, onDismiss = {})
     }
 }
 

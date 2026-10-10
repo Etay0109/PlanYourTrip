@@ -17,4 +17,6 @@ data class Trip(
     val ownerId: String = "",
     /** Uids of the trip's members, owner first, then in join order (the same order on every device). */
     val memberIds: List<String> = emptyList(),
+    /** The trip's stable id, the same on every device and in the cloud (invites and leaving use it). */
+    val uuid: String = "",
 )

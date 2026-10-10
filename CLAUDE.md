@@ -4,9 +4,9 @@ Trip-planning app. Kotlin + Jetpack Compose + Material 3, single Activity (`Main
 Navigation Compose graph. Firebase Authentication (email/password); trips, budgets, expenses, travelers, settlements and itinerary activities
 are stored locally with Room, per account, and synced with Cloud Firestore (Room stays the only source for the screens,
 see "Cloud sync"). The cloud is laid out for **shared trips** (`trips/{tripId}` with an owner and members, personal data
-under `memberData/{uid}`; see "Shared trips"); stage 1 of 3 is done: the structure, the uid traveler keys and the
-migration, with no visible change except pull to refresh on Home and the trip screen. Inviting and joining (stage 2) and
-the multi-member polish (stage 3) are not built yet. Exchange rates come from the free Frankfurter API and are cached in Room.
+under `memberData/{uid}`; see "Shared trips"); stages 1 and 2 of 3 are done: the structure, the uid traveler keys and
+the migration (stage 1), and invites, joining, leaving and removing members (stage 2: single-use 7-day invite codes, the
+Overview's "Traveling together" card, Home's "Join trip"). The multi-member polish (stage 3) is not built yet. Exchange rates come from the free Frankfurter API and are cached in Room.
 An AI trip assistant (Gemini through Firebase AI Logic, protected by Firebase App Check) chats about the trip and can
 add suggested day plans to the itinerary. "Share trip" creates a PDF summary (Android `PdfDocument`) and opens the
 share sheet. The trip screen's third tab, **Prep**, holds two checklists ("Before the trip" shared, "Packing" personal;
@@ -61,7 +61,11 @@ app/src/main/java/com/example/planyourtrip/
                                # Travelers (LEGACY_ME_KEY = "me", Traveler, Settlement, RemoveTravelerResult), TravelerColor,
                                # TravelerEntity/TravelerDao, SettlementEntity/SettlementDao, TravelerRepository +
                                # SettlementRepository (+ RoomTravelerRepository, RoomSettlementRepository),
-                               # Converters, AppDatabase (v14), Migrations (MIGRATION_6_7, MIGRATION_10_11, MIGRATION_13_14)
+                               # TravelerMerge (TravelerMergeInput/Changes/Plan, MergeBlock, MergeTravelerResult),
+                               # MergeSuggestionStore (+ SharedPreferences…, InMemory…: "Keep separate" answers),
+                               # TripMember (+ TripMemberEntity, TripMemberDao, TripMemberRepository + Room…: the cloud's
+                               # member documents, read-only, written by the full sync),
+                               # Converters, AppDatabase (v15), Migrations (MIGRATION_6_7, MIGRATION_10_11, MIGRATION_13_14)
   data/document/               # Prep tab documents (this device only): DocumentType, TripDocument, DocumentInput, ViewFile,
                                # DocumentEntity, DocumentDao, DocumentRepository + RoomDocumentRepository (also the sync's
                                # TripCleanup), DocumentFileStore (interface) + AndroidDocumentFileStore (the only code that
@@ -78,14 +82,25 @@ app/src/main/java/com/example/planyourtrip/
                                # SyncMerge (pure: planMerge → MergePlan), SyncDocuments (pure: Firestore fields),
                                # LegacyMigration (pure: convertLegacy, planLegacyCopy, isLegacyCopyComplete),
                                # CloudStore (interface) + FirestoreCloudStore (the only Firestore code),
+                               # SyncPaths (pure: the Firestore document of every kind, used by FirestoreCloudStore and
+                               # FakeCloudStore),
                                # SyncLocalStore (interface) + RoomSyncLocalStore + SyncDao, DeletionEntity (+ ChildRef),
                                # NetworkMonitor + AndroidNetworkMonitor, SyncController (+ SignOutResult,
                                # LocalChangeListener, TripCleanup), SyncManager, SyncFlags + SharedPreferencesSyncFlags
-                               # (one-time jobs per account: the legacy copy's move to shared trips)
+                               # (per account: the legacy copy's move to shared trips, FullSyncRecord = the last full
+                               # sync's result and the time of the last success),
+                               # SharedTripDocuments (paths/field names of members, the invite pointer and invites),
+                               # TripAccess (+ tripsToCheck, decideAccess: pure "which trips did I lose")
+  data/sharing/                # invites and joining (Firestore only, nothing in Room): InviteCode (pure: alphabet,
+                               # SecureRandom generate, normalize, extract from pasted text, display, expiry), Invites
+                               # (Invite, InvitePreview, JoinResult, InviteUnavailableException, TripFullException),
+                               # InviteRepository (interface) + FirestoreInviteRepository, MemberName (memberName():
+                               # display name, never the email)
   data/user/                   # CurrentUser (AuthUser.greetingName()), UserNames (firstName()/initials())
   ui/navigation/               # Routes.kt (type-safe routes), AppNavHost.kt, SessionViewModel
   ui/auth/                     # AuthScreen, AuthViewModel, AuthUiState, AuthValidator
   ui/home/                     # HomeScreen, HomeViewModel, HomeUiState, TripGrouping,
+                               # join/ (JoinTripViewModel, JoinUiState (+ CodeLookup, JoinError), JoinTripSheet),
                                # components/ (NextTripCard, TripCards: upcoming + past list cards,
                                # SwipeToDeleteBox: swipe left → red "Delete" area)
   ui/tripform/                 # TripFormScreen/ViewModel/UiState, TripValidator — new trip AND edit trip
@@ -112,6 +127,10 @@ app/src/main/java/com/example/planyourtrip/
                                # DocumentComponents (cards, form + delete dialogs, DocumentType icons/labels),
                                # ChecklistComponents (chips, rows, "Add item…", edit-text dialog),
                                # PrepHost (rememberPrepActions: file picker, viewer, snackbars; PrepDialogs)),
+                               # members/ (MembersState (pure: membersState, MemberEntry), MembersCard (+ MemberActions,
+                               # InviteButton, OwnerPill), InviteViewModel, InviteUiState (+ MembersSheetMode,
+                               # InviteCodeState, InviteMessage), InviteSheet (InviteHost, code card, members list,
+                               # remove dialog, share intent)),
                                # split/ (SplitViewModel (+ validateSettleAmount), SplitUiState (+ TravelerDialogState,
                                # SettleSheetState, SettlePage, SettleAmountError), SplitComponents (SplitActions,
                                # TravelersSection, WhoOwesWhomCard, TransferRow), SplitDialogs (TravelerDialog,
@@ -136,7 +155,9 @@ app/src/main/java/com/example/planyourtrip/
                                #   ExpenseCategoryUi / ActivityTypeUi (iconRes()/labelRes())
   ui/common/split/             # expense splitting, pure: Split (travelerOrder, inListOrder, shares, myShare, myTotal,
                                #   isShared, sharedExpenseCount, balances, simplifyTransfers + Transfer,
-                               #   isTravelerUsed), People (Person: You / Named / Removed, people, personOf,
+                               #   isTravelerUsed), TravelerMerging (isSameName, membersNamed, mergeSuggestions +
+                               #   MergeSuggestion, planTravelerMerge), People (Person: You / Named (+ nameOnly) /
+                               #   Removed, people, personOf,
                                #   avatarLetter, validateTravelerName + TravelerNameError)
 ui/common/share/             # "Share trip" PDF: TripPdfContent (pure: model, buildTripPdfContent, pdfFileName),
                                #   PdfPagination (pure: paginate), TripPdfExporter (interface, SharedPdf),
@@ -173,7 +194,7 @@ third_party/inter/OFL.txt      # Inter font license
 firestore.rules                # Firestore security rules (paste into the console)
 firebase.json                  # Firebase Emulator config (rules tests only; nothing is deployed from it)
 rules-tests/                   # Firestore rules tests: rules.test.js (mocha + @firebase/rules-unit-testing), package.json
-design/trip_members.png        # stage 2 reference: the Overview's "Traveling together" card (only that card)
+design/trip_members.png        # stage 2 reference (built): the Overview's "Traveling together" card (only that card)
 design/trip_invite.png         # stage 2 reference: the invite sheet
 design/home_join.png           # stage 2 reference: the join sheet
 app/src/main/res/xml/file_paths.xml  # FileProvider paths: cache/shared_pdfs/ and files/documents/
@@ -201,9 +222,11 @@ app/src/main/res/xml/file_paths.xml  # FileProvider paths: cache/shared_pdfs/ an
 - **No map SDK.** Maps are Google Maps URLs opened with `ACTION_VIEW` (`GoogleMaps.kt`); there is no map library,
   place search or location permission in the app.
 - **Firebase stays behind interfaces.** Only `data/auth/FirebaseAuthRepository.kt`,
-  `data/assistant/FirebaseAssistantRepository.kt`, `data/sync/FirestoreCloudStore.kt`, the two `AppCheckSetup.kt` files
+  `data/assistant/FirebaseAssistantRepository.kt`, `data/sync/FirestoreCloudStore.kt`,
+  `data/sharing/FirestoreInviteRepository.kt`, the two `AppCheckSetup.kt` files
   and `AppContainer.kt` import Firebase. ViewModels see `AuthRepository`/`AuthUser`/`AuthError`,
-  `AssistantRepository`/`AssistantError` and `SyncController`/`SyncStatus`; tests use `FakeAuthRepository`,
+  `AssistantRepository`/`AssistantError`, `InviteRepository` and `SyncController`/`SyncStatus`; tests use
+  `FakeAuthRepository`, `FakeInviteRepository`,
   `FakeAssistantRepository`, `FakeSyncController`, `FakeCloudStore` and `FakeSyncLocalStore`.
 - **ViewModels have no Android `Context`.** Validation returns enum codes (`FieldError`, `TripFieldError`,
   `ExpenseFieldError`, `BudgetFieldError`); the UI maps them to string resources.
@@ -246,7 +269,7 @@ other RTL language. There are no translations (`res/values` only).
 - Money stays "₪2,550" (`money_shekels` = "₪%1$s", grouping from `AppLocale`).
 
 ## Data model (Room)
-Database `plan_your_trip.db`, `AppDatabase` version 14, nine tables:
+Database `plan_your_trip.db`, `AppDatabase` version 15, ten tables:
 
 | `trips` column | Type | Notes |
 |---|---|---|
@@ -376,6 +399,18 @@ shown as "You", never renamed or removed here. Before shared trips the owner's k
 
 Deleting a settlement (`SettlementDao.deleteAndRecord`) records a `SETTLEMENT` deletion; the debt it paid reopens.
 
+| `trip_members` column | Type | Notes |
+|---|---|---|
+| `id` | INTEGER PK | auto-generated |
+| `trip_id` | INTEGER, indexed | FK → `trips.id`, **`ON DELETE CASCADE`**; unique with `uid` |
+| `uid` | TEXT | the member's account uid |
+| `name` | TEXT | their display name from the member document (never an email) |
+| `joined_at` | INTEGER, nullable | epoch millis (server time) |
+| `left` | INTEGER | Boolean: they left or were removed (their name still shows on old expenses) |
+
+The cloud's member documents as of the last **full** sync (`RoomSyncLocalStore.replaceMembers` replaces a trip's rows
+as a whole). Never pending, never uploaded, no tombstones. Who is a member *now* is `trips.member_ids`.
+
 | `exchange_rates` column | Type | Notes |
 |---|---|---|
 | `currency_code` | TEXT PK | one cached rate per currency, shared by all accounts (rates are public) |
@@ -439,7 +474,8 @@ become `trips(owner_id, uuid)` / children `(trip_id, uuid)`; `deletions` is rebu
 `updated_at`/`pending_sync` of existing rows are untouched (the cloud migration rewrites the cloud copy the same way),
 and the owner stays first in the list order, so every share, balance and transfer keeps its exact value
 (`MigrationTest.migrate13To14…`, `SplitTest.theOwnersUid_givesExactlyTheSameNumbersAsTheOldMeKey`). Room turns on
-`PRAGMA foreign_keys` itself (the cascade is covered in `TripDaoTest`).
+`PRAGMA foreign_keys` itself (the cascade is covered in `TripDaoTest`). v14 → v15 is an `AutoMigration` (invites and
+joining) that creates `trip_members` empty; all existing data is kept (`MigrationTest.migrate14To15…`).
 - **Never seed sample trips into the database.** Sample data belongs only in previews and tests.
 - **Changing the schema:** bump `version`, add a `Migration` or `AutoMigration`, build, and commit the new JSON in
   `app/schemas/`. Do not use `fallbackToDestructiveMigration` — users would lose their trips.
@@ -455,9 +491,9 @@ and the owner stays first in the list order, so every share, balance and transfe
 trips** (every member's phone syncs the same trip) and each member's personal data, and carries changes between
 devices. The exchange-rate cache, the assistant chat and the trip documents (Prep tab) are never synced.
 
-### Shared trips (stage 1 of 3 done)
-- A trip has an **owner** (who created it) and **members** (uids, ≤ 10, owner first, then join order). Today every
-  trip has one member, its owner; inviting/joining is stage 2 (plan: see "Shared trips: next stages").
+### Shared trips (stages 1 and 2 of 3 done)
+- A trip has an **owner** (who created it) and **members** (uids, ≤ 10, owner first, then join order). Others join
+  with the owner's invite code (see "Invites and joining").
 - **Shared** with all members: the trip's details (destination, dates, currency, color), expenses, travelers,
   settlements, activities and the "Before the trip" checklist. **Personal** (only that member, not even the owner):
   their budget (`SyncKind.BUDGET`) and their Packing list (`SyncKind.PACKING`); documents stay on the device as before.
@@ -484,9 +520,17 @@ trips/{tripUuid}/settlements/{uuid}            fromTraveler, toTraveler, amountA
 trips/{tripUuid}/memberData/{uid}              budgetAgorot                       (personal: only that uid)
 trips/{tripUuid}/memberData/{uid}/packing/{uuid}  list ("PACKING"), text, checked, dueDate, createdAt   (personal)
 every live document also has                   updatedAt (epoch millis, int), deleted: false
+trips/{tripUuid}/members/{uid}                 name, joinedAt (server timestamp), left, inviteCode (null for the owner)
+trips/{tripUuid}/private/invite                code (the owner's current invite code or null; owner only)
+invites/{code}                                 tripId, inviterName, destination, startDate, endDate,
+                                               createdAt (server timestamp), status (open|used|cancelled), usedBy
 users/{uid}                                    sharedTripsMigrated: true   (the legacy copy's migration marker)
 users/{uid}/trips/**                           the legacy copy (before shared trips): read until migrated, then deleted
 ```
+- **Ids:** a document's id is the item's uuid, except the budget: `memberData/{uid}` is named after the member, while a
+  `BUDGET` item always has its trip's uuid. `SyncDocuments.fromDocument(kind, documentId, tripUuid, …)` applies that
+  rule (until 2026-10-10 it used the document id, so every budget came back under the member's uid, the legacy
+  migration could never finish and no sync succeeded on a phone with legacy data). Paths come from `SyncPaths.of`.
 - Money is whole agorot (int), dates ISO strings ("2026-11-12"), `startTime` "HH:mm", rates and foreign amounts exact
   decimal strings (`toPlainString()`), enums by name (unknown → same fallback as Room). Every key is written, null
   when empty. A document that can't be read is skipped and logged, never fatal.
@@ -512,8 +556,11 @@ can never make the merge delete it here):
    split and settlements; each trip gets owner = only member = uid; its budget becomes a `BUDGET` item with the trip's
    `updatedAt`; Packing items → `PACKING`; a legacy checklist tombstone → a tombstone of both kinds.
 2. `planLegacyCopy(legacy, fetchAll)`: copies only what the new layout lacks or has **older** (never overwrites a newer
-   edit from a phone that migrated first), trips first; children of a trip that ends up deleted are skipped.
-3. `fetchAll` again; `isLegacyCopyComplete` (= nothing left to copy) or the sync fails and the next one starts over.
+   edit from a phone that migrated first), trips first; children of a trip that ends up deleted are skipped. A
+   **budget** is copied only when the new layout has no budget document of that trip at all (a legacy budget carries
+   the legacy trip's `updatedAt`, so it must never replace an existing one).
+3. `fetchAll` again; nothing left to copy (`isLegacyCopyComplete`), or the sync fails as a **sync problem** (logged with
+   the kinds still missing) and the next one starts over.
 4. `markLegacyMigrated` (sets the marker: old app versions can no longer read the legacy copy), `deleteLegacy` (every
    legacy document, old `places` included, children first), then the local flag.
 Every step can be repeated; old cloud data is deleted only after step 3. An account without legacy data just gets the
@@ -545,6 +592,27 @@ of `deleteLegacy` now.
   `TripCleanup.afterFullSync(uid)` = `RoomDocumentRepository.removeOrphans`. Quick syncs, failed or offline syncs and
   sign-out never run it. At app start `AppContainer.cleanUpDocumentFiles()` sweeps files no row uses.
 
+### Lost trips and members (`TripAccess.kt` pure, `SyncManager`, `SyncAccessTest`, `TripAccessTest`)
+A trip is **lost** when I left, was removed, or its owner deleted it. Only a **full** sync decides, after the
+`memberIds array-contains me` list query **succeeded** (a failed query fails the whole sync first):
+- `tripsToCheck`: local trips the list didn't return, and trips it returned as tombstones that I don't own. They are
+  read directly (`CloudStore.tripAccess`: `LIVE`, `DELETED`, `MISSING`, or `NO_ACCESS` = the read was denied).
+- `decideAccess`: a trip I **don't** own is lost only when the list didn't return it alive **and** the direct read was
+  denied, missing or deleted. A trip I **own** (local `cloud_owner_id` = me, or blank) is **never** lost; its denied
+  read is a sync error (`CloudUnavailableException`: nothing is deleted, retried later); `MISSING` keeps the old
+  behavior (a pending new trip uploads).
+- For each lost trip, in this order: `CloudStore.deletePersonal` (my budget + Packing; a failure fails the sync before
+  anything local changes), then `SyncLocalStore.removeTrips` (one transaction: the trip, its items **with pending
+  changes**, its tombstones), then `TripCleanup.forgetTrip` (= `DocumentRepository.deleteForTrip`). Lost trips are
+  left out of both sides before `planMerge`, so a member's device never revives a trip the owner deleted.
+- A **quick sync** never removes anything: pending items of a trip I don't own whose direct read isn't `LIVE` stay
+  pending, are left out, and a full sync is requested (`fullSyncRequests` channel).
+- After every successful full sync: `CloudStore.fetchMembers` for every live trip → `SyncLocalStore.replaceMembers`.
+- `SyncController.leaveTrip(tripUuid)` (online only, not for the owner, under the sync lock): `CloudStore.leaveTrip`
+  (one batch: `arrayRemove(me)`, `members/me.left = true`, delete `memberData/me` and the Packing items; items that
+  don't fit are deleted in earlier batches), then the same local removal. `SyncController.removeMember(tripUuid, uid)`
+  (owner): `arrayRemove(uid)` + `members/{uid}.left = true` in one batch, then a full sync.
+
 ### Merge rules (`planMerge`, pure, `SyncMergeTest`)
 Items are matched by **kind and uuid** (a trip's `BUDGET` item has the trip's uuid).
 
@@ -566,17 +634,37 @@ the local copy's budget columns, and a membership change (which doesn't change `
 Timestamps are device clocks (no server time), so a device with a very wrong clock can win conflicts it shouldn't.
 
 ### Status and sign out
-- `SyncController.status`: `SYNCING` while a sync runs (or changes are pending, online and the last attempt didn't
-  fail), `SAVED` when nothing is pending, else `OFFLINE`. Shown in the Home avatar menu.
-- `signOut(force = false)`: uploads pending changes first; if nothing is left pending it signs out and then deletes
-  the account's rows and tombstones from the device (`NonCancellable`, under the sync lock). **Documents are kept**
-  on both paths (never uploaded, so deleting them would lose them): hidden by `owner_id`, shown again when the same
-  account signs in and its trips come back; the warning dialog says so. If changes can't be
-  uploaded it returns `NEEDS_CONFIRMATION` and Home shows the warning dialog. `signOut(force = true)` ("Sign out
-  anyway") signs out and **keeps** the data on the device, hidden by owner scoping; it uploads at that account's
-  next sign-in here. A second account on the same device only ever syncs its own rows.
-- Testing: `FakeCloudStore` (shared trips with members, personal items per uid, the legacy copy + marker; `offline`,
-  `failAfterWrites`, `failLegacyDelete`, `onWrite`, `addMember`, `membersOf`; `put(uid, …)`/`docsOf(uid)` = written
+- Every full sync's result is recorded per account (`SyncFlags.recordFullSync`: succeeded + time of the last success,
+  prefs `full_sync_ok_<uid>` / `full_sync_success_at_<uid>`; the injected `Clock`). A failure is a **connection**
+  failure (`CloudUnavailableException.isProblem = false`: offline, timeout, Firestore `UNAVAILABLE` /
+  `DEADLINE_EXCEEDED`) or a **sync problem** (`isProblem = true`: anything else, e.g. denied by the rules, a legacy
+  copy that can't finish, my own trip unreadable). Every failure is logged (`adb logcat -s CloudSync`), timeouts too.
+- `SyncController.status`: `SYNCING` while a sync runs; offline: `SAVED` only if nothing is pending and the last full
+  sync succeeded, else `OFFLINE`; `PROBLEM` ("Sync problem – tap to retry", red, with "Last synced 9 Oct, 16:07" or
+  "Not synced on this device yet" from `SyncController.lastSyncedAt`; tapping runs `refresh()`) while the last full
+  sync failed with a problem, even if a quick sync worked since; `SAVED` **only** when nothing is pending **and** the
+  last full sync succeeded; `SYNCING` before the account's first full sync; else `OFFLINE`. (Before 2026-10-10 it
+  said "All changes saved" whenever nothing was pending, also when no sync had ever succeeded.)
+- `signOut(force = false)`: first a full sync (migration, upload of pending changes; skipped offline, then the last
+  recorded result counts; it never runs the documents cleanup). The account's rows and tombstones are deleted from
+  the device (`NonCancellable`, under the sync lock) **only when the data is safely in the cloud**: the legacy migration
+  finished for the account, the last full sync succeeded and nothing is pending. Otherwise nothing changes and it
+  returns `NEEDS_CONFIRMATION` (changes pending: "Changes not uploaded yet") or `NOT_CONFIRMED` (nothing pending, but
+  not confirmed: "Trips not confirmed in the cloud"); both dialogs say the data stays on this device, hidden from other
+  accounts. **Documents are kept** on every path (never uploaded): hidden by `owner_id`, shown again when the same
+  account signs in. `signOut(force = true)` ("Sign out anyway") signs out and **keeps** the data on the device, hidden
+  by owner scoping; it syncs at that account's next sign-in here. A second account on the same device only ever syncs
+  its own rows.
+- Testing: `FakeCloudStore` stores **Firestore documents under Firestore's paths** (`SyncPaths.of`, written with
+  `toDocument`, read back with `fromDocument` and the document's own id, budgets at `memberData/{uid}`, a deleted
+  trip's children not returned by `fetchAll`), so path or id mistakes fail the sync tests (`SyncPathsTest`: every
+  kind and its tombstone round-trip through its document); `unreadableKinds` makes documents of a kind unreadable (the
+  2026-10-09 bug). `TwoAccountsOneDeviceTest` (two accounts on one phone, joining, the exact 2026-10-09 case),
+  `SyncStatusAndSignOutTest` (truthful status, safe sign-out), `LegacyBudgetTest`. The fake also has (shared trips with
+  members, personal items per uid, the legacy copy + marker; `offline`,
+  `failAfterWrites`, `failLegacyDelete`, `onWrite`, `addMember`, `membersOf`, `memberDocs`, `removeFromTrip`,
+  `personalOf`, `failList`, `denyTripReads`, `failDeletePersonal`, `deletedPersonal`; a `fetch` of a trip I'm not a
+  member of fails like Firestore; `put(uid, …)`/`docsOf(uid)` = written
   by / visible to that uid, a budget under `"budget:<trip uuid>"`), `FakeSyncLocalStore` (same guards as Room),
   `FakeSyncFlags`, `FakeNetworkMonitor`. **Never test against the real Firestore.** `SyncManagerTest` runs the manager
   in `backgroundScope` and advances virtual time (`advanceUntilIdle` stops when only background work is left).
@@ -585,8 +673,27 @@ Timestamps are device clocks (no server time), so a device with a very wrong clo
 - **Trips:** `get` for members (a missing id reads as "no document"); `list` only with `memberIds array-contains <me>`;
   `create` only with `ownerId == me` and `memberIds == [me]`; data updates by members with `ownerId` and `memberIds`
   unchanged; tombstone, hard delete and reviving a deleted trip: owner only; member list (only `memberIds` changing,
-  1–10, no duplicates): the owner removes others and stays, a member removes only themselves, **nobody is ever added**
-  (joining arrives with stage 2's invite rule); the trip document may never hold `budgetAgorot`.
+  1–10, no duplicates): the owner removes others and stays, a member removes only themselves **and deletes their
+  budget in the same write** (`!existsAfter(memberData/me)`, member document `left` if it exists); **only joining adds
+  anyone** (below); the trip document may never hold `budgetAgorot`.
+- **Joining** (`validJoin`, checked by all three documents of the batch): the trip update only appends my own uid
+  (`after.memberIds == before.memberIds.concat([me])`, ≤ 10, trip live, I wasn't a member); my member document names an
+  invite that was open, unexpired and **for this trip** before the write and is `used` by me after it; the invite's
+  update is only `status` open → used + `usedBy` = me. Nobody can add another uid; re-using, guessing or a code of
+  another trip fails; rejoining after removal needs a new code.
+- **Invites `invites/{code}`**: `get` only by the exact code while `status == 'open'`, `request.time < createdAt + 7
+  days` and the trip is live (missing, used, cancelled, expired look the same); **never listed**, never deleted;
+  created only by the trip's owner for a live trip with < 10 members, with exactly the invite fields, the trip's own
+  destination and dates, `createdAt == request.time`, open, `usedBy` null, `inviterName` = the owner's member document
+  name; an existing code is an update and is denied (the app tries another, up to 5); cancel: owner only, open →
+  cancelled. Code format `^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{8}$`.
+- **Members `members/{uid}`**: read by members; written by that uid only: the owner (code null) or a joiner
+  (`validJoin`); exactly `name` (1–100), `joinedAt == request.time`, `left == false`, `inviteCode` (an email or any
+  other key is denied); later only `left` → true, by them or the owner, in the write that takes them out of
+  `memberIds`. Never deleted. **`private/invite`**: the owner only, `{code: null | code}`.
+- **Lookup limits:** Firestore allows 10 `get`/`exists` per document and 20 per batch (one document counts once). The
+  batches use: create invite 2 documents, join 3, leave 3 (packing deletes need none; 446 packing items are tested in
+  one batch), remove 1. The emulator enforces the limit (checked once: the join batch fails with 12 extra lookups).
 - **Shared children:** read by members; written by a member *after* the write (`getAfter`, so a new trip and its items
   fit in one batch and leaving + writing in one batch fails); live items only while the trip is live, tombstones
   always; hard delete: owner only.
@@ -599,7 +706,7 @@ Timestamps are device clocks (no server time), so a device with a very wrong clo
 - **Legacy copy** `users/{uid}/trips/**`: no create/update; delete by its owner; read by its owner until
   `users/{uid}.sharedTripsMigrated == true`, after that only the list query with `limit == 450` (the app's migration
   query) works, so old app versions are cut off while leftovers can still be deleted. The marker can be set, never
-  unset or deleted. `members/…` and `invites/…` don't exist yet: everything there is denied.
+  unset or deleted.
 - Change the rules together with `SyncDocuments` and `rules.test.js`, run `npm test` in `rules-tests/`, then publish.
 
 ### Known limits
@@ -609,29 +716,59 @@ Timestamps are device clocks (no server time), so a device with a very wrong clo
   the Room migration and uploads its pending edits to the new layout (newer wins). Order: publish the rules, then update
   every phone. Until the rules are published, the new app's migration fails safely (the new paths are denied) and
   retries; nothing is deleted.
-- **Rate limits:** the rules can't rate-limit requests, so guessing invite codes (stage 2) and using up the free read
-  quota are held back only by the size of the code space, the 7-day single-use codes and App Check. Enforcing App
-  Check for Firestore is therefore part of finishing stage 2.
-- A member's pending edit to a trip they no longer have access to fails the sync until stage 2's "lost access"
-  handling (only possible once members exist).
+- **Rate limits:** the rules can't rate-limit requests, so guessing invite codes and using up the free read quota are
+  held back only by the size of the code space (8.5·10¹¹), the 7-day single-use codes and App Check. **Enforce App
+  Check for Firestore** (Firebase console → App Check → APIs → Cloud Firestore → Enforce, once the metrics show the
+  requests as verified).
+- **Trust model:** every member can edit and delete the trip's shared expenses, plan, travelers, settlements and
+  "Before the trip" checklist. Share a trip only with people you trust. The owner can remove a member but can't undo
+  what they changed (no history).
+- A removed member's phone keeps its last copy until its next full sync (no realtime listener); from the moment of
+  removal the rules deny every read and write.
+- Leaving deletes my Packing list in the same batch, but the rules can't list documents, so only the budget's
+  deletion is enforced; the Packing deletion is the app's. A removed member deletes both at their next full sync.
+- "This trip already has 10 members" is inferred: a denied join while the code is still readable (open, unexpired,
+  trip live) can only be a full trip. Invites are never deleted (used, cancelled or expired ones simply stay
+  unreadable).
 - Timestamps are device clocks (see "Merge rules").
 
-### Shared trips: next stages (planned, not built)
-- **Stage 2 – invites and joining:** `trips/{id}/members/{uid}` `{name, joinedAt, left, inviteCode}` (display name only,
-  **never an email**; rules `hasOnly`), Room `trip_members` + `SyncKind.MEMBER`, members in Budget → Travelers with
-  "Owner"; Overview "Traveling together" card (`design/trip_members.png`, only the card) with "Invite" (owner only);
-  `invites/{code}` `{tripId, inviterUid, inviterName, destination, startDate, endDate, createdAt, expiresAt, status,
-  usedBy}` (no email), 8 chars from `ABCDEFGHJKMNPQRSTUVWXYZ23456789` with `SecureRandom`, created only by the owner,
-  `get` only while open and unexpired (wrong / expired / used / cancelled look the same), never listed; invite sheet
-  (`design/trip_invite.png`: code, copy, "Share code", members with remove / Leave); Home "Join trip" + join sheet
-  (`design/home_join.png`: 8 boxes, Paste, preview of destination, dates, inviter, then "Join trip"); joining = one
-  batch (invite open → used by me, `memberIds + [me]`, `members/{me}`), each rule checking the others; leaving = one
-  batch that also deletes my `memberData` and packing; removed by the owner → my next sync sees no access, deletes my
-  `memberData` + packing (allowed by the stage 1 delete rule) and the local copy; non-owners get "Leave trip" instead of
-  "Delete trip"; ≤ 10 members; App Check enforced for Firestore.
+### Shared trips: next stage (planned, not built)
 - **Stage 3 – personal data and polish:** budget card/percentages/donut/PDF/assistant use my budget and my share
   (wired since stage 1), "Your budget" copy; Prep progress = shared "Before the trip" + my Packing; suggested items
-  guarded against two members adding them at once; tests with two members editing the same item (newer wins).
+  guarded against two members adding them at once; tests with two members editing the same item (newer wins); a
+  member's leftover `memberData` after the owner deletes the trip is already deleted by the lost-trip step.
+
+## Invites and joining (`data/sharing`, `ui/tripdetails/members`, `ui/home/join`)
+- **Codes** (`InviteCode`): 8 characters from `ABCDEFGHJKMNPQRSTUVWXYZ23456789` (no 0/O/1/I/L), `SecureRandom`, shown
+  "K7M4 XP2R", "K7M4-XP2R" in the shared message (which `extract` finds again when pasted). Work once, expire 7 days
+  after the server's `createdAt`.
+- **Overview "Traveling together" card** (`MembersCard`, first on the Overview; reference `design/trip_members.png`,
+  only this card; the rest of the Overview is unchanged): title + count pill, 56dp avatars ("You" first, then the
+  others in join order), "Owner" pill under the owner, tonal "Invite" (owner only). Tapping the card opens the members
+  sheet. State: `TripDetailsUiState.Loaded.members` (`membersState(me, trip, members, zone)`).
+- **Invite sheet** (`InviteSheet`, `InviteViewModel` (default owner = `TripDetails` entry); `design/trip_invite.png`):
+  "Invite" shows the owner's open code (`private/invite` → the invite, if still readable and open) or creates one (one
+  batch: owner's member document, invite, pointer); the code on the hero gradient with a copy button, "Expires 16 Oct"
+  and "Works once" pills, "Share code" (`ACTION_SEND` chooser, `invite_share_message`), "Cancel this code" (then
+  "Create a new code"); offline → "Try again"; a trip with 10 members → no code. Then "Members" with each member's
+  row ("Joined 9 Oct", "Owner"); the owner's ⋮ → "Remove from trip" → confirmation (`isRemoving` synchronous) →
+  `SyncController.removeMember`; a non-owner gets "Leave trip".
+- **Leaving:** non-owners see "Leave trip" (`ic_logout`) instead of "Delete trip" in every trip menu and "Leave" on
+  the Home swipe (`Trip.ownerId` vs the uid; a blank owner counts as mine). `DeleteTripViewModel.onRemoveTrip(trip)`
+  opens "Leave this trip?" (`DeleteDialogState.leave`); Home confirms with `SyncController.leaveTrip`; the trip screen
+  hands it to Home (`pendingLeaveTripId`, like a delete). Messages `LEFT` / `LEAVE_FAILED`.
+- **Joining** (Home: outlined "Join trip" pill next to "+ Add trip", both in a full-width FAB row; `JoinTripSheet`,
+  `JoinTripViewModel`; `design/home_join.png`): 8 boxes over one hidden `BasicTextField` (the text is Compose state;
+  `InviteCode.input` keeps a pasted code), "Paste" (clipboard), a complete code is looked up (`CodeLookup`); a valid
+  code shows the "YOU'RE JOINING" card (destination, dates, "Invited by Noa") and enables "Join trip" (`isJoining`
+  synchronous). Messages: one for wrong / expired / used / cancelled, "already a member" (also when the trip is
+  already on this device), "already has 10 members", no connection. After joining: the sheet closes,
+  `SyncController.refresh()` brings the trip down, snackbar "You joined Rome, Italy".
+- **Member name** (`memberName`): the display name, ≤ 100 characters; without one "Trip member", never the email.
+- **Budget tab:** other members are `Person.Member` (after "You", before the travelers, color by their place in
+  `memberIds`, not tappable or removable), offered in "Paid by" / "Split between" (a new expense is split between
+  everyone); a member who left shows as "Noa (left)" on old expenses. `ExpenseFormUiState.order` keeps the stored
+  split in list order while the chips show "You" first.
 
 ## Navigation
 Type-safe Navigation Compose routes (`@Serializable`) in `ui/navigation/Routes.kt`:
@@ -649,6 +786,7 @@ TripDetails ──(tap an activity)────▶ ActivityForm(tripId, activity
 TripDetails ──(sparkle FAB)────────▶ TripAssistant(tripId)       back arrow → pop (conversation is kept)
 TripDetails ──("Delete trip" confirmed)──▶ pop to Home with Home's savedStateHandle["pendingDeleteTripId"] = tripId;
                                    Home deletes it (DeleteTripViewModel.deleteConfirmed) and clears the key
+TripDetails ──("Leave trip" confirmed)──▶ the same with "pendingLeaveTripId"; Home leaves it (leaveConfirmed)
 (session becomes null) ──▶ Login                   popUpTo(graph) inclusive → whole back stack cleared
 ```
 - `SessionViewModel.startsSignedIn` picks the start destination once. Firebase restores a saved session
@@ -694,7 +832,8 @@ TripDetails ──("Delete trip" confirmed)──▶ pop to Home with Home's sav
   (see "Deleting a trip"); the Scaffold has a `SnackbarHost` for "Trip deleted".
 - **Avatar menu** (`AccountButton` + `AccountViewModel` in `ui/common`): tapping the
   avatar opens a `DropdownMenu` with the user's name and email, the sync status (small cloud icon + "All changes
-  saved" / "Syncing…" / "Offline – changes will sync later", from `AccountState.syncStatus`) and "Sign out". Sign out
+  saved" / "Syncing…" / "Offline – changes will sync later", from `AccountState.syncStatus`; "Sync problem – tap to
+  retry" with the last sync time as a menu row that runs a full sync, see "Status and sign out") and "Sign out". Sign out
   goes through `SyncController.signOut`; when changes can't be uploaded, an `AlertDialog` warns ("Sign out anyway" /
   Cancel, `AccountState.showSignOutWarning`); it also says the trip documents stay on the device either way. `HomeViewModel` only provides the greeting and the trips.
 
@@ -801,6 +940,23 @@ the By category legend uses round dots, ₪0 rows (expenses I'm not part of) com
   empty split → `SPLIT_EMPTY` ("Choose at least one person to split with") on Save. Editing keeps the stored payer and
   split (unknown keys stay, shown as "Removed traveler"). With only me both fields are hidden and the expense saves
   as `me` / `[me]`.
+- **A traveler who joined as a member** (`ui/common/split/TravelerMerging.kt`, pure + `TravelerMergingTest`): a
+  name-only traveler whose name is a current member's display name or its first word ("Noa" / "Noa Levi", ignoring
+  case; matching exactly one member, who hasn't left) is the same person twice. Until merged it is labeled "name
+  only" (`Person.Named.nameOnly`: a small label under the Travelers avatar, "Noa (name only)" everywhere `personName`
+  is used: expense form chips, Who owes whom, settle sheet, history, expense rows). The Budget tab shows one card at a
+  time above Travelers: "Noa Levi joined this trip. Merge with the traveler 'Noa'?" (or "You joined this trip…"),
+  "Keep separate" / "Merge" (`SplitViewModel.onMergeSuggestion` / `onDismissSuggestion`; `isMerging` set synchronously).
+  "Keep separate" is remembered on this device (`MergeSuggestionStore`, prefs "merge_suggestions", per account, trip,
+  traveler and member) and never asked again. **Merging** (`planTravelerMerge`, then
+  `TravelerDao.mergeIntoMember`, one Room transaction that plans again against the trip's current rows): the
+  traveler's key becomes the member's uid in every payer, split and settlement; a settlement between the two is
+  deleted (money to oneself); the traveler is deleted; edits are pending and deletes recorded, so the next sync
+  uploads it all. Offered only when **every balance stays exactly the same** (everyone else's, and the member's =
+  theirs + the traveler's): an expense split between both (`SHARED_TOGETHER`) or an extra agora that would move to
+  someone else in the new list order (`BALANCES_WOULD_CHANGE`) shows why instead, with "OK". Merging into "You" makes
+  the traveler's shares count in my budget (said on the card). No schema or rules change. Room side:
+  `TravelerMergeRoomTest` (androidTest).
 - **One traveler only:** the Travelers section shows "You" and "+ Add"; no Who owes whom card; no split line or
   "Your share" on rows; no split fields in the form. Every number is the same as before splitting existed.
 
@@ -1064,6 +1220,7 @@ distances, weather, plan photo, microphone or like/dislike buttons; **no orange*
   exported). Failures are logged (`adb logcat -s TripPdf`) and rethrown to the ViewModel.
 
 ## Deleting a trip (`ui/common/delete`, `ui/home/components/SwipeToDeleteBox.kt`)
+(For a shared trip someone else owns, every entry point below leaves instead: see "Invites and joining".)
 - **Entry points:** swipe a Home card (Next trip, Upcoming, Past) to the left; "Delete trip" (red, `ic_delete`) in
   the three-dots menu of every Home card and of the trip header. Each screen has its own `DeleteTripViewModel`
   (default owner) and renders `DeleteTripHost`.
@@ -1274,7 +1431,16 @@ travelers + settlements + shared expenses up and down, a deleted trip tombstonin
 documents cleanup (only after a successful full sync); `SyncDocumentsTest` also reads an older activity document with
 `placeId`/`placeLookup` and covers checklist fields; `SplitTest.theOwnersUid_givesExactlyTheSameNumbersAsTheOldMeKey`:
 a 500-case property test that shares, my share, balances and transfers are identical with "me" and with the uid;
-`RefreshViewModelTest`), the security rules (`rules-tests/rules.test.js` on the emulator, see "Security rules"), the Prep tab (`PrepProgressTest`: no items, all done, 12 of 20, rounding down, overdue / due
+`RefreshViewModelTest`), shared trips stage 2 (`SyncAccessTest`: removed with pending edits, left elsewhere, owner
+deleted the trip while I had a newer edit, a foreign trip gone from the cloud, broken rules denying every trip read
+remove nothing, my own trip without access fails the sync and keeps everything, a failed list query removes nothing,
+a failed personal-data delete keeps everything, my new trip still uploads, a quick sync asks for the full sync that
+decides, leaving, offline/owner can't leave, removing a member, member documents downloaded; `TripAccessTest`;
+`InviteCodeTest`: alphabet, SecureRandom, normalize/paste, display, expiry, `memberName`; `InviteViewModelTest`:
+create, reopen shows the same code, used/expired → new code, cancel, offline, full, non-owner, remove with
+confirmation and double tap; `JoinTripViewModelTest`: lookup only at 8 characters, one invalid message, already a
+member (also locally), full, failure, double tap, success refreshes, never the email; `LeaveTripViewModelTest`;
+`MembersStateTest`: order, owner, full, members as people, former members; `FakeInviteRepository`), the security rules (`rules-tests/rules.test.js` on the emulator, see "Security rules"), the Prep tab (`PrepProgressTest`: no items, all done, 12 of 20, rounding down, overdue / due
 today / checked, toggling, insertion order, suggested items; `DocumentFilesTest`: PDF/images, unsupported types, the
 20 MB limit, unknown size, badge, extension, default name; `PrepViewModelTest`: toggling, add, suggestions once, edit
 text, due dates, delete + Undo, another account's trip, too large / unsupported / unreadable / too large while copying,
@@ -1303,8 +1469,10 @@ the connection returns), `firstName`/`initials`/`greetingName`, `TripColor`, and
   items/travelers/settlements/documents/files behind and only its `TRIP` tombstone pending); `MigrationTest` covers v6 → v7, v7 → v8, v8 → v9, v9 → v10, v10 → v11 (place names copied into empty
   locations as pending edits, own locations untouched, places and `PLACE` deletions gone, all trips/expenses/activities
   kept, cascade still works), v11 → v12 (all data kept, new tables empty, checklist cascade, documents without FK) and
-  v12 → v13 (all data kept with the same amounts, existing expenses `paid_by`/`split_between` = `me` and not re-uploaded,
+  v14 → v15 (all data kept, `trip_members` empty, unique per trip and uid, cascade), v12 → v13 (all data kept with the same amounts, existing expenses `paid_by`/`split_between` = `me` and not re-uploaded,
   travelers/settlements empty, cascade) and v13 → v14 ("me" → the owner's uid in payer, split lists and settlements,
   ownerless trips untouched, members and budget sync state, nothing re-uploaded, the same uuid for two accounts but not
   twice for one, cascade). `TripDaoTest` also covers a new trip's owner/members, the budget pending on its own, a cloud
   trip keeping my budget, Packing deletes recorded as `PACKING`, and two accounts holding the same shared trip.
+  `SharedTripRoomTest` (androidTest) covers member documents (replaced as a whole, per account, cascade),
+  `tripOwners` and `removeTrips` (items, pending changes and tombstones of that trip and account only).

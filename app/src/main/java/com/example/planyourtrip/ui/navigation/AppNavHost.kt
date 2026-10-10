@@ -61,11 +61,16 @@ fun AppNavHost(session: SessionViewModel = viewModel(factory = SessionViewModel.
             // A delete confirmed on the trip screen, handed over when it popped back here.
             val pendingDelete by entry.savedStateHandle.getStateFlow<Long?>(PENDING_DELETE_TRIP, null)
                 .collectAsStateWithLifecycle()
+            // The same for leaving a shared trip.
+            val pendingLeave by entry.savedStateHandle.getStateFlow<Long?>(PENDING_LEAVE_TRIP, null)
+                .collectAsStateWithLifecycle()
             HomeScreen(
                 onAddTrip = { navController.navigate(TripForm()) { launchSingleTop = true } },
                 onTripClick = { id -> navController.navigate(TripDetails(id)) { launchSingleTop = true } },
                 pendingDeleteTripId = pendingDelete,
                 onPendingDeleteHandled = { entry.savedStateHandle[PENDING_DELETE_TRIP] = null },
+                pendingLeaveTripId = pendingLeave,
+                onPendingLeaveHandled = { entry.savedStateHandle[PENDING_LEAVE_TRIP] = null },
             )
         }
         composable<TripForm> {
@@ -98,6 +103,11 @@ fun AppNavHost(session: SessionViewModel = viewModel(factory = SessionViewModel.
                     navController.getBackStackEntry<Home>().savedStateHandle[PENDING_DELETE_TRIP] = id
                     navController.popBackStack<Home>(inclusive = false)
                 },
+                onTripLeft = { id ->
+                    // Back to Home first; Home leaves the trip, animates its card out and says "You left the trip".
+                    navController.getBackStackEntry<Home>().savedStateHandle[PENDING_LEAVE_TRIP] = id
+                    navController.popBackStack<Home>(inclusive = false)
+                },
             )
         }
         composable<TripAssistant> { entry ->
@@ -126,3 +136,6 @@ fun AppNavHost(session: SessionViewModel = viewModel(factory = SessionViewModel.
 
 /** Home's saved-state key for a trip whose delete was confirmed on the trip screen. */
 private const val PENDING_DELETE_TRIP = "pendingDeleteTripId"
+
+/** Home's saved-state key for a shared trip whose leave was confirmed on the trip screen. */
+private const val PENDING_LEAVE_TRIP = "pendingLeaveTripId"

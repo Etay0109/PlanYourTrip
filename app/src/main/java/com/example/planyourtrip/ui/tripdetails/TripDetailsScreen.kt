@@ -82,6 +82,10 @@ import com.example.planyourtrip.ui.tripdetails.split.SplitActions
 import com.example.planyourtrip.ui.tripdetails.split.SplitDialogs
 import com.example.planyourtrip.ui.tripdetails.split.SplitUiState
 import com.example.planyourtrip.ui.tripdetails.split.SplitViewModel
+import com.example.planyourtrip.data.trip.Trip
+import com.example.planyourtrip.ui.tripdetails.members.InviteHost
+import com.example.planyourtrip.ui.tripdetails.members.InviteViewModel
+import com.example.planyourtrip.ui.tripdetails.members.MemberActions
 import java.time.LocalDate
 import kotlinx.coroutines.launch
 
@@ -96,14 +100,18 @@ fun TripDetailsScreen(
     onOpenAssistant: () -> Unit,
     /** "Delete trip" was confirmed: go back to Home, which deletes the trip there. */
     onTripDeleted: (Long) -> Unit,
+    /** "Leave trip" was confirmed (a shared trip someone else owns): go back to Home, which leaves it there. */
+    onTripLeft: (Long) -> Unit = {},
     viewModel: TripDetailsViewModel = viewModel(factory = TripDetailsViewModel.Factory),
     shareViewModel: ShareTripViewModel = viewModel(factory = ShareTripViewModel.Factory),
     deleteViewModel: DeleteTripViewModel = viewModel(factory = DeleteTripViewModel.Factory),
     prepViewModel: PrepViewModel = viewModel(factory = PrepViewModel.Factory),
     splitViewModel: SplitViewModel = viewModel(factory = SplitViewModel.Factory),
     refreshViewModel: RefreshViewModel = viewModel(factory = RefreshViewModel.Factory),
+    inviteViewModel: InviteViewModel = viewModel(factory = InviteViewModel.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val deleteState by deleteViewModel.uiState.collectAsStateWithLifecycle()
     val refresh by refreshViewModel.state.collectAsStateWithLifecycle()
     val budgetDialog by viewModel.budgetDialog.collectAsStateWithLifecycle()
     val currencyCard by viewModel.currencyCard.collectAsStateWithLifecycle()
@@ -157,6 +165,8 @@ fun TripDetailsScreen(
             onTravelerClick = splitViewModel::onTravelerClick,
             onSettleUp = splitViewModel::onSettleUp,
             onShowHistory = splitViewModel::onShowHistory,
+            onMerge = splitViewModel::onMergeSuggestion,
+            onKeepSeparate = splitViewModel::onDismissSuggestion,
         )
     }
 
@@ -204,8 +214,11 @@ fun TripDetailsScreen(
         onBack = onBack,
         onEditTrip = onEditTrip,
         onShareTrip = shareViewModel::onShareTrip,
-        onDeleteTrip = deleteViewModel::onDeleteTrip,
+        onDeleteTrip = deleteViewModel::onRemoveTrip,
         onOpenAssistant = onOpenAssistant,
+        memberActions = remember(inviteViewModel) {
+            MemberActions(onShowMembers = inviteViewModel::onShowMembers, onInvite = inviteViewModel::onInvite)
+        },
         snackbarHostState = snackbarHostState,
         onOpenMaps = { destination -> openUrl(googleMapsSearchUrl(destination)) },
         prep = prepState,
@@ -226,8 +239,22 @@ fun TripDetailsScreen(
         )
     }
     ShareTripHost(shareViewModel)
-    // Confirmed here, deleted on Home (the trip screen would otherwise show "not found" for a moment).
-    DeleteTripHost(deleteViewModel, onConfirm = { deleteViewModel.takeConfirmed()?.let(onTripDeleted) })
+    // Confirmed here, deleted (or left) on Home (the trip screen would otherwise show "not found" for a moment).
+    DeleteTripHost(
+        deleteViewModel,
+        onConfirm = {
+            val leave = deleteState.dialog?.leave == true
+            deleteViewModel.takeConfirmed()?.let { id -> if (leave) onTripLeft(id) else onTripDeleted(id) }
+        },
+    )
+    val loadedTrip = (state as? TripDetailsUiState.Loaded)?.trip
+    InviteHost(
+        viewModel = inviteViewModel,
+        members = (state as? TripDetailsUiState.Loaded)?.members,
+        destination = destination,
+        snackbarHostState = snackbarHostState,
+        onLeave = { loadedTrip?.let(deleteViewModel::onRemoveTrip) },
+    )
     PrepDialogs(prepViewModel)
     SplitDialogs(splitViewModel)
 }
@@ -254,8 +281,10 @@ fun TripDetailsContent(
     onEditTrip: () -> Unit,
     onOpenAssistant: () -> Unit,
     onShareTrip: (Long) -> Unit = {},
-    /** "Delete trip" in the header menu: (trip id, destination). */
-    onDeleteTrip: (Long, String) -> Unit = { _, _ -> },
+    /** "Delete trip" (or, for a shared trip someone else owns, "Leave trip") in the header menu. */
+    onDeleteTrip: (Trip) -> Unit = {},
+    /** The Overview's "Traveling together" card. */
+    memberActions: MemberActions = MemberActions.None,
     /** Messages over every tab ("Activity deleted" + "Undo"). */
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     /** The map card was tapped: open Google Maps on this destination. */
@@ -323,14 +352,15 @@ fun TripDetailsContent(
                                 onBack = onBack,
                                 onEdit = onEditTrip,
                                 onShare = { onShareTrip(state.trip.id) },
-                                onDelete = { onDeleteTrip(state.trip.id, state.trip.destination) },
+                                onDelete = { onDeleteTrip(state.trip) },
+                                isOwner = state.members?.isOwner ?: true,
                             )
                         }
                         when (selectedTab) {
                             TripTab.OVERVIEW ->
                                 overviewTab(
                                     state, currencyCard, currencyActions, itineraryActions,
-                                    onTabSelected, budgetActions.onEditBudget, onOpenMaps,
+                                    onTabSelected, budgetActions.onEditBudget, onOpenMaps, memberActions,
                                 )
                             TripTab.BUDGET -> budgetTab(state, split, splitActions, budgetActions)
                             TripTab.PREP -> prepTab(prep, prepActions)

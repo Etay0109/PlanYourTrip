@@ -7,6 +7,7 @@ import com.example.planyourtrip.data.trip.TripActivity
 import com.example.planyourtrip.ui.common.CategoryTotal
 import com.example.planyourtrip.ui.common.TripStatus
 import com.example.planyourtrip.ui.tripdetails.components.ExpenseSplitInfo
+import com.example.planyourtrip.ui.tripdetails.members.MembersState
 import java.math.BigDecimal
 import java.time.LocalDate
 
@@ -37,6 +38,8 @@ sealed interface TripDetailsUiState {
         val expenseSplits: Map<Long, ExpenseSplitInfo> = emptyMap(),
         /** Plan tab, Daily plan card and the Overview day section. */
         val itinerary: ItineraryState,
+        /** The Overview's "Traveling together" card; null only in previews and tests that don't need it. */
+        val members: MembersState? = null,
     ) : TripDetailsUiState
 }
 
