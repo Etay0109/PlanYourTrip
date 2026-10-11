@@ -1,30 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher icon (adaptive, 108dp; the pin stays inside the 66dp safe zone). Source paths are on a 512 canvas:
+     pin scaled by 32/172 around (256, 256); airplane = Material "flight" (24x24) x7.5, rotated 45 degrees clockwise
+     about (11.5, 12) and centered on the pin head at (256, 222). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path android:pathData="M31,63.928c0,0 6.4,-11 12.1,-13.1c7.2,-2.6 26,-1.4 26,-1.4l38.1,38.1L107,108.928l-32,-1L31,63.928z">
-        <aapt:attr name="android:fillColor">
-            <gradient
-                android:endX="85.84757"
-                android:endY="92.4963"
-                android:startX="42.9492"
-                android:startY="49.59793"
-                android:type="linear">
-                <item
-                    android:color="#44000000"
-                    android:offset="0.0" />
-                <item
-                    android:color="#00000000"
-                    android:offset="1.0" />
-            </gradient>
-        </aapt:attr>
-    </path>
     <path
-        android:fillColor="#FFFFFF"
-        android:fillType="nonZero"
-        android:pathData="M65.3,45.828l3.8,-6.6c0.2,-0.4 0.1,-0.9 -0.3,-1.1c-0.4,-0.2 -0.9,-0.1 -1.1,0.3l-3.9,6.7c-6.3,-2.8 -13.4,-2.8 -19.7,0l-3.9,-6.7c-0.2,-0.4 -0.7,-0.5 -1.1,-0.3C38.8,38.328 38.7,38.828 38.9,39.228l3.8,6.6C36.2,49.428 31.7,56.028 31,63.928h46C76.3,56.028 71.8,49.428 65.3,45.828zM43.4,57.328c-0.8,0 -1.5,-0.5 -1.8,-1.2c-0.3,-0.7 -0.1,-1.5 0.4,-2.1c0.5,-0.5 1.4,-0.7 2.1,-0.4c0.7,0.3 1.2,1 1.2,1.8C45.3,56.528 44.5,57.328 43.4,57.328L43.4,57.328zM64.6,57.328c-0.8,0 -1.5,-0.5 -1.8,-1.2s-0.1,-1.5 0.4,-2.1c0.5,-0.5 1.4,-0.7 2.1,-0.4c0.7,0.3 1.2,1 1.2,1.8C66.5,56.528 65.6,57.328 64.6,57.328L64.6,57.328z"
-        android:strokeWidth="1"
-        android:strokeColor="#00000000" />
+        android:fillColor="@color/ic_launcher_pin"
+        android:pathData="M54,22C39.116,22 28.326,33.163 28.326,47.302C28.326,64.791 54,86 54,86C54,86 79.674,64.791 79.674,47.302C79.674,33.163 68.884,22 54,22Z" />
+    <path
+        android:fillColor="@color/ic_launcher_background"
+        android:pathData="M59.427,60.994L61.4,59.021L58.44,46.194L63.867,40.768C64.686,39.949 64.686,38.627 63.867,37.808C63.048,36.989 61.726,36.989 60.907,37.808L55.48,43.234L42.653,40.274L40.68,42.248L51.04,47.674L45.613,53.101L42.16,52.608L40.68,54.088L45.12,56.554L47.587,60.994L49.067,59.514L48.573,56.061L54,50.634L59.427,60.994Z" />
 </vector>

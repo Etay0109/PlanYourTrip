@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher icon (adaptive, 108dp; the pin stays inside the 66dp safe zone). Source paths are on a 512 canvas:
+     pin scaled by 32/172 around (256, 256); airplane = Material "flight" (24x24) x7.5, rotated 45 degrees clockwise
+     about (11.5, 12) and centered on the pin head at (256, 222). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- One shape: the pin with the airplane cut out (even-odd). Themed icons use only its alpha. -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M54,22C39.116,22 28.326,33.163 28.326,47.302C28.326,64.791 54,86 54,86C54,86 79.674,64.791 79.674,47.302C79.674,33.163 68.884,22 54,22ZM59.427,60.994L61.4,59.021L58.44,46.194L63.867,40.768C64.686,39.949 64.686,38.627 63.867,37.808C63.048,36.989 61.726,36.989 60.907,37.808L55.48,43.234L42.653,40.274L40.68,42.248L51.04,47.674L45.613,53.101L42.16,52.608L40.68,54.088L45.12,56.554L47.587,60.994L49.067,59.514L48.573,56.061L54,50.634L59.427,60.994Z" />
+</vector>
