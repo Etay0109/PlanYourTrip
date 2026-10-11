@@ -88,6 +88,8 @@
     <string name="new_trip_start_date">Start date</string>
     <string name="new_trip_end_date">End date</string>
     <string name="new_trip_pick_date">Pick a date</string>
+    <!-- Under the destination suggestions: the OpenStreetMap data license asks for this attribution. -->
+    <string name="place_suggestions_attribution">© OpenStreetMap contributors</string>
     <string name="trip_currency_label">Trip currency (optional)</string>
     <string name="trip_currency_placeholder">Choose a currency</string>
     <string name="trip_currency_value">%1$s · %2$s</string>

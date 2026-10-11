@@ -48,6 +48,10 @@ sealed interface ItemData {
         val currencyCode: String?,
         val ownerId: String,
         val memberIds: List<String>,
+        /** The picked place (see `TripPlace`); null for free text. Last with defaults: older callers stay valid. */
+        val countryCode: String? = null,
+        val latitude: Double? = null,
+        val longitude: Double? = null,
     ) : ItemData
 
     /** The signed-in member's own budget for the trip (null = none). */

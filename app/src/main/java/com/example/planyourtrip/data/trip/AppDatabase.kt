@@ -23,7 +23,7 @@ import com.example.planyourtrip.data.sync.SyncDao
         DeletionEntity::class, ChecklistItemEntity::class, DocumentEntity::class, TravelerEntity::class,
         SettlementEntity::class, TripMemberEntity::class,
     ],
-    version = 15,
+    version = 16,
     exportSchema = true,
     autoMigrations = [
         // v2: trips.owner_id. Trips from v1 get "" and are not shown to any account.
@@ -60,6 +60,9 @@ import com.example.planyourtrip.data.sync.SyncDao
         // v15 (invites and joining): the trip_members table (the cloud's member documents), empty until the next full
         // sync. All existing data is kept.
         AutoMigration(from = 14, to = 15),
+        // v16 (destination suggestions): trips.country_code / latitude / longitude, all null for existing trips
+        // (free text). All data is kept.
+        AutoMigration(from = 15, to = 16),
     ],
 )
 @TypeConverters(Converters::class)

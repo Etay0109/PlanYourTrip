@@ -23,15 +23,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.R
+import com.example.planyourtrip.ui.common.TripStatus
+import com.example.planyourtrip.ui.common.components.DestinationTitle
 import com.example.planyourtrip.ui.common.components.HeroWaves
 import com.example.planyourtrip.ui.common.components.TripDatesRow
 import com.example.planyourtrip.ui.common.components.TripMoreButton
 import com.example.planyourtrip.ui.common.datesWithLength
 import com.example.planyourtrip.ui.home.ActiveTrip
-import com.example.planyourtrip.ui.common.TripStatus
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
 import com.example.planyourtrip.ui.theme.HeroLabelStyle
@@ -76,12 +76,12 @@ fun NextTripCard(
                     )
                 }
                 Spacer(Modifier.height(16.dp))
-                Text(
-                    text = next.trip.destination,
+                DestinationTitle(
+                    destination = next.trip.destination,
+                    countryCode = next.trip.countryCode,
                     style = MaterialTheme.typography.headlineMedium,
                     color = colors.onHero,
                     maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
                 )
                 Spacer(Modifier.height(16.dp))
                 TripDatesRow(

@@ -1,0 +1,212 @@
+אנדורה||Andorra|AD
+איחוד האמירויות|האמירויות,איחוד האמירויות הערביות|United Arab Emirates|AE
+אפגניסטן||Afghanistan|AF
+אנטיגואה וברבודה||Antigua & Barbuda|AG
+אנגווילה||Anguilla|AI
+אלבניה||Albania|AL
+ארמניה||Armenia|AM
+אנגולה||Angola|AO
+ארגנטינה||Argentina|AR
+אוסטריה||Austria|AT
+אוסטרליה||Australia|AU
+אזרבייג׳ן||Azerbaijan|AZ
+בוסניה והרצגובינה||Bosnia & Herzegovina|BA
+ברבדוס||Barbados|BB
+בנגלדש||Bangladesh|BD
+בלגיה||Belgium|BE
+בורקינה פאסו||Burkina Faso|BF
+בולגריה||Bulgaria|BG
+בחריין||Bahrain|BH
+בורונדי||Burundi|BI
+בנין||Benin|BJ
+ברמודה||Bermuda|BM
+ברוניי||Brunei|BN
+בוליביה||Bolivia|BO
+ברזיל||Brazil|BR
+איי בהאמה|בהאמה|Bahamas|BS|place
+בהוטן||Bhutan|BT
+בוטסואנה||Botswana|BW
+בלארוס||Belarus|BY
+בליז||Belize|BZ
+קנדה||Canada|CA
+הרפובליקה הדמוקרטית של קונגו|קונגו קינשאסה|Congo - Kinshasa|CD
+הרפובליקה המרכז-אפריקאית||Central African Republic|CF
+קונגו|קונגו ברזאויל,הרפובליקה של קונגו|Congo - Brazzaville|CG
+שווייץ|שוויץ|Switzerland|CH
+חוף השנהב||Côte d’Ivoire|CI
+איי קוק||Cook Islands|CK
+צ׳ילה||Chile|CL
+קמרון||Cameroon|CM
+סין||China|CN
+קולומביה||Colombia|CO
+קוסטה ריקה||Costa Rica|CR
+קובה||Cuba|CU
+כף ורדה||Cape Verde|CV
+קפריסין||Cyprus|CY
+צ׳כיה||Czechia|CZ
+גרמניה||Germany|DE
+ג׳יבוטי||Djibouti|DJ
+דנמרק||Denmark|DK
+דומיניקה||Dominica|DM
+הרפובליקה הדומיניקנית|דומיניקנית|Dominican Republic|DO
+אלג׳יריה||Algeria|DZ
+אקוודור||Ecuador|EC
+אסטוניה||Estonia|EE
+מצרים||Egypt|EG
+אריתריאה||Eritrea|ER
+ספרד||Spain|ES
+אתיופיה||Ethiopia|ET
+פינלנד||Finland|FI
+פיג׳י||Fiji|FJ
+איי פוקלנד||Falkland Islands|FK
+מיקרונזיה||Micronesia|FM
+איי פארו||Faroe Islands|FO
+צרפת||France|FR
+גבון||Gabon|GA
+בריטניה|הממלכה המאוחדת|United Kingdom|GB
+גרנדה||Grenada|GD
+גאורגיה||Georgia|GE
+גרנזי||Guernsey|GG
+גאנה||Ghana|GH
+גיברלטר||Gibraltar|GI
+גרינלנד||Greenland|GL
+גמביה||Gambia|GM
+גינאה||Guinea|GN
+גינאה המשוונית||Equatorial Guinea|GQ
+יוון||Greece|GR
+גואטמלה||Guatemala|GT
+גינאה-ביסאו||Guinea-Bissau|GW
+גיאנה||Guyana|GY
+הונדורס||Honduras|HN
+קרואטיה||Croatia|HR
+האיטי||Haiti|HT
+הונגריה||Hungary|HU
+אינדונזיה||Indonesia|ID
+אירלנד||Ireland|IE
+ישראל||Israel|IL
+האי מאן||Isle of Man|IM
+הודו||India|IN
+עיראק||Iraq|IQ
+איראן||Iran|IR
+איסלנד||Iceland|IS
+איטליה||Italy|IT
+ג׳רזי||Jersey|JE
+ג׳מייקה||Jamaica|JM
+ירדן||Jordan|JO
+יפן||Japan|JP
+קניה||Kenya|KE
+קירגיזסטן||Kyrgyzstan|KG
+קמבודיה||Cambodia|KH
+קיריבאטי||Kiribati|KI
+קומורו||Comoros|KM
+סנט קיטס ונוויס||St. Kitts & Nevis|KN
+קוריאה הצפונית|צפון קוריאה|North Korea|KP
+קוריאה הדרומית|דרום קוריאה|South Korea|KR
+כווית||Kuwait|KW
+איי קיימן||Cayman Islands|KY
+קזחסטן||Kazakhstan|KZ
+לאוס||Laos|LA
+לבנון||Lebanon|LB
+סנט לוסיה||St. Lucia|LC
+ליכטנשטיין||Liechtenstein|LI
+סרי לנקה||Sri Lanka|LK
+ליבריה||Liberia|LR
+לסוטו||Lesotho|LS
+ליטא||Lithuania|LT
+לוקסמבורג||Luxembourg|LU
+לטביה||Latvia|LV
+לוב||Libya|LY
+מרוקו||Morocco|MA
+מונקו||Monaco|MC
+מולדובה||Moldova|MD
+מונטנגרו||Montenegro|ME
+מדגסקר||Madagascar|MG
+איי מרשל||Marshall Islands|MH
+מקדוניה הצפונית||North Macedonia|MK
+מאלי||Mali|ML
+מיאנמר|בורמה|Myanmar|MM
+מונגוליה||Mongolia|MN
+מאוריטניה||Mauritania|MR
+מונסראט||Montserrat|MS
+מלטה||Malta|MT
+מאוריציוס||Mauritius|MU
+האיים המלדיביים|מלדיביים,המלדיביים|Maldives|MV
+מלאווי||Malawi|MW
+מקסיקו||Mexico|MX
+מלזיה||Malaysia|MY
+מוזמביק||Mozambique|MZ
+נמיביה||Namibia|NA
+ניז׳ר||Niger|NE
+ניגריה||Nigeria|NG
+ניקרגואה||Nicaragua|NI
+הולנד|ארצות השפלה|Netherlands|NL
+נורווגיה||Norway|NO
+נפאל||Nepal|NP
+נאורו||Nauru|NR
+ניווה||Niue|NU
+ניו זילנד||New Zealand|NZ
+עומאן||Oman|OM
+פנמה||Panama|PA
+פרו||Peru|PE
+פפואה גינאה החדשה||Papua New Guinea|PG
+הפיליפינים|פיליפינים|Philippines|PH
+פקיסטן||Pakistan|PK
+פולין||Poland|PL
+השטחים הפלסטיניים||Palestinian Territories|PS
+פורטוגל||Portugal|PT
+פלאו||Palau|PW
+פרגוואי||Paraguay|PY
+קטאר||Qatar|QA
+רומניה||Romania|RO
+סרביה||Serbia|RS
+רוסיה||Russia|RU
+רואנדה||Rwanda|RW
+ערב הסעודית||Saudi Arabia|SA
+איי שלמה||Solomon Islands|SB
+איי סיישל|סיישל|Seychelles|SC
+סודן||Sudan|SD
+שוודיה||Sweden|SE
+סינגפור||Singapore|SG
+סלובניה||Slovenia|SI
+סלובקיה||Slovakia|SK
+סיירה לאון||Sierra Leone|SL
+סן מרינו||San Marino|SM
+סנגל||Senegal|SN
+סומליה||Somalia|SO
+סורינאם||Suriname|SR
+דרום סודן||South Sudan|SS
+סאו טומה ופרינסיפה||São Tomé & Príncipe|ST
+אל סלבדור||El Salvador|SV
+סוריה||Syria|SY
+אסוואטיני||Eswatini|SZ
+איי טרקס וקייקוס||Turks & Caicos Islands|TC
+צ׳אד||Chad|TD
+טוגו||Togo|TG
+תאילנד||Thailand|TH
+טג׳יקיסטן||Tajikistan|TJ
+טוקלאו||Tokelau|TK
+טימור-לסטה||Timor-Leste|TL
+טורקמניסטן||Turkmenistan|TM
+תוניסיה||Tunisia|TN
+טונגה||Tonga|TO
+טורקיה|תורכיה|Türkiye|TR
+טרינידד וטובגו||Trinidad & Tobago|TT
+טובאלו||Tuvalu|TV
+טייוואן||Taiwan|TW
+טנזניה||Tanzania|TZ
+אוקראינה||Ukraine|UA
+אוגנדה||Uganda|UG
+ארצות הברית|ארה״ב,ארהב,אמריקה|United States|US
+אורוגוואי||Uruguay|UY
+אוזבקיסטן||Uzbekistan|UZ
+הוותיקן|ותיקן|Vatican City|VA
+סנט וינסנט והגרנדינים||St. Vincent & Grenadines|VC
+ונצואלה||Venezuela|VE
+איי הבתולה הבריטיים||British Virgin Islands|VG
+וייטנאם||Vietnam|VN
+ונואטו||Vanuatu|VU
+סמואה||Samoa|WS
+תימן||Yemen|YE
+דרום אפריקה||South Africa|ZA
+זמביה||Zambia|ZM
+זימבבואה||Zimbabwe|ZW

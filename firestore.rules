@@ -156,12 +156,24 @@ service cloud.firestore {
     // ---------- Field validation ----------
 
     // No budget here: each member's budget is personal (memberData).
+    // The picked destination's country and coordinates. Optional: a trip without these keys (free text, or written
+    // by an app version before destination suggestions) is valid; null means none. Latitude and longitude together.
+    function validPlace(d) {
+      let cc = d.get('countryCode', null);
+      let lat = d.get('latitude', null);
+      let lng = d.get('longitude', null);
+      return (cc == null || (cc is string && cc.matches('^[A-Z]{2}$')))
+        && ((lat == null && lng == null)
+            || (lat is number && lng is number && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180));
+    }
+
     function validTrip(d) {
       return d.keys().hasOnly(['destination', 'startDate', 'endDate', 'currencyCode', 'color', 'ownerId',
-                               'memberIds', 'updatedAt', 'deleted'])
+                               'memberIds', 'updatedAt', 'deleted', 'countryCode', 'latitude', 'longitude'])
         && d.destination is string && d.destination.size() > 0
         && isDate(d.startDate) && isDate(d.endDate) && d.endDate >= d.startDate
         && optString(d.currencyCode)
+        && validPlace(d)
         && d.color is string
         && d.ownerId is string
         && validMembers(d.memberIds)

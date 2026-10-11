@@ -73,4 +73,19 @@ class SyncPathsTest {
             assertEquals(item.kind.name, tombstone, readBack(tombstone))
         }
     }
+
+    @Test
+    fun aTripWithItsPlace_andOneWithout_readBackFromTheirDocuments_areTheSame() {
+        val withPlace = trip("t1", updatedAt = 3, owner = "alice").let {
+            it.copy(
+                data = (it.data as ItemData.TripData)
+                    .copy(countryCode = "GB", latitude = 51.5074456, longitude = -0.1277653),
+            )
+        }
+        val withoutPlace = trip("t2", updatedAt = 3, owner = "alice")
+
+        assertEquals(withPlace, readBack(withPlace))
+        assertEquals(withoutPlace, readBack(withoutPlace))
+        assertEquals(withPlace.deletedAt(9), readBack(withPlace.deletedAt(9)))
+    }
 }

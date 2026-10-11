@@ -2,6 +2,7 @@ package com.example.planyourtrip.ui.common.components
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -30,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.R
 import com.example.planyourtrip.data.currency.Currency
 import com.example.planyourtrip.ui.common.CurrencyPickerState
+import com.example.planyourtrip.ui.common.currencyFlag
 import com.example.planyourtrip.ui.theme.Dimens
 
 /** Searchable list of the currencies the rates service supports (code + full name). */
@@ -98,12 +100,18 @@ private fun CurrencyRow(currency: Currency, selected: Boolean, onSelect: (String
     ListItem(
         headlineContent = { Text(currency.name) },
         leadingContent = {
-            Text(
-                text = currency.code,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.width(48.dp),
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // A fixed slot, so the codes line up also next to a currency without a flag.
+                Box(Modifier.width(32.dp)) {
+                    currencyFlag(currency.code)?.let { FlagEmoji(it, style = MaterialTheme.typography.titleLarge) }
+                }
+                Text(
+                    text = currency.code,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.width(48.dp),
+                )
+            }
         },
         trailingContent = if (selected) {
             {

@@ -46,6 +46,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.R
+import com.example.planyourtrip.ui.common.components.CurrencyCodeLabel
 import com.example.planyourtrip.data.currency.ILS
 import com.example.planyourtrip.ui.common.TripFormatting
 import com.example.planyourtrip.ui.common.components.PrimaryButton
@@ -201,7 +202,7 @@ private fun CodeChip(code: String, onClick: () -> Unit) {
             modifier = Modifier.padding(start = 10.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(code, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            CurrencyCodeLabel(code, MaterialTheme.typography.labelLarge, MaterialTheme.colorScheme.primary)
             Icon(
                 painter = painterResource(R.drawable.ic_expand_more),
                 contentDescription = null,
@@ -319,7 +320,7 @@ private fun AmountField(
             .background(MaterialTheme.colorScheme.surfaceContainerLowest, MaterialTheme.shapes.medium)
             .padding(horizontal = 10.dp, vertical = 8.dp),
     ) {
-        Text(code, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        CurrencyCodeLabel(code, MaterialTheme.typography.labelLarge, MaterialTheme.colorScheme.onSurfaceVariant)
         Row(verticalAlignment = Alignment.CenterVertically) {
             AmountInput(code, text, onTextChange, amountColor, Modifier.weight(1f))
             if (symbol != null) {

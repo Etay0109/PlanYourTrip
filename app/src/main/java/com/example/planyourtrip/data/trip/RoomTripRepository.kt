@@ -28,9 +28,11 @@ class RoomTripRepository(
         startDate: LocalDate,
         endDate: LocalDate,
         currencyCode: String?,
+        place: TripPlace,
     ): Long {
         // Each account's palette starts at the first color.
         val color = TripColor.forIndex(dao.count(ownerId))
+        val where = place.normalized()
         return dao.insert(
             TripEntity(
                 ownerId = ownerId,
@@ -40,6 +42,9 @@ class RoomTripRepository(
                 color = color,
                 currencyCode = currencyCode,
                 updatedAt = clock.millis(),
+                countryCode = where.countryCode,
+                latitude = where.latitude,
+                longitude = where.longitude,
             )
         ).also { changes.onLocalChange() }
     }
@@ -51,8 +56,13 @@ class RoomTripRepository(
         startDate: LocalDate,
         endDate: LocalDate,
         currencyCode: String?,
+        place: TripPlace,
     ) {
-        dao.update(id, ownerId, destination.trim(), startDate, endDate, currencyCode, clock.millis())
+        val where = place.normalized()
+        dao.update(
+            id, ownerId, destination.trim(), startDate, endDate, currencyCode,
+            where.countryCode, where.latitude, where.longitude, clock.millis(),
+        )
         changes.onLocalChange()
     }
 

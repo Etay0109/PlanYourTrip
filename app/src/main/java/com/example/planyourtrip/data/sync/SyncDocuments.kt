@@ -8,6 +8,7 @@ import com.example.planyourtrip.data.trip.ForeignAmount
 import com.example.planyourtrip.data.trip.LEGACY_ME_KEY
 import com.example.planyourtrip.data.trip.TravelerColor
 import com.example.planyourtrip.data.trip.TripColor
+import com.example.planyourtrip.data.trip.TripPlace
 import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.LocalTime
@@ -31,6 +32,7 @@ object SyncDocuments {
     /** The trip document's data fields: what an upload of an existing trip changes (never owner or members). */
     val TRIP_DATA_FIELDS = listOf(
         Field.DESTINATION, Field.START_DATE, Field.END_DATE, Field.CURRENCY_CODE, Field.COLOR,
+        Field.COUNTRY_CODE, Field.LATITUDE, Field.LONGITUDE,
     )
 
     /** Document field names (besides [DELETED] and [UPDATED_AT]); written and read with the same constants. */
@@ -41,6 +43,9 @@ object SyncDocuments {
         const val BUDGET_AGOROT = "budgetAgorot"
         const val CURRENCY_CODE = "currencyCode"
         const val COLOR = "color"
+        const val COUNTRY_CODE = "countryCode"
+        const val LATITUDE = "latitude"
+        const val LONGITUDE = "longitude"
         const val NAME = "name"
         const val AMOUNT_AGOROT = "amountAgorot"
         const val CATEGORY = "category"
@@ -78,6 +83,9 @@ object SyncDocuments {
                 Field.END_DATE to data.endDate.toString(),
                 Field.CURRENCY_CODE to data.currencyCode,
                 Field.COLOR to data.color.name,
+                Field.COUNTRY_CODE to data.countryCode,
+                Field.LATITUDE to data.latitude,
+                Field.LONGITUDE to data.longitude,
                 OWNER_ID to data.ownerId,
                 MEMBER_IDS to data.memberIds,
             )
@@ -143,15 +151,26 @@ object SyncDocuments {
         runCatching {
             val updatedAt = (doc[UPDATED_AT] as Number).toLong()
             val data = if (doc[DELETED] == true) null else when (kind) {
-                SyncKind.TRIP -> ItemData.TripData(
-                    destination = doc.string(Field.DESTINATION)!!,
-                    startDate = LocalDate.parse(doc.string(Field.START_DATE)),
-                    endDate = LocalDate.parse(doc.string(Field.END_DATE)),
-                    color = TripColor.fromName(doc[Field.COLOR] as? String),
-                    currencyCode = doc.string(Field.CURRENCY_CODE),
-                    ownerId = doc.string(OWNER_ID).orEmpty(),
-                    memberIds = (doc[MEMBER_IDS] as List<*>?).orEmpty().filterIsInstance<String>(),
-                )
+                SyncKind.TRIP -> {
+                    // Optional and read leniently: a bad value is dropped, never the trip (see TripPlace).
+                    val place = TripPlace(
+                        countryCode = doc[Field.COUNTRY_CODE] as? String,
+                        latitude = (doc[Field.LATITUDE] as? Number)?.toDouble(),
+                        longitude = (doc[Field.LONGITUDE] as? Number)?.toDouble(),
+                    ).normalized()
+                    ItemData.TripData(
+                        destination = doc.string(Field.DESTINATION)!!,
+                        startDate = LocalDate.parse(doc.string(Field.START_DATE)),
+                        endDate = LocalDate.parse(doc.string(Field.END_DATE)),
+                        color = TripColor.fromName(doc[Field.COLOR] as? String),
+                        currencyCode = doc.string(Field.CURRENCY_CODE),
+                        ownerId = doc.string(OWNER_ID).orEmpty(),
+                        memberIds = (doc[MEMBER_IDS] as List<*>?).orEmpty().filterIsInstance<String>(),
+                        countryCode = place.countryCode,
+                        latitude = place.latitude,
+                        longitude = place.longitude,
+                    )
+                }
                 SyncKind.BUDGET -> ItemData.BudgetData(doc.long(Field.BUDGET_AGOROT))
                 SyncKind.EXPENSE -> {
                     // Legacy documents written before expense splitting have no payer or split: paid by me, not shared.

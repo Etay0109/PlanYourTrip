@@ -42,6 +42,9 @@ object Dimens {
     /** The Overview map card's picture: at least this tall, taller when the Daily plan card next to it is. */
     val MapPreviewMinHeight = 88.dp
 
+    /** The flag (or pin) slot at the start of a destination suggestion row. */
+    val SuggestionFlagWidth = 32.dp
+
     /** Width of the Prep tab's document cards (and the dashed "Add document" card). */
     val DocumentCardWidth = 200.dp
 

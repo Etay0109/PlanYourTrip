@@ -13,7 +13,8 @@ interface TripRepository {
 
     /**
      * Creates a trip for [ownerId], picking its color automatically. [currencyCode] is what the user chose
-     * (null = none); it is never guessed from the destination. Returns the new id.
+     * (null = none). [place] is the picked suggestion's country and coordinates ([TripPlace.NONE] for free text).
+     * Returns the new id.
      */
     suspend fun addTrip(
         ownerId: String,
@@ -21,9 +22,10 @@ interface TripRepository {
         startDate: LocalDate,
         endDate: LocalDate,
         currencyCode: String? = null,
+        place: TripPlace = TripPlace.NONE,
     ): Long
 
-    /** Changes destination, dates and currency of one of the owner's trips; color and budget are kept. */
+    /** Changes destination, dates, currency and place of one of the owner's trips; color and budget are kept. */
     suspend fun updateTrip(
         id: Long,
         ownerId: String,
@@ -31,6 +33,7 @@ interface TripRepository {
         startDate: LocalDate,
         endDate: LocalDate,
         currencyCode: String?,
+        place: TripPlace = TripPlace.NONE,
     )
 
     /** Sets (or clears, with null) the owner's own budget for one of their trips, in agorot (personal). */

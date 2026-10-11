@@ -34,7 +34,8 @@ interface TripDao {
 
     @Query(
         "UPDATE trips SET destination = :destination, start_date = :startDate, end_date = :endDate, " +
-            "currency_code = :currencyCode, updated_at = :updatedAt, pending_sync = 1 " +
+            "currency_code = :currencyCode, country_code = :countryCode, latitude = :latitude, " +
+            "longitude = :longitude, updated_at = :updatedAt, pending_sync = 1 " +
             "WHERE id = :id AND owner_id = :ownerId"
     )
     suspend fun update(
@@ -44,6 +45,9 @@ interface TripDao {
         startDate: LocalDate,
         endDate: LocalDate,
         currencyCode: String?,
+        countryCode: String?,
+        latitude: Double?,
+        longitude: Double?,
         updatedAt: Long,
     )
 

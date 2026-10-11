@@ -28,6 +28,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -37,10 +39,13 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.planyourtrip.R
+import com.example.planyourtrip.data.place.PlaceSuggestion
 import com.example.planyourtrip.ui.common.components.BackTopAppBar
 import com.example.planyourtrip.ui.common.components.CurrencyPickerSheet
 import com.example.planyourtrip.ui.common.components.DateField
+import com.example.planyourtrip.ui.common.components.FlagEmoji
 import com.example.planyourtrip.ui.common.components.PrimaryButton
+import com.example.planyourtrip.ui.common.currencyFlag
 import com.example.planyourtrip.ui.common.errorSupportingText
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.PlanYourTripTheme
@@ -60,6 +65,8 @@ fun TripFormScreen(
         state = state,
         onBack = onBack,
         onDestinationChange = viewModel::onDestinationChange,
+        onSuggestionPicked = viewModel::onSuggestionPicked,
+        onSuggestionsDismissed = viewModel::onSuggestionsDismissed,
         onStartDateChange = viewModel::onStartDateChange,
         onEndDateChange = viewModel::onEndDateChange,
         onChooseCurrency = viewModel::onChooseCurrency,
@@ -88,7 +95,10 @@ fun TripFormContent(
     onChooseCurrency: () -> Unit,
     onClearCurrency: () -> Unit,
     onSave: () -> Unit,
+    onSuggestionPicked: (PlaceSuggestion) -> Unit = {},
+    onSuggestionsDismissed: () -> Unit = {},
 ) {
+    val focusManager = LocalFocusManager.current
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
@@ -120,8 +130,21 @@ fun TripFormContent(
                     imeAction = ImeAction.Done,
                 ),
                 shape = MaterialTheme.shapes.small,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onFocusChanged { if (!it.isFocused) onSuggestionsDismissed() },
             )
+
+            if (state.suggestions.isNotEmpty()) {
+                DestinationSuggestionList(
+                    suggestions = state.suggestions,
+                    onPick = { suggestion ->
+                        onSuggestionPicked(suggestion)
+                        // Closes the keyboard; the field shows the whole picked name.
+                        focusManager.clearFocus()
+                    },
+                )
+            }
 
             DateField(
                 label = R.string.new_trip_start_date,
@@ -178,10 +201,12 @@ private fun CurrencyField(code: String?, name: String?, onClick: () -> Unit, onC
         name == null -> code
         else -> stringResource(R.string.trip_currency_value, code, name)
     }
+    val flag = currencyFlag(code)
     OutlinedTextField(
         value = value,
         onValueChange = {},
         readOnly = true,
+        leadingIcon = flag?.let { { FlagEmoji(it, style = MaterialTheme.typography.titleLarge) } },
         label = { Text(stringResource(R.string.trip_currency_label)) },
         placeholder = { Text(stringResource(R.string.trip_currency_placeholder)) },
         trailingIcon = {
@@ -227,6 +252,25 @@ private fun TripFormPreview() {
                 endDate = LocalDate.of(2026, 11, 12),
                 destinationError = TripFieldError.EMPTY_DESTINATION,
                 endError = TripFieldError.END_BEFORE_START,
+            ),
+            onBack = {}, onDestinationChange = {}, onStartDateChange = {}, onEndDateChange = {},
+            onChooseCurrency = {}, onClearCurrency = {}, onSave = {},
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun TripFormSuggestionsPreview() {
+    PlanYourTripTheme(darkTheme = false) {
+        TripFormContent(
+            state = TripFormUiState(
+                destination = "Lond",
+                suggestions = listOf(
+                    PlaceSuggestion("London", "England", "United Kingdom", "GB", 51.5, -0.13),
+                    PlaceSuggestion("London", "Ontario", "Canada", "CA", 42.98, -81.25),
+                    PlaceSuggestion("Londrina", "Paraná", "Brazil", "BR", -23.3, -51.16),
+                ),
             ),
             onBack = {}, onDestinationChange = {}, onStartDateChange = {}, onEndDateChange = {},
             onChooseCurrency = {}, onClearCurrency = {}, onSave = {},

@@ -15,7 +15,9 @@ by swiping its Home card to the left or with "Delete trip" in its three-dots men
 can be split between travelers (names only, not accounts); the budget counts only the user's own share (see "Budget tab
 and expense splitting"). Maps are links only: the
 Overview's Map card (a drawn illustration) opens Google Maps on the destination and each Plan activity with a location
-has an "Open in Maps" button (a URL, no SDK, no key, no location permission).
+has an "Open in Maps" button (a URL, no SDK, no key, no location permission). The destination field suggests places
+as you type (Photon, plus a built-in Hebrew table); a picked place gives the trip a country code and coordinates, shown
+as a flag next to the destination (see "Destination suggestions and flags"). Currencies show their flag everywhere.
 Package: `com.example.planyourtrip`. minSdk 26, targetSdk 36.
 
 ## Commands
@@ -65,7 +67,8 @@ app/src/main/java/com/example/planyourtrip/
                                # MergeSuggestionStore (+ SharedPreferences…, InMemory…: "Keep separate" answers),
                                # TripMember (+ TripMemberEntity, TripMemberDao, TripMemberRepository + Room…: the cloud's
                                # member documents, read-only, written by the full sync),
-                               # Converters, AppDatabase (v15), Migrations (MIGRATION_6_7, MIGRATION_10_11, MIGRATION_13_14)
+                               # TripPlace (+ normalized(), Trip.place: the picked country code + coordinates),
+                               # Converters, AppDatabase (v16), Migrations (MIGRATION_6_7, MIGRATION_10_11, MIGRATION_13_14)
   data/document/               # Prep tab documents (this device only): DocumentType, TripDocument, DocumentInput, ViewFile,
                                # DocumentEntity, DocumentDao, DocumentRepository + RoomDocumentRepository (also the sync's
                                # TripCleanup), DocumentFileStore (interface) + AndroidDocumentFileStore (the only code that
@@ -96,6 +99,10 @@ app/src/main/java/com/example/planyourtrip/
                                # (Invite, InvitePreview, JoinResult, InviteUnavailableException, TripFullException),
                                # InviteRepository (interface) + FirestoreInviteRepository, MemberName (memberName():
                                # display name, never the email)
+  data/place/                  # destination suggestions (nothing in Room): PlaceSuggestion (+ label, detail,
+                               # withoutRepeats, toTripPlace), PlaceSearch (interface) + PhotonPlaceSearch (the only
+                               # Photon HTTP code), PhotonJson (pure parser + type allowlist), HebrewPlaces (pure
+                               # matching) + HebrewPlaceTable (GENERATED data), DestinationSuggestions (+ countryCurrency)
   data/user/                   # CurrentUser (AuthUser.greetingName()), UserNames (firstName()/initials())
   ui/navigation/               # Routes.kt (type-safe routes), AppNavHost.kt, SessionViewModel
   ui/auth/                     # AuthScreen, AuthViewModel, AuthUiState, AuthValidator
@@ -103,7 +110,8 @@ app/src/main/java/com/example/planyourtrip/
                                # join/ (JoinTripViewModel, JoinUiState (+ CodeLookup, JoinError), JoinTripSheet),
                                # components/ (NextTripCard, TripCards: upcoming + past list cards,
                                # SwipeToDeleteBox: swipe left → red "Delete" area)
-  ui/tripform/                 # TripFormScreen/ViewModel/UiState, TripValidator — new trip AND edit trip
+  ui/tripform/                 # TripFormScreen/ViewModel/UiState, TripValidator, DestinationSuggestionList — new trip
+                               # AND edit trip
   ui/tripdetails/              # the trip area: TripDetailsScreen (scaffold, header, nav bar, FABs; EmptyMessage,
                                # cardPadding), OverviewTab / BudgetTab (+ BudgetActions, AddExpenseFab) / PlanTab (the
                                # tabs' LazyListScope builders), TripDetailsPreviews (all previews), TripDetailsViewModel
@@ -144,6 +152,8 @@ app/src/main/java/com/example/planyourtrip/
                                # suggestionInputs))
   ui/common/                   # code shared by several features:
                                #   AppLocale (the one app locale, Locale.US, default of every formatter),
+                               #   Flags (pure: countryFlag, currencyFlag = the one currency → flag table,
+                               #   CURRENCIES_WITHOUT_FLAG),
                                #   UiSharing (WhileUiSubscribed: every ViewModel's stateIn policy, 5 s),
                                #   TripFormatting (dates, cached formatters), TripTexts (datesWithLength,
                                #   statusLabel), TripStatus (tripStatus()), Money (agorot format/parse, percent,
@@ -173,7 +183,8 @@ ui/common/share/             # "Share trip" PDF: TripPdfContent (pure: model, bu
                                #   DateField (read-only field + DatePickerPopup, also used alone), HeroWaves (gradient decoration),
                                #   TripComponents (LetterSquare, Pill, TripDatesRow),
                                #   TripMoreMenu (+ TripMoreButton: the trip's three-dots menu, "Share trip", "Delete trip"),
-                               #   CurrencyPickerSheet (searchable currency list, trip form + trip screen),
+                               #   CurrencyPickerSheet (searchable currency list with flags, trip form + trip screen),
+                               #   FlagEmoji (+ CurrencyCodeLabel "🇪🇺 EUR"), DestinationTitle (flag + destination),
                                #   TimeField (read-only time field + 24-hour TimePicker dialog; activity form),
                                #   EditFormScaffold (+ FormDelete: the expense/activity form shell: top bar with delete,
                                #   loading gate, scrolling fields, Save), ConfirmDeleteDialog (title, body, red Delete,
@@ -197,6 +208,7 @@ rules-tests/                   # Firestore rules tests: rules.test.js (mocha + @
 design/trip_members.png        # stage 2 reference (built): the Overview's "Traveling together" card (only that card)
 design/trip_invite.png         # stage 2 reference: the invite sheet
 design/home_join.png           # stage 2 reference: the join sheet
+tools/hebrew-places/           # generator of HebrewPlaceTable.kt (source lists + scripts, README.md: how to regenerate)
 app/src/main/res/xml/file_paths.xml  # FileProvider paths: cache/shared_pdfs/ and files/documents/
 ```
 
@@ -269,7 +281,7 @@ other RTL language. There are no translations (`res/values` only).
 - Money stays "₪2,550" (`money_shekels` = "₪%1$s", grouping from `AppLocale`).
 
 ## Data model (Room)
-Database `plan_your_trip.db`, `AppDatabase` version 15, ten tables:
+Database `plan_your_trip.db`, `AppDatabase` version 16, ten tables:
 
 | `trips` column | Type | Notes |
 |---|---|---|
@@ -288,6 +300,8 @@ Database `plan_your_trip.db`, `AppDatabase` version 15, ten tables:
 | `member_ids` | TEXT, default `''` | the members' uids, joined by `,`, in the cloud's order (owner first, then join order) |
 | `budget_updated_at` | INTEGER, default 0 | epoch millis of the last budget change; 0 = never set (no `BUDGET` item) |
 | `budget_pending` | INTEGER, default 0 | Boolean, the budget still has to be uploaded (`setBudget` never touches `updated_at`/`pending_sync`) |
+| `country_code` | TEXT, nullable | ISO 3166 code ("GB") of the picked destination's country; `null` = free text (shared, synced) |
+| `latitude`, `longitude` | REAL, nullable | the picked place's coordinates, both or neither (`TripPlace.normalized()`); not used by the map links |
 
 | `expenses` column | Type | Notes |
 |---|---|---|
@@ -475,7 +489,9 @@ become `trips(owner_id, uuid)` / children `(trip_id, uuid)`; `deletions` is rebu
 and the owner stays first in the list order, so every share, balance and transfer keeps its exact value
 (`MigrationTest.migrate13To14…`, `SplitTest.theOwnersUid_givesExactlyTheSameNumbersAsTheOldMeKey`). Room turns on
 `PRAGMA foreign_keys` itself (the cascade is covered in `TripDaoTest`). v14 → v15 is an `AutoMigration` (invites and
-joining) that creates `trip_members` empty; all existing data is kept (`MigrationTest.migrate14To15…`).
+joining) that creates `trip_members` empty; all existing data is kept (`MigrationTest.migrate14To15…`). v15 → v16 is
+an `AutoMigration` (destination suggestions) that adds `trips.country_code` / `latitude` / `longitude`, null for every
+existing trip; nothing re-uploads (`MigrationTest.migrate15To16…`).
 - **Never seed sample trips into the database.** Sample data belongs only in previews and tests.
 - **Changing the schema:** bump `version`, add a `Migration` or `AutoMigration`, build, and commit the new JSON in
   `app/schemas/`. Do not use `fallbackToDestructiveMigration` — users would lose their trips.
@@ -508,6 +524,8 @@ devices. The exchange-rate cache, the assistant chat and the trip documents (Pre
 ### Firestore layout (field names in `SyncDocuments` (its private `Field` constants), must match `firestore.rules`)
 ```
 trips/{tripUuid}                               destination, startDate, endDate, currencyCode, color,
+                                               countryCode, latitude, longitude (null = free text; optional:
+                                               documents written before suggestions lack them),
                                                ownerId, memberIds (array of uids)          — no budget here
    (trip tombstone)                            ownerId, memberIds, deleted: true, updatedAt (members still read it)
 trips/{tripUuid}/expenses/{uuid}               name, amountAgorot, category, date,
@@ -702,7 +720,9 @@ Timestamps are device clocks (no server time), so a device with a very wrong clo
 - **Field validation** as before (`hasOnly` key lists, ISO dates, end ≥ start, amount > 0, budget/cost null or > 0,
   decimal strings, "HH:mm", texts not empty, `createdAt`/`updatedAt` int, traveler name 1–100, settlement keys
   different) or a tombstone; expense `paidBy`/`splitBetween` are now **required**; shared checklist `list ==
-  'BEFORE_TRIP'`, packing `list == 'PACKING'`; trip `memberIds` 1–10 without duplicates and containing the owner.
+  'BEFORE_TRIP'`, packing `list == 'PACKING'`; trip `memberIds` 1–10 without duplicates and containing the owner;
+  trip `validPlace`: `countryCode` missing/null or `^[A-Z]{2}$`, `latitude`/`longitude` both missing/null or both
+  numbers in −90..90 / −180..180 (a trip without the keys stays valid; the tombstone rule is unchanged).
 - **Legacy copy** `users/{uid}/trips/**`: no create/update; delete by its owner; read by its owner until
   `users/{uid}.sharedTripsMigrated == true`, after that only the list query with `limit == 450` (the app's migration
   query) works, so old app versions are cut off while leftovers can still be deleted. The marker can be set, never
@@ -731,6 +751,11 @@ Timestamps are device clocks (no server time), so a device with a very wrong clo
   trip live) can only be a full trip. Invites are never deleted (used, cancelled or expired ones simply stay
   unreadable).
 - Timestamps are device clocks (see "Merge rules").
+- **The trip's place and app versions before suggestions** (until every phone runs the new app): an old app's edit of
+  the destination text keeps the old `countryCode`/coordinates (its upload merges only the fields it knows), and an old
+  app **can't delete** a trip that has a place (its tombstone leaves `countryCode`/`latitude`/`longitude`, which
+  `validTripTombstone` denies; the delete stays pending on that phone until it is updated). Order: publish the rules
+  (they accept everything the old app writes), then update every phone.
 
 ### Shared trips: next stage (planned, not built)
 - **Stage 3 – personal data and polish:** budget card/percentages/donut/PDF/assistant use my budget and my share
@@ -852,7 +877,7 @@ splitting").
   rounded (`extraLarge`), drawn behind the status bar (`contentWindowInsets = WindowInsets(0)` +
   `statusBarsPadding()`); back circle, status pill ("In 38 days" / "Now", **hidden after the trip ended**), edit
   circle (→ `TripForm(tripId)`), three-dots circle (`TripMoreMenu` → "Share trip", "Delete trip"), destination (`headlineLarge`,
-  ≤ 3 lines), dates with length. Below 300dp content width or
+  ≤ 3 lines, the country's flag before it when the trip has a `countryCode`: `DestinationTitle`), dates with length. Below 300dp content width or
   above font scale 1.2 the status pill moves to its own line under the buttons.
 - **Overview:** `BudgetCard` (tap → Budget tab; "Set budget" button opens the budget dialog), then `CurrencyCard`,
   then the **Map card** and Daily plan (→ Plan tab) side by side (equal height: `IntrinsicSize.Min` row), then the day
@@ -1081,7 +1106,9 @@ Reference: `design/trip_prep.png`, **with these deliberate differences**: the us
   `CurrencyPickerSheet`, a `ModalBottomSheet` with a search field (matches code or name, codes starting with the
   query first) over `/v1/currencies`. The list is kept in memory after the first success; offline → message +
   "Try again". Selecting saves with `TripRepository.setCurrency`.
-- **The currency is only ever chosen by the user** (card or trip form) — never guessed from the destination.
+- **The currency is only ever chosen by the user** (card or trip form) — never guessed from the destination text. The
+  one exception is the trip form of a **new** trip: picking a suggested place preselects its country's currency (see
+  "Destination suggestions and flags"); an existing trip's currency never changes by itself.
 - **Rate source:** Frankfurter `GET https://api.frankfurter.dev/v1/latest?base=XXX&symbols=ILS` (no API key),
   `HttpURLConnection` + `kotlinx-serialization-json`; the rate is read from the JSON text into `BigDecimal`. `FrankfurterJson` rejects a response whose `base` isn't the requested code and an empty currency list (both count as failures). The manifest declares `INTERNET`.
 - **Refresh:** `TripDetailsScreen` calls `onOverviewShown()` in a `LaunchedEffect(selectedTab, loaded,
@@ -1374,9 +1401,50 @@ Reference: `design/home_screen.png`. Match it closely when adding or changing sc
 - No budget fields — the budget is set on the trip screen.
 - **Trip currency (optional):** read-only field "EUR · Euro" (name from the loaded list, else the platform's
   `java.util.Currency` name) that opens the shared `CurrencyPickerSheet`; a clear (×) icon removes it. A new trip
-  starts with **no** currency (nothing preselected, never derived from the destination). `TripFormViewModel` takes
-  `CurrencyRepository` only for the list; the code is saved with `addTrip(..., currencyCode)` /
-  `updateTrip(..., currencyCode)`.
+  starts with **no** currency (never derived from free text); picking a suggested place may preselect one (below).
+  `TripFormViewModel` takes `CurrencyRepository` for the list; the code is saved with `addTrip(..., currencyCode,
+  place)` / `updateTrip(..., currencyCode, place)`. The field shows the currency's flag (leading icon).
+
+## Destination suggestions and flags (`data/place`, `ui/tripform`, `ui/common/Flags.kt`)
+- **Suggestions** (Add trip and Edit trip): from 2 characters (trimmed), 300 ms after the last keystroke
+  (`TripFormViewModel.LOOKUP_DELAY_MILLIS`), `DestinationSuggestions.suggest`; a new keystroke cancels the running lookup
+  **and disconnects its request** (`PhotonPlaceSearch`), and an answer for older text is never shown. The list
+  (`DestinationSuggestionList`) is a card under the field inside the scrolling column (no popup): flag (or a pin), name,
+  "England, United Kingdom", at most 6 rows, then "© OpenStreetMap contributors" (the data license asks for it). It
+  closes when the field loses focus. No network, a failed or bad answer → no list, **never an error**.
+- **Photon** (`https://photon.komoot.io/api/?q=…&lang=en&limit=10&osm_tag=place`, no key, `User-Agent:
+  PlanYourTrip/<versionName> (Android; com.example.planyourtrip)`, 10 s timeouts). `PhotonJson` keeps `osm_key` place
+  with `osm_value` country, state, region, province, county, city, town, village, municipality, island, archipelago
+  (streets, shops, houses, neighbourhoods are dropped). A suggestion is a repeat only when name, region **and**
+  country are the same (London, England and London, Ontario both show).
+- **Hebrew:** Photon has no Hebrew names for places abroad ("לונדון" finds only streets in Israel). Text with Hebrew
+  letters is matched against `HEBREW_PLACE_TABLE` (`HebrewPlaces.search`: no niqqud, geresh/quotes ignored, maqaf/dash
+  = space, final letters = regular ones; the start of a name or of a later word; exact first, then table order; ≤ 5),
+  offline too, then Photon's results for the raw text are added (places in Israel). The table is **generated data**:
+  a hand-written list (Hebrew name, spellings, English query, **expected country code**) was looked up once on Photon;
+  the generator failed on any entry whose top result had another country or a type outside the allowlist, and those
+  were reviewed by hand. Countries' Hebrew names come from the JDK (CLDR). `HebrewPlacesTest` checks every entry and
+  that no Hebrew name or alias is in two entries. Add places by regenerating (`tools/hebrew-places/README.md`), not by
+  guessing coordinates.
+- **Picking** fills "Name, Country" (`PlaceSuggestion.label`; a country is just its name), closes the keyboard, and
+  remembers `TripPlace(countryCode, latitude, longitude)`; **any edit of the text forgets it** until a suggestion is
+  picked again (also when the same text is typed back). Free text saves `TripPlace.NONE`. Edit trip keeps the stored
+  place while the text is unchanged. Invites still copy the destination text only.
+- **Currency preselection** (new trip only, `preselectCurrency`): after a pick, when no currency is set or the current
+  one was preselected and untouched (`currencyPreselected`), the country's currency (`countryCurrency`, platform data)
+  is set **only if** the rates service offers it (`currencyRepository.currencies()`; unavailable → nothing); a later
+  pick replaces or clears a preselected one; choosing or clearing by hand ends it. Edit trip never changes it.
+- **Flags** (display only, nothing stored for currencies): `countryFlag(code)` = regional indicators, null unless two
+  letters; `currencyFlag(code)` from the one fixed table (all 30 Frankfurter currencies; `EUR` → 🇪🇺); a currency not in
+  it gets no flag (`CURRENCIES_WITHOUT_FLAG` for deliberate gaps; `FlagsTest` pins the offered list). Shown as their
+  own decorative `Text` (`FlagEmoji`, no TalkBack text): before the destination on the Next trip, Upcoming and Past
+  cards and the trip header (`DestinationTitle`, which shows `shortDestination`: with a country code, "Name, Country" →
+  "Name", cut at the last ", "; otherwise the full text; display only, TalkBack and everything else keep the full text), and before currency codes in the currency picker, the trip form's
+  currency field, the Overview currency card's code chip and converter labels, and the expense form's ILS/foreign
+  buttons (`CurrencyCodeLabel`).
+- **Maps:** the Overview map card and "Open in Maps" still search the destination/location **text**, also when
+  coordinates exist (a coordinates search shows a bare pin); the coordinates are kept for destination photos and a
+  future Map tab.
 
 ## Conventions
 - **Never log passwords** (only their length) or other secrets.
@@ -1445,7 +1513,12 @@ today / checked, toggling, insertion order, suggested items; `DocumentFilesTest`
 20 MB limit, unknown size, badge, extension, default name; `PrepViewModelTest`: toggling, add, suggestions once, edit
 text, due dates, delete + Undo, another account's trip, too large / unsupported / unreadable / too large while copying,
 double tap, edit, delete with confirmation, view a missing file), `ActivityTypeTest`, `GoogleMapsTest` (spaces, comma, Hebrew, special
-characters, trimming, decodes back; the activity URL with/without the destination), `AccountViewModelTest` (menu state, sign out, warning, sign out anyway), deleting a trip (`DeleteTripViewModelTest`:
+characters, trimming, decodes back; the activity URL with/without the destination), destination suggestions and flags (`PhotonJsonTest`:
+types kept/dropped, labels, repeats only when name+region+country match; `HebrewPlacesTest`: matching rules and every
+table entry, no Hebrew name in two entries; `DestinationSuggestionsTest`; `TripFormPlaceTest` with `FakePlaceSearch`:
+pick, free text, edit after pick, offline, failing service, Hebrew, debounce, cancelled lookup, edit trip, currency
+preselection; `FlagsTest`: every offered currency has a flag or is left out on purpose; `TripPlaceSyncTest` +
+`SyncPathsTest`: the place round-trips; androidTest `TripPlaceRoomTest`), `AccountViewModelTest` (menu state, sign out, warning, sign out anyway), deleting a trip (`DeleteTripViewModelTest`:
 confirm, cancel, double tap, the trip's document files removed and other trips' kept, another account's trip, no
 user, failure, confirmed on the trip screen and deleted on Home; `HomeViewModelTest`: the next upcoming trip becomes
 the Next trip, the last trip → empty; `SyncManagerTest`: deleted offline, uploaded with its children's tombstones when

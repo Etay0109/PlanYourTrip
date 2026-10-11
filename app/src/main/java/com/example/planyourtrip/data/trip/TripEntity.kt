@@ -49,6 +49,11 @@ data class TripEntity(
     @ColumnInfo(name = "budget_updated_at", defaultValue = "0") val budgetUpdatedAt: Long = 0,
     /** True while the budget still has to be uploaded. */
     @ColumnInfo(name = "budget_pending", defaultValue = "0") val budgetPending: Boolean = false,
+    /** The destination's country code ("GB") when it was picked from the suggestions; null = free text. */
+    @ColumnInfo(name = "country_code") val countryCode: String? = null,
+    /** The picked place's coordinates, both or neither (see [TripPlace]). */
+    val latitude: Double? = null,
+    val longitude: Double? = null,
 )
 
 fun TripEntity.toTrip() = Trip(
@@ -62,4 +67,7 @@ fun TripEntity.toTrip() = Trip(
     ownerId = cloudOwnerId,
     memberIds = memberIds,
     uuid = uuid,
+    countryCode = countryCode,
+    latitude = latitude,
+    longitude = longitude,
 )

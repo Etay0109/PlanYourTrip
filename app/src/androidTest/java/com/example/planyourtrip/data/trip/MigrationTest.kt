@@ -16,6 +16,7 @@ import org.junit.runner.RunWith
  * v7 → v8 (places): activities are kept without a place, and the places table exists.
  * v10 → v11 (Map tab removed): a linked place's name fills an empty location, then places and the place columns go.
  * v11 → v12 (Prep tab): checklist_items and documents are added empty; everything else is kept as it was.
+ * v15 → v16 (destination suggestions): trips get country_code / latitude / longitude, null for every existing trip.
  */
 @RunWith(AndroidJUnit4::class)
 class MigrationTest {
@@ -603,6 +604,56 @@ class MigrationTest {
             assertTrue(c.moveToFirst())
             assertEquals(2, c.getInt(0))
             assertTrue(!c.moveToNext())
+        }
+        db.close()
+    }
+
+    @Test
+    fun migrate15To16_keepsEverything_andExistingTripsHaveNoPlace() {
+        helper.createDatabase(DB, 15).use { db ->
+            db.execSQL(
+                "INSERT INTO trips (id, owner_id, destination, start_date, end_date, color, budget_agorot, " +
+                    "currency_code, uuid, updated_at, pending_sync, cloud_owner_id, member_ids, budget_updated_at, " +
+                    "budget_pending) VALUES " +
+                    "(1, 'u1', 'Rome', 20769, 20774, 'SKY', 500000, 'EUR', 't-1', 5, 0, 'u1', 'u1,u2', 5, 0), " +
+                    "(2, 'u1', 'Lisbon', 20928, 20934, 'PEACH', NULL, NULL, 't-2', 6, 1, 'u1', 'u1', 0, 0)"
+            )
+            db.execSQL(
+                "INSERT INTO expenses (id, trip_id, name, amount_agorot, category, date, paid_by, split_between, " +
+                    "uuid, updated_at, pending_sync) VALUES (1, 1, 'Dinner', 10000, 'FOOD', 20770, 'u1', 'u1,u2', 'e-1', 6, 0)"
+            )
+            db.execSQL("INSERT INTO trip_members (trip_id, uid, name, joined_at, `left`) VALUES (1, 'u2', 'Noa', 9, 0)")
+        }
+
+        val db = helper.runMigrationsAndValidate(DB, 16, true)
+
+        db.query(
+            "SELECT destination, budget_agorot, currency_code, member_ids, updated_at, pending_sync, " +
+                "country_code, latitude, longitude FROM trips ORDER BY id"
+        ).use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(listOf("Rome", "EUR", "u1,u2"), listOf(c.getString(0), c.getString(2), c.getString(3)))
+            assertEquals(listOf(500000, 5, 0), listOf(c.getInt(1), c.getInt(4), c.getInt(5)))
+            assertTrue(c.isNull(6) && c.isNull(7) && c.isNull(8))
+            assertTrue(c.moveToNext())
+            assertEquals("Lisbon", c.getString(0))
+            assertEquals(listOf(6, 1), listOf(c.getInt(4), c.getInt(5)))
+            assertTrue(c.isNull(6) && c.isNull(7) && c.isNull(8))
+            assertFalse(c.moveToNext())
+        }
+        db.query("SELECT COUNT(*) FROM expenses").use { c -> assertTrue(c.moveToFirst()); assertEquals(1, c.getInt(0)) }
+        db.query("SELECT COUNT(*) FROM trip_members").use { c -> assertTrue(c.moveToFirst()); assertEquals(1, c.getInt(0)) }
+
+        // A new trip can hold a place.
+        db.execSQL(
+            "INSERT INTO trips (id, owner_id, destination, start_date, end_date, color, uuid, country_code, latitude, " +
+                "longitude) VALUES (3, 'u1', 'London, United Kingdom', 20769, 20774, 'MINT', 't-3', 'GB', 51.5, -0.13)"
+        )
+        db.query("SELECT country_code, latitude, longitude FROM trips WHERE id = 3").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("GB", c.getString(0))
+            assertEquals(51.5, c.getDouble(1), 0.0)
+            assertEquals(-0.13, c.getDouble(2), 0.0)
         }
         db.close()
     }

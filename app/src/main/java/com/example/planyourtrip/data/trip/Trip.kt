@@ -19,4 +19,9 @@ data class Trip(
     val memberIds: List<String> = emptyList(),
     /** The trip's stable id, the same on every device and in the cloud (invites and leaving use it). */
     val uuid: String = "",
+    /** ISO 3166 code of the destination's country ("GB"), when it was picked from the suggestions; else null. */
+    val countryCode: String? = null,
+    /** The picked place's coordinates (both or neither); null for free text. */
+    val latitude: Double? = null,
+    val longitude: Double? = null,
 )

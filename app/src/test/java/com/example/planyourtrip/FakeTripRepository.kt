@@ -2,6 +2,7 @@ package com.example.planyourtrip
 
 import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.data.trip.TripColor
+import com.example.planyourtrip.data.trip.TripPlace
 import com.example.planyourtrip.data.trip.TripRepository
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
@@ -38,11 +39,18 @@ class FakeTripRepository(initial: List<Pair<String, Trip>> = emptyList()) : Trip
         startDate: LocalDate,
         endDate: LocalDate,
         currencyCode: String?,
+        place: TripPlace,
     ): Long {
+        val where = place.normalized()
         val id = (trips.value.maxOfOrNull { it.second.id } ?: 0) + 1
         trips.update { list ->
             val color = TripColor.forIndex(list.count { it.first == ownerId })
-            list + (ownerId to Trip(id, destination.trim(), startDate, endDate, color, currencyCode = currencyCode))
+            list + (
+                ownerId to Trip(
+                    id, destination.trim(), startDate, endDate, color, currencyCode = currencyCode,
+                    countryCode = where.countryCode, latitude = where.latitude, longitude = where.longitude,
+                )
+            )
         }
         return id
     }
@@ -54,8 +62,13 @@ class FakeTripRepository(initial: List<Pair<String, Trip>> = emptyList()) : Trip
         startDate: LocalDate,
         endDate: LocalDate,
         currencyCode: String?,
+        place: TripPlace,
     ) = updateOwned(id, ownerId) {
-        it.copy(destination = destination.trim(), startDate = startDate, endDate = endDate, currencyCode = currencyCode)
+        val where = place.normalized()
+        it.copy(
+            destination = destination.trim(), startDate = startDate, endDate = endDate, currencyCode = currencyCode,
+            countryCode = where.countryCode, latitude = where.latitude, longitude = where.longitude,
+        )
     }
 
     override suspend fun setBudget(id: Long, ownerId: String, budgetAgorot: Long?) =

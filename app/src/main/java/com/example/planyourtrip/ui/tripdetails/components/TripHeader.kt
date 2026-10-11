@@ -25,11 +25,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.R
 import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.ui.common.TripStatus
+import com.example.planyourtrip.ui.common.components.DestinationTitle
 import com.example.planyourtrip.ui.common.components.HeroWaves
 import com.example.planyourtrip.ui.common.components.TripDatesRow
 import com.example.planyourtrip.ui.common.components.TripMoreMenu
@@ -92,12 +92,12 @@ fun TripHeader(
                     StatusBadge(statusLabel(status))
                 }
                 Spacer(Modifier.height(20.dp))
-                Text(
-                    text = trip.destination,
+                DestinationTitle(
+                    destination = trip.destination,
+                    countryCode = trip.countryCode,
                     style = MaterialTheme.typography.headlineLarge,
                     color = colors.onHero,
                     maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
                 )
                 Spacer(Modifier.height(8.dp))
                 TripDatesRow(

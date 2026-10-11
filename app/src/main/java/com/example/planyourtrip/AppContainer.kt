@@ -8,6 +8,8 @@ import com.example.planyourtrip.data.auth.AuthRepository
 import com.example.planyourtrip.data.auth.FirebaseAuthRepository
 import com.example.planyourtrip.data.currency.CurrencyRepository
 import com.example.planyourtrip.data.currency.FrankfurterRatesApi
+import com.example.planyourtrip.data.place.DestinationSuggestions
+import com.example.planyourtrip.data.place.PhotonPlaceSearch
 import com.example.planyourtrip.data.currency.RoomCurrencyRepository
 import com.example.planyourtrip.data.document.AndroidDocumentFileStore
 import com.example.planyourtrip.data.document.DocumentFileStore
@@ -149,6 +151,15 @@ class AppContainer(context: Context) {
     val currencyRepository: CurrencyRepository by lazy {
         RoomCurrencyRepository(FrankfurterRatesApi(), database.exchangeRateDao(), clock)
     }
+
+    /** Destination suggestions: Photon (identified by the app's version, as its usage policy asks) + the Hebrew table. */
+    val destinationSuggestions: DestinationSuggestions by lazy {
+        DestinationSuggestions(PhotonPlaceSearch(appVersion = appVersion))
+    }
+
+    private val appVersion: String = runCatching {
+        context.packageManager.getPackageInfo(context.packageName, 0).versionName
+    }.getOrNull() ?: "1.0"
 
     /** Gemini Developer API through Firebase AI Logic (App Check is installed in PlanYourTripApplication). */
     val assistantRepository: AssistantRepository by lazy {

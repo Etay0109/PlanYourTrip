@@ -13,18 +13,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.ui.common.TripFormatting
+import com.example.planyourtrip.ui.common.components.DestinationTitle
 import com.example.planyourtrip.ui.common.components.LetterSquare
 import com.example.planyourtrip.ui.common.components.Pill
 import com.example.planyourtrip.ui.common.components.TripDatesRow
@@ -57,6 +56,7 @@ fun UpcomingTripCard(
         val badge = statusLabel(item.status)
         TripListCard(
             destination = item.trip.destination,
+            countryCode = item.trip.countryCode,
             dates = datesWithLength(item.trip),
             containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
             shadowElevation = 1.dp,
@@ -99,6 +99,7 @@ fun PastTripCard(
     val colors = ExtendedTheme.colors
     TripListCard(
         destination = trip.destination,
+        countryCode = trip.countryCode,
         dates = TripFormatting.monthYear(trip.startDate),
         containerColor = colors.pastCardContainer,
         border = BorderStroke(1.dp, colors.pastCardBorder),
@@ -122,6 +123,7 @@ fun PastTripCard(
 @Composable
 private fun TripListCard(
     destination: String,
+    countryCode: String?,
     dates: String,
     containerColor: Color,
     letterContainer: Color,
@@ -154,13 +156,7 @@ private fun TripListCard(
             LetterSquare(destination, letterContainer, letterContent)
             Spacer(Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = destination,
-                    style = titleStyle,
-                    color = titleColor,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                DestinationTitle(destination, countryCode, titleStyle, titleColor, maxLines = 2)
                 Spacer(Modifier.height(4.dp))
                 TripDatesRow(
                     text = dates,

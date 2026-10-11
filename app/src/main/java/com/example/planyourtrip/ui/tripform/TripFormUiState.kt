@@ -1,5 +1,7 @@
 package com.example.planyourtrip.ui.tripform
 
+import com.example.planyourtrip.data.place.PlaceSuggestion
+import com.example.planyourtrip.data.trip.TripPlace
 import com.example.planyourtrip.ui.common.CurrencyPickerState
 import java.time.LocalDate
 
@@ -9,10 +11,22 @@ data class TripFormUiState(
     /** While editing, true until the trip's current values are loaded into the fields. */
     val isLoading: Boolean = false,
     val destination: String = "",
+    /** Places matching the typed destination (empty = no list shown). */
+    val suggestions: List<PlaceSuggestion> = emptyList(),
+    /**
+     * The picked suggestion's country and coordinates (or the edited trip's stored ones); null once the text is
+     * edited, until a suggestion is picked again. Free text is saved without them.
+     */
+    val place: TripPlace? = null,
     val startDate: LocalDate? = null,
     val endDate: LocalDate? = null,
-    /** Optional destination currency the user picked ("EUR"); null = none. Never guessed from the destination. */
+    /**
+     * Optional destination currency ("EUR"); null = none. Chosen by the user, or, for a new trip, preselected from a
+     * picked place's country ([currencyPreselected]); never guessed from free text.
+     */
     val currencyCode: String? = null,
+    /** True while [currencyCode] was preselected from the picked place and not touched since. */
+    val currencyPreselected: Boolean = false,
     /** Full name shown next to the code ("Euro"), when known. */
     val currencyName: String? = null,
     /** The currency picker while it is open. */

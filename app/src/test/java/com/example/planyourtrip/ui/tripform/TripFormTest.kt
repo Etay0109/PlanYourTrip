@@ -2,7 +2,9 @@ package com.example.planyourtrip.ui.tripform
 
 import com.example.planyourtrip.FakeAuthRepository
 import com.example.planyourtrip.FakeCurrencyRepository
+import com.example.planyourtrip.FakePlaceSearch
 import com.example.planyourtrip.FakeTripRepository
+import com.example.planyourtrip.data.place.DestinationSuggestions
 import com.example.planyourtrip.data.auth.AuthUser
 import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.data.trip.TripColor
@@ -30,6 +32,7 @@ class TripFormTest {
     private val user = FakeAuthRepository(AuthUser("u1", "Etay", "etay@example.com"))
     private lateinit var repo: FakeTripRepository
     private val currencies = FakeCurrencyRepository(now = { Instant.EPOCH })
+    private val destinations = DestinationSuggestions(FakePlaceSearch(), hebrewTable = emptyList())
     private lateinit var vm: TripFormViewModel
 
     private val nov12 = LocalDate.of(2026, 11, 12)
@@ -39,7 +42,7 @@ class TripFormTest {
     fun setUp() {
         Dispatchers.setMain(dispatcher)
         repo = FakeTripRepository()
-        vm = TripFormViewModel(tripId = null, repo, user, currencies)
+        vm = TripFormViewModel(tripId = null, repo, user, currencies, destinations)
     }
 
     @After
@@ -114,7 +117,7 @@ class TripFormTest {
 
     @Test
     fun save_withoutSignedInUser_doesNothing() = runTest(dispatcher) {
-        val signedOut = TripFormViewModel(tripId = null, repo, FakeAuthRepository(initialUser = null), currencies)
+        val signedOut = TripFormViewModel(tripId = null, repo, FakeAuthRepository(initialUser = null), currencies, destinations)
         signedOut.onDestinationChange("Rome")
         signedOut.onStartDateChange(nov12)
         signedOut.onEndDateChange(nov17)
@@ -129,7 +132,7 @@ class TripFormTest {
     fun edit_loadsTrip_andUpdatesItKeepingColorAndBudget() = runTest(dispatcher) {
         val rome = Trip(7, "Rome", nov12, nov17, TripColor.MINT, budgetAgorot = 600_000)
         repo.trips.value = listOf("u1" to rome)
-        val edit = TripFormViewModel(tripId = 7, repo, user, currencies)
+        val edit = TripFormViewModel(tripId = 7, repo, user, currencies, destinations)
         assertTrue(edit.uiState.value.isLoading)
         advanceUntilIdle()
 
@@ -153,7 +156,7 @@ class TripFormTest {
     fun edit_someoneElsesTrip_loadsNothing_andChangesNothing() = runTest(dispatcher) {
         val oslo = Trip(3, "Oslo", nov12, nov17, TripColor.ROSE)
         repo.trips.value = listOf("other" to oslo)
-        val edit = TripFormViewModel(tripId = 3, repo, user, currencies)
+        val edit = TripFormViewModel(tripId = 3, repo, user, currencies, destinations)
         advanceUntilIdle()
         assertEquals("", edit.uiState.value.destination)
 
@@ -206,7 +209,7 @@ class TripFormTest {
     @Test
     fun edit_prefillsCurrency_andSavesTheChange_orItsRemoval() = runTest(dispatcher) {
         repo.trips.value = listOf("u1" to Trip(7, "Rome", nov12, nov17, TripColor.MINT, currencyCode = "EUR"))
-        val edit = TripFormViewModel(tripId = 7, repo, user, currencies)
+        val edit = TripFormViewModel(tripId = 7, repo, user, currencies, destinations)
         advanceUntilIdle()
         assertEquals("EUR", edit.uiState.value.currencyCode)
 
@@ -219,7 +222,7 @@ class TripFormTest {
         advanceUntilIdle()
         assertEquals("USD", repo.tripsOf("u1").single().currencyCode)
 
-        val again = TripFormViewModel(tripId = 7, repo, user, currencies)
+        val again = TripFormViewModel(tripId = 7, repo, user, currencies, destinations)
         advanceUntilIdle()
         again.onClearCurrency()
         assertNull(again.uiState.value.currencyCode)

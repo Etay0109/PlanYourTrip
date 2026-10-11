@@ -367,6 +367,85 @@ describe('the owner', () => {
   });
 });
 
+// ---------- The trip's place (destination suggestions) ----------
+
+describe('the trip\'s place (country code and coordinates)', () => {
+  const london = { countryCode: 'GB', latitude: 51.5074456, longitude: -0.1277653 };
+  /** What an upload of an existing trip writes: the data fields with set(merge), never owner or members. */
+  const oldAppUpdate = { destination: 'Rome, Italy', startDate: '2026-11-12', endDate: '2026-11-18', currencyCode: 'EUR', color: 'SKY', updatedAt: 5, deleted: false };
+  const newAppUpdate = { ...oldAppUpdate, countryCode: 'IT', latitude: 41.8933203, longitude: 12.4829321 };
+  const create = (data) => setDoc(doc(as('carol'), 'trips/t9'), data);
+
+  it('the installed app keeps working: a trip without the keys is created and updated as before', async () => {
+    await assertSucceeds(create(trip('carol')));
+    await assertSucceeds(setDoc(doc(as('carol'), 'trips/t9'), oldAppUpdate, { merge: true }));
+  });
+
+  it('the installed app may update a trip the new app gave a place (the place stays)', async () => {
+    await seed({ 'trips/t1': trip('alice', ['alice', 'bob'], london) });
+    await assertSucceeds(setDoc(doc(as('bob'), 'trips/t1'), oldAppUpdate, { merge: true }));
+    let after;
+    await env.withSecurityRulesDisabled(async (ctx) => { after = (await getDoc(doc(ctx.firestore(), 'trips/t1'))).data(); });
+    if (after.countryCode !== 'GB' || after.latitude !== london.latitude) throw new Error('the place was lost');
+  });
+
+  it('accepts a full place, no place (nulls) and whole-number coordinates', async () => {
+    await assertSucceeds(create(trip('carol', ['carol'], london)));
+    await assertSucceeds(create(trip('carol', ['carol'], { countryCode: null, latitude: null, longitude: null })));
+    await assertSucceeds(create(trip('carol', ['carol'], { countryCode: 'GB', latitude: null, longitude: null })));
+    await assertSucceeds(create(trip('carol', ['carol'], { countryCode: null, latitude: 0, longitude: 0 })));
+    await assertSucceeds(create(trip('carol', ['carol'], { countryCode: 'NZ', latitude: -90, longitude: 180 })));
+  });
+
+  it('a member writes the place with the trip\'s data, the way the new app uploads it', async () => {
+    await seed({ 'trips/t1': trip('alice', ['alice', 'bob']) });
+    await assertSucceeds(setDoc(doc(as('bob'), 'trips/t1'), newAppUpdate, { merge: true }));
+    await assertSucceeds(setDoc(doc(as('bob'), 'trips/t1'), { ...newAppUpdate, countryCode: null, latitude: null, longitude: null }, { merge: true }));
+  });
+
+  it('rejects a bad country code', async () => {
+    for (const countryCode of ['gb', 'GBR', 'G', '', 'G1', 44, true, ['GB']]) {
+      await assertFails(create(trip('carol', ['carol'], { ...london, countryCode })));
+    }
+  });
+
+  it('rejects coordinates out of range, of the wrong type or only one of them', async () => {
+    const bad = [
+      { latitude: 91, longitude: 0 }, { latitude: -90.0001, longitude: 0 },
+      { latitude: 0, longitude: 180.5 }, { latitude: 0, longitude: -181 },
+      { latitude: '51.5', longitude: -0.12 }, { latitude: 51.5, longitude: '-0.12' },
+      { latitude: 51.5, longitude: null }, { latitude: null, longitude: -0.12 },
+      { latitude: 51.5 }, { longitude: -0.12 },
+      { latitude: [51.5], longitude: -0.12 }, { latitude: true, longitude: false },
+    ];
+    for (const coordinates of bad) {
+      await assertFails(create(trip('carol', ['carol'], { countryCode: 'GB', ...coordinates })));
+    }
+    await seed({ 'trips/t1': trip('alice', ['alice', 'bob'], london) });
+    await assertFails(setDoc(doc(as('bob'), 'trips/t1'), { ...newAppUpdate, latitude: 100 }, { merge: true }));
+    await assertFails(setDoc(doc(as('bob'), 'trips/t1'), { ...oldAppUpdate, longitude: null }, { merge: true }));
+  });
+
+  it('the new app deletes a trip with a place: every data field goes, the tombstone is unchanged', async () => {
+    await seed({ 'trips/t1': trip('alice', ['alice', 'bob'], london) });
+    const fields = Object.fromEntries(
+      ['destination', 'startDate', 'endDate', 'currencyCode', 'color', 'countryCode', 'latitude', 'longitude']
+        .map((f) => [f, deleteField()]),
+    );
+    await assertSucceeds(updateDoc(doc(as('alice'), 'trips/t1'), { ...fields, deleted: true, updatedAt: 9 }));
+  });
+
+  it('known limit: the installed app can not delete a trip that has a place (its tombstone leaves the place)', async () => {
+    await seed({ 'trips/t1': trip('alice', ['alice', 'bob'], london) });
+    const fields = Object.fromEntries(['destination', 'startDate', 'endDate', 'currencyCode', 'color'].map((f) => [f, deleteField()]));
+    await assertFails(updateDoc(doc(as('alice'), 'trips/t1'), { ...fields, deleted: true, updatedAt: 9 }));
+  });
+
+  it('a tombstone still holds nothing but owner, members, deleted and updatedAt', async () => {
+    await assertFails(setDoc(doc(as('carol'), 'trips/t9'), { ...tripTombstone('carol'), countryCode: 'GB' }));
+  });
+});
+
 // ---------- Personal data ----------
 
 describe('personal data (memberData)', () => {

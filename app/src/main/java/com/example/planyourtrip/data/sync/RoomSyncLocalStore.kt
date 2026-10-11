@@ -178,6 +178,9 @@ private fun ItemData.TripData.toEntity(existing: TripEntity?, ownerId: String, i
     memberIds = memberIds,
     budgetUpdatedAt = existing?.budgetUpdatedAt ?: 0,
     budgetPending = existing?.budgetPending ?: false,
+    countryCode = countryCode,
+    latitude = latitude,
+    longitude = longitude,
 )
 
 private fun ItemData.ExpenseData.toEntity(id: Long, tripId: Long, item: SyncItem) = ExpenseEntity(
@@ -258,7 +261,9 @@ private fun TripEntity.toSyncItem() = SyncItem(
     uuid = uuid,
     tripUuid = null,
     updatedAt = updatedAt,
-    data = ItemData.TripData(destination, startDate, endDate, color, currencyCode, cloudOwnerId, memberIds),
+    data = ItemData.TripData(
+        destination, startDate, endDate, color, currencyCode, cloudOwnerId, memberIds, countryCode, latitude, longitude,
+    ),
 )
 
 private fun TripEntity.toBudgetItem() = SyncItem(

@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
@@ -39,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.planyourtrip.R
+import com.example.planyourtrip.ui.common.components.CurrencyCodeLabel
 import com.example.planyourtrip.data.currency.ExchangeRate
 import com.example.planyourtrip.data.currency.ILS
 import com.example.planyourtrip.data.trip.ExpenseCategory
@@ -314,7 +317,7 @@ private fun CurrencySelector(state: ExpenseFormUiState, onCurrencyChange: (Strin
                 enabled = option == ILS || state.foreignEnabled,
                 shape = SegmentedButtonDefaults.itemShape(index, options.size),
                 icon = {},
-                label = { Text(option, maxLines = 1) },
+                label = { CurrencyCodeLabel(option, LocalTextStyle.current, LocalContentColor.current) },
             )
         }
     }

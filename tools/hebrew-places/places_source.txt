@@ -1,0 +1,200 @@
+# Hebrew name | aliases (comma-separated) | English query for Photon | expected country code
+# Order = popularity (first match wins ties). Countries come from countries_source.txt.
+לונדון||London|GB
+פריז|פריס|Paris|FR
+רומא||Rome|IT
+ניו יורק|ניו-יורק,ניויורק|New York City|US
+ברצלונה||Barcelona|ES
+אמסטרדם||Amsterdam|NL
+ברלין||Berlin|DE
+פראג||Prague|CZ
+בודפשט||Budapest|HU
+וינה||Vienna|AT
+אתונה||Athens|GR
+מדריד||Madrid|ES
+ליסבון||Lisbon|PT
+מילאנו|מילנו|Milan|IT
+ונציה|וונציה|Venice|IT
+פירנצה||Florence|IT
+נאפולי||Naples|IT
+טוסקנה||Tuscany|IT
+סיציליה||Sicily|IT
+סרדיניה||Sardinia|IT
+דולומיטים||Dolomites|IT
+חוף אמלפי|אמלפי|Amalfi|IT
+קאפרי||Capri|IT
+בולוניה||Bologna|IT
+ורונה||Verona|IT
+טורינו||Turin|IT
+פיזה||Pisa|IT
+כרתים||Crete|GR
+רודוס||Rhodes|GR
+סנטוריני||Santorini|GR
+מיקונוס||Mykonos|GR
+קורפו||Corfu|GR
+סלוניקי|תסלוניקי|Thessaloniki|GR
+זקינתוס||Zakynthos|GR
+קוס||Kos|GR
+נקסוס||Naxos|GR
+איסטנבול||Istanbul|TR
+אנטליה||Antalya|TR
+קפדוקיה||Cappadocia|TR
+בודרום||Bodrum|TR
+לרנקה||Larnaca|CY
+לימסול||Limassol|CY
+פאפוס||Paphos|CY
+איה נאפה|אייה נאפה|Ayia Napa|CY
+ניקוסיה||Nicosia|CY
+דובאי||Dubai|AE
+אבו דאבי||Abu Dhabi|AE
+מרקש||Marrakesh|MA
+קזבלנקה||Casablanca|MA
+פס||Fez|MA
+קהיר||Cairo|EG
+שארם א-שייח|שארם,שארם אל שייח|Sharm El Sheikh|EG
+דהב||Dahab|EG
+עמאן||Amman|JO
+פטרה||Petra|JO
+עקבה||Aqaba|JO
+מנצ׳סטר||Manchester|GB
+ליברפול||Liverpool|GB
+אדינבורו|אדינבורג|Edinburgh|GB
+סקוטלנד||Scotland|GB
+אנגליה||England|GB
+דבלין||Dublin|IE
+מינכן||Munich|DE
+פרנקפורט||Frankfurt|DE
+המבורג||Hamburg|DE
+קלן||Cologne|DE
+דיסלדורף||Düsseldorf|DE
+היער השחור|יער שחור|Black Forest|DE
+בוואריה||Bavaria|DE
+ציריך||Zurich|CH
+ז׳נבה|גנבה|Geneva|CH
+אינטרלקן||Interlaken|CH
+לוצרן||Lucerne|CH
+זלצבורג||Salzburg|AT
+אינסברוק||Innsbruck|AT
+טירול||Tyrol|AT
+בריסל||Brussels|BE
+בריז׳|ברוז',ברוג'|Bruges|BE
+אנטוורפן||Antwerp|BE
+רוטרדם||Rotterdam|NL
+קופנהגן||Copenhagen|DK
+סטוקהולם||Stockholm|SE
+אוסלו||Oslo|NO
+הלסינקי||Helsinki|FI
+רייקיאוויק|רייקיאביק|Reykjavik|IS
+ניס||Nice|FR
+ליון||Lyon|FR
+מרסיי||Marseille|FR
+בורדו||Bordeaux|FR
+הריביירה הצרפתית|קוט דאזור|French Riviera|FR
+קורסיקה||Corsica|FR
+שאמוני||Chamonix|FR
+נורמנדי||Normandy|FR
+קאן||Cannes|FR
+סביליה|סוויליה|Seville|ES
+ולנסיה||Valencia|ES
+מלגה|מאלגה|Málaga|ES
+מיורקה|מאיורקה,מלורקה|Mallorca|ES
+איביזה||Ibiza|ES
+טנריפה||Tenerife|ES
+האיים הקנריים|קנריים|Canary Islands|ES
+גרנאדה||Granada|ES
+אנדלוסיה||Andalusia|ES
+פורטו||Porto|PT
+מדיירה|מדירה|Madeira|PT
+אלגרבה|אלגארבה|Algarve Portugal|PT
+האיים האזוריים|אזוריים|Azores|PT
+קרקוב||Krakow|PL
+ורשה||Warsaw|PL
+גדנסק||Gdańsk|PL
+בוקרשט||Bucharest|RO
+טרנסילבניה||Transylvania|RO
+סופיה||Sofia|BG
+בורגס||Burgas|BG
+וארנה||Varna|BG
+בנסקו||Bansko|BG
+בלגרד||Belgrade|RS
+זאגרב||Zagreb|HR
+דוברובניק||Dubrovnik|HR
+ספליט||Split|HR
+ליובליאנה||Ljubljana|SI
+בלד||Bled|SI
+טירנה||Tirana|AL
+ריגה||Riga|LV
+טאלין||Tallinn|EE
+וילנה|וילנוס|Vilnius|LT
+בטומי||Batumi|GE
+טביליסי||Tbilisi|GE
+מוסקבה||Moscow|RU
+סנט פטרסבורג|פטרבורג|Saint Petersburg|RU
+קייב||Kyiv|UA
+אודסה||Odesa|UA
+לביב||Lviv|UA
+ירוואן||Yerevan|AM
+באקו||Baku|AZ
+לוס אנג׳לס||Los Angeles|US
+סן פרנסיסקו||San Francisco|US
+לאס וגאס||Las Vegas|US
+מיאמי||Miami|US
+אורלנדו||Orlando|US
+פלורידה||Florida|US
+קליפורניה||California|US
+הוואי||Hawaii|US
+שיקגו||Chicago|US
+בוסטון||Boston|US
+וושינגטון די סי|וושינגטון|Washington|US
+סיאטל||Seattle|US
+ניו אורלינס||New Orleans|US
+טורונטו||Toronto|CA
+מונטריאול||Montreal|CA
+ונקובר||Vancouver|CA
+קנקון||Cancún|MX
+מקסיקו סיטי||Mexico City|MX
+טולום||Tulum|MX
+ריו דה ז׳ניירו|ריו|Rio de Janeiro|BR
+סאו פאולו||São Paulo|BR
+בואנוס איירס||Buenos Aires|AR
+פטגוניה||Patagonia|AR
+לימה||Lima|PE
+סנטיאגו||Santiago|CL
+בוגוטה||Bogotá|CO
+קרטחנה|קרטגנה|Cartagena|CO
+סן חוזה||San José|CR
+הוואנה||Havana|CU
+בנגקוק||Bangkok|TH
+פוקט||Phuket|TH
+קוסמוי|קו סמוי,קוה סמוי|Ko Samui|TH
+קופנגן|קו פנגן,קוה פנגן|Ko Pha Ngan|TH
+צ׳יאנג מאי||Chiang Mai|TH
+קראבי||Krabi|TH
+טוקיו||Tokyo|JP
+קיוטו||Kyoto|JP
+אוסקה|אוסאקה|Osaka|JP
+סיאול||Seoul|KR
+בייג׳ינג||Beijing|CN
+שנגחאי||Shanghai|CN
+באלי||Bali|ID
+ג׳קרטה||Jakarta|ID
+קואלה לומפור||Kuala Lumpur|MY
+האנוי||Hanoi|VN
+הו צ׳י מין|סייגון|Ho Chi Minh City|VN
+מנילה||Manila|PH
+דלהי|ניו דלהי|Delhi|IN
+מומבאי||Mumbai|IN
+גואה||Goa|IN
+קטמנדו||Kathmandu|NP
+סידני||Sydney|AU
+מלבורן||Melbourne|AU
+אוקלנד||Auckland|NZ
+קייפטאון|קייפ טאון|Cape Town|ZA
+יוהנסבורג||Johannesburg|ZA
+זנזיבר||Zanzibar|TZ
+ניירובי||Nairobi|KE
+אילת||Eilat|IL
+ירושלים||Jerusalem|IL
+תל אביב|תל אביב יפו|Tel Aviv|IL
+חיפה||Haifa|IL
+טבריה||Tiberias|IL
