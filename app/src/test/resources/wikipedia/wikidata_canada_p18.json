@@ -1,0 +1,51 @@
+{
+    "claims": {
+        "P18": [
+            {
+                "mainsnak": {
+                    "snaktype": "value",
+                    "property": "P18",
+                    "hash": "eafc785e9361139fad9a2514e3b9d042795a0cc5",
+                    "datavalue": {
+                        "value": "NASA astronaut Scott Kelly took this aurora image over Canada on Jan. 21, 2016 01.jpg",
+                        "type": "string"
+                    },
+                    "datatype": "commonsMedia"
+                },
+                "type": "statement",
+                "id": "Q16$791bdd8e-68cd-444a-88ae-aa7d3f7d7f8c",
+                "rank": "normal"
+            },
+            {
+                "mainsnak": {
+                    "snaktype": "value",
+                    "property": "P18",
+                    "hash": "e1bf03bdedb2564668f8b86612f9100862abbdf0",
+                    "datavalue": {
+                        "value": "Canada BMNG.png",
+                        "type": "string"
+                    },
+                    "datatype": "commonsMedia"
+                },
+                "type": "statement",
+                "id": "Q16$09bfda03-45e8-1a03-669a-982bd87de478",
+                "rank": "normal"
+            },
+            {
+                "mainsnak": {
+                    "snaktype": "value",
+                    "property": "P18",
+                    "hash": "05f0e8726582ca8f8d766d4e0db38c61200d6a11",
+                    "datavalue": {
+                        "value": "Canada - Location Map (2013) - CAN - UNOCHA.svg",
+                        "type": "string"
+                    },
+                    "datatype": "commonsMedia"
+                },
+                "type": "statement",
+                "id": "Q16$fba23cbe-4e31-b39b-0793-1c198baa07a8",
+                "rank": "preferred"
+            }
+        ]
+    }
+}

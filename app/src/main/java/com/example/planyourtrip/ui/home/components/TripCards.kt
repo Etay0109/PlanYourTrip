@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.ui.common.TripFormatting
 import com.example.planyourtrip.ui.common.components.DestinationTitle
-import com.example.planyourtrip.ui.common.components.LetterSquare
+import com.example.planyourtrip.ui.common.components.PhotoSquare
 import com.example.planyourtrip.ui.common.components.Pill
 import com.example.planyourtrip.ui.common.components.TripDatesRow
 import com.example.planyourtrip.ui.common.components.TripMoreButton
@@ -48,6 +48,8 @@ fun UpcomingTripCard(
     modifier: Modifier = Modifier,
     /** False for a shared trip someone else owns: the menu offers "Leave trip". */
     isOwner: Boolean = true,
+    /** The destination photo's thumbnail; null = the letter square. */
+    thumbUrl: String? = null,
 ) {
     val colors = ExtendedTheme.colors
     val pastel = colors.pastel(item.trip.color)
@@ -69,6 +71,7 @@ fun UpcomingTripCard(
             onShare = onShare,
             onDelete = onDelete,
             isOwner = isOwner,
+            thumbUrl = thumbUrl,
             belowDates = {
                 if (!badgeInline) {
                     Spacer(Modifier.height(8.dp))
@@ -95,6 +98,8 @@ fun PastTripCard(
     modifier: Modifier = Modifier,
     /** False for a shared trip someone else owns: the menu offers "Leave trip". */
     isOwner: Boolean = true,
+    /** The destination photo's thumbnail; null = the letter square. */
+    thumbUrl: String? = null,
 ) {
     val colors = ExtendedTheme.colors
     TripListCard(
@@ -113,11 +118,13 @@ fun PastTripCard(
         onDelete = onDelete,
         modifier = modifier,
         isOwner = isOwner,
+        thumbUrl = thumbUrl,
     )
 }
 
 /**
- * Shared skeleton of the list cards: letter square, destination, dates and the three-dots menu at the right edge.
+ * Shared skeleton of the list cards: letter square (or the destination photo's thumbnail), destination, dates and
+ * the three-dots menu at the right edge.
  * [belowDates] and [beforeMenu] hold optional extras such as the countdown badge.
  */
 @Composable
@@ -136,6 +143,7 @@ private fun TripListCard(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
     isOwner: Boolean = true,
+    thumbUrl: String? = null,
     border: BorderStroke? = null,
     shadowElevation: Dp = 0.dp,
     belowDates: @Composable ColumnScope.() -> Unit = {},
@@ -153,7 +161,7 @@ private fun TripListCard(
             modifier = Modifier.padding(start = 16.dp, end = Dimens.CardMenuEndPadding, top = 16.dp, bottom = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            LetterSquare(destination, letterContainer, letterContent)
+            PhotoSquare(thumbUrl, destination, letterContainer, letterContent)
             Spacer(Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 DestinationTitle(destination, countryCode, titleStyle, titleColor, maxLines = 2)

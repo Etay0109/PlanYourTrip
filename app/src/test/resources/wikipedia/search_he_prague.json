@@ -1,0 +1,115 @@
+{
+    "batchcomplete": true,
+    "continue": {
+        "gsroffset": 5,
+        "continue": "gsroffset||"
+    },
+    "query": {
+        "pages": [
+            {
+                "pageid": 747,
+                "ns": 0,
+                "title": "\u05e4\u05e8\u05d0\u05d2",
+                "index": 1,
+                "coordinates": [
+                    {
+                        "lat": 50.08333333,
+                        "lon": 14.41666667,
+                        "primary": true,
+                        "type": "city"
+                    }
+                ],
+                "thumbnail": {
+                    "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2b/Hlavn%C3%AD_mesto_Praha_in_Czech_Republic.svg/960px-Hlavn%C3%AD_mesto_Praha_in_Czech_Republic.svg.png?utm_source=he.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+                    "width": 960,
+                    "height": 584
+                },
+                "original": {
+                    "source": "https://upload.wikimedia.org/wikipedia/commons/2/2b/Hlavn%C3%AD_mesto_Praha_in_Czech_Republic.svg?utm_source=he.wikipedia.org&utm_campaign=api&utm_content=original",
+                    "width": 1004,
+                    "height": 611
+                },
+                "pageimage": "Hlavn\u00ed_mesto_Praha_in_Czech_Republic.svg",
+                "pageprops": {
+                    "wikibase_item": "Q1085"
+                }
+            },
+            {
+                "pageid": 25473,
+                "ns": 0,
+                "title": "\u05de\u05e9\u05e4\u05d8\u05d9 \u05e4\u05e8\u05d0\u05d2",
+                "index": 5,
+                "pageprops": {
+                    "wikibase_item": "Q2637407"
+                }
+            },
+            {
+                "pageid": 82503,
+                "ns": 0,
+                "title": "\u05e1\u05dc\u05d1\u05d9\u05d4 \u05e4\u05e8\u05d0\u05d2",
+                "index": 3,
+                "thumbnail": {
+                    "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2b/SK_Slavia_Praha_full_logo.svg/960px-SK_Slavia_Praha_full_logo.svg.png?utm_source=he.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+                    "width": 960,
+                    "height": 1324
+                },
+                "original": {
+                    "source": "https://upload.wikimedia.org/wikipedia/commons/2/2b/SK_Slavia_Praha_full_logo.svg?utm_source=he.wikipedia.org&utm_campaign=api&utm_content=original",
+                    "width": 364,
+                    "height": 502
+                },
+                "pageimage": "SK_Slavia_Praha_full_logo.svg",
+                "pageprops": {
+                    "wikibase_item": "Q194393"
+                }
+            },
+            {
+                "pageid": 241312,
+                "ns": 0,
+                "title": "\u05de\u05e6\u05d5\u05d3\u05ea \u05e4\u05e8\u05d0\u05d2",
+                "index": 4,
+                "coordinates": [
+                    {
+                        "lat": 50.09,
+                        "lon": 14.4,
+                        "primary": true
+                    }
+                ],
+                "thumbnail": {
+                    "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5e/Karl%C5%AFv_most_Praha%2C_Star%C3%A9_M%C4%9Bsto_20170810_007.jpg/960px-Karl%C5%AFv_most_Praha%2C_Star%C3%A9_M%C4%9Bsto_20170810_007.jpg?utm_source=he.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+                    "width": 960,
+                    "height": 641
+                },
+                "original": {
+                    "source": "https://upload.wikimedia.org/wikipedia/commons/5/5e/Karl%C5%AFv_most_Praha%2C_Star%C3%A9_M%C4%9Bsto_20170810_007.jpg?utm_source=he.wikipedia.org&utm_campaign=api&utm_content=original",
+                    "width": 6016,
+                    "height": 4016
+                },
+                "pageimage": "Karl\u016fv_most_Praha,_Star\u00e9_M\u011bsto_20170810_007.jpg",
+                "pageprops": {
+                    "wikibase_item": "Q193369"
+                }
+            },
+            {
+                "pageid": 1575641,
+                "ns": 0,
+                "title": "\u05d9\u05d4\u05d3\u05d5\u05ea \u05e4\u05e8\u05d0\u05d2",
+                "index": 2,
+                "thumbnail": {
+                    "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/38/Praha%2C_%C5%BDidovsk%C3%A1_radnice.jpg/960px-Praha%2C_%C5%BDidovsk%C3%A1_radnice.jpg?utm_source=he.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+                    "width": 960,
+                    "height": 1280
+                },
+                "original": {
+                    "source": "https://upload.wikimedia.org/wikipedia/commons/3/38/Praha%2C_%C5%BDidovsk%C3%A1_radnice.jpg?utm_source=he.wikipedia.org&utm_campaign=api&utm_content=original",
+                    "width": 3000,
+                    "height": 4000
+                },
+                "pageimage": "Praha,_\u017didovsk\u00e1_radnice.jpg",
+                "pageprops": {
+                    "wikibase_item": "Q4204829"
+                }
+            }
+        ]
+    }
+}

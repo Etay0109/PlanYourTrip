@@ -7,6 +7,8 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.planyourtrip.appContainer
 import com.example.planyourtrip.data.auth.AuthRepository
+import com.example.planyourtrip.data.photo.DestinationPhotoRepository
+import com.example.planyourtrip.data.photo.photoQuery
 import com.example.planyourtrip.data.trip.TripRepository
 import com.example.planyourtrip.data.user.firstName
 import com.example.planyourtrip.data.user.greetingName
@@ -30,20 +32,31 @@ class HomeViewModel(
     private val clock: Clock,
     /** Where trips are grouped and sorted; tests pass their test dispatcher. */
     computeDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    /** Destination photos of the cards (this device only). */
+    private val photoRepository: DestinationPhotoRepository = DestinationPhotoRepository.None,
 ) : ViewModel() {
 
-    /** The signed-in user's trips; switches automatically when the account changes. The profile menu is AccountViewModel. */
+    /**
+     * The signed-in user's trips with their destination photos; switches automatically when the account changes.
+     * Every new list asks for the photos it has none of yet (a new or edited destination). The profile menu is
+     * AccountViewModel.
+     */
     val uiState: StateFlow<HomeUiState> = authRepository.currentUser
         .filterNotNull()
         .flatMapLatest { user ->
             val name = user.greetingName()
-            tripRepository.observeTrips(user.uid).map { trips ->
-                HomeUiState.Content(
-                    userName = name,
-                    firstName = firstName(name),
-                    sections = groupTrips(trips, LocalDate.now(clock)),
-                    uid = user.uid,
-                )
+            tripRepository.observeTrips(user.uid).flatMapLatest { trips ->
+                val queries = trips.associate { it.id to it.photoQuery }
+                photoRepository.request(queries.values)
+                photoRepository.observe(queries.values.mapTo(HashSet()) { it.key }).map { photos ->
+                    HomeUiState.Content(
+                        userName = name,
+                        firstName = firstName(name),
+                        sections = groupTrips(trips, LocalDate.now(clock)),
+                        uid = user.uid,
+                        photos = queries.mapNotNull { (id, query) -> photos[query.key]?.let { id to it } }.toMap(),
+                    )
+                }
             }
         }
         // Grouping and sorting run off the main thread.
@@ -58,6 +71,7 @@ class HomeViewModel(
                     container.tripRepository,
                     container.authRepository,
                     container.clock,
+                    photoRepository = container.destinationPhotoRepository,
                 )
             }
         }

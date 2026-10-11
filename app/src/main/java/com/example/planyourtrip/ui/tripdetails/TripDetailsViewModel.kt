@@ -13,6 +13,9 @@ import com.example.planyourtrip.data.auth.AuthRepository
 import com.example.planyourtrip.data.currency.CurrencyRepository
 import com.example.planyourtrip.data.currency.ILS
 import com.example.planyourtrip.data.currency.isStale
+import com.example.planyourtrip.data.photo.DestinationPhoto
+import com.example.planyourtrip.data.photo.DestinationPhotoRepository
+import com.example.planyourtrip.data.photo.photoQuery
 import com.example.planyourtrip.data.trip.ActivityRepository
 import com.example.planyourtrip.data.trip.DeletedActivity
 import com.example.planyourtrip.data.trip.DeletedActivityStore
@@ -71,7 +74,25 @@ class TripDetailsViewModel(
     private val deletedActivities: DeletedActivityStore = DeletedActivityStore(),
     /** Names of the trip's members (shared trips). */
     memberRepository: TripMemberRepository = TripMemberRepository.None,
+    /** The header's destination photo (this device only). */
+    photoRepository: DestinationPhotoRepository = DestinationPhotoRepository.None,
 ) : ViewModel() {
+
+    /**
+     * The header's destination photo; null while there is none (the gradient only). An edited destination is a new
+     * lookup, so its photo replaces the old one.
+     */
+    val headerPhoto: StateFlow<DestinationPhoto?> = authRepository.currentUser
+        .flatMapLatest { user ->
+            if (user == null) flowOf(null) else tripRepository.observeTrip(tripId, user.uid).map { it?.photoQuery }
+        }
+        .distinctUntilChanged()
+        .flatMapLatest { query ->
+            if (query == null) return@flatMapLatest flowOf(null)
+            photoRepository.request(listOf(query))
+            photoRepository.observe(setOf(query.key)).map { it[query.key] }
+        }
+        .stateIn(viewModelScope, WhileUiSubscribed, null)
 
     /** Day chosen on the Plan tab; null = the default day (first day, or today during the trip). */
     private val planDay = MutableStateFlow<LocalDate?>(null)
@@ -338,6 +359,7 @@ class TripDetailsViewModel(
                     clock = container.clock,
                     deletedActivities = container.deletedActivities,
                     memberRepository = container.tripMemberRepository,
+                    photoRepository = container.destinationPhotoRepository,
                 )
             }
         }

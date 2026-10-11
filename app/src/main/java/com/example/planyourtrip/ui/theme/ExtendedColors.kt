@@ -36,6 +36,14 @@ data class ExtendedColors(
     /** Decorative wave lines and glow drawn on the hero card. */
     val heroWave: Color,
     val heroGlow: Color,
+    /**
+     * Destination photo behind the hero (see [HeroPhotoScrim]): a light brand tint over the whole photo, the shade
+     * color drawn at the scrim's alphas where text sits, and the darker fill of the countdown box, the status chip
+     * and the round buttons while a photo shows.
+     */
+    val heroPhotoTint: Color,
+    val heroPhotoShade: Color,
+    val heroPhotoChip: Color,
     val badgeContainer: Color,
     val onBadge: Color,
     val pastCardContainer: Color,
@@ -85,6 +93,9 @@ val LightExtendedColors = ExtendedColors(
     heroOverlayBorder = Color.White.copy(alpha = 0.22f),
     heroWave = Color.White.copy(alpha = 0.10f),
     heroGlow = Color.White.copy(alpha = 0.04f),
+    heroPhotoTint = Teal50.copy(alpha = 0.25f),
+    heroPhotoShade = Teal10,
+    heroPhotoChip = Teal10.copy(alpha = 0.6f),
     badgeContainer = Gray150,
     onBadge = Teal40,
     pastCardContainer = Gray100,
@@ -142,6 +153,9 @@ val DarkExtendedColors = ExtendedColors(
     heroOverlayBorder = Color.White.copy(alpha = 0.22f),
     heroWave = Color.White.copy(alpha = 0.10f),
     heroGlow = Color.White.copy(alpha = 0.04f),
+    heroPhotoTint = Teal30.copy(alpha = 0.25f),
+    heroPhotoShade = Teal10,
+    heroPhotoChip = Teal10.copy(alpha = 0.6f),
     badgeContainer = NightSurfaceHigh,
     onBadge = Teal80,
     pastCardContainer = Color(0xFF151B1E),

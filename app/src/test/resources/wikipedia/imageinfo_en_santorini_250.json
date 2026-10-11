@@ -1,0 +1,42 @@
+{
+    "continue": {
+        "iistart": "2025-07-05T08:48:37Z",
+        "continue": "||"
+    },
+    "query": {
+        "pages": [
+            {
+                "ns": 6,
+                "title": "File:Santor\u00edni aerial.jpg",
+                "missing": true,
+                "known": true,
+                "imagerepository": "shared",
+                "imageinfo": [
+                    {
+                        "size": 1300161,
+                        "width": 3830,
+                        "height": 2375,
+                        "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/22/Santor%C3%ADni_aerial.jpg/250px-Santor%C3%ADni_aerial.jpg?utm_source=en.wikipedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+                        "thumbwidth": 250,
+                        "thumbheight": 155,
+                        "responsiveUrls": {
+                            "2": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/22/Santor%C3%ADni_aerial.jpg/500px-Santor%C3%ADni_aerial.jpg?utm_source=en.wikipedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+                        },
+                        "thumbattribs": {
+                            "src": "//thumb.wikimedia.org/wikipedia/commons/thumb/2/22/Santor%C3%ADni_aerial.jpg/250px-Santor%C3%ADni_aerial.jpg?utm_source=en.wikipedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+                            "decoding": "async",
+                            "loading": "lazy",
+                            "width": 250,
+                            "height": 155,
+                            "srcset": "//thumb.wikimedia.org/wikipedia/commons/thumb/2/22/Santor%C3%ADni_aerial.jpg/500px-Santor%C3%ADni_aerial.jpg?utm_source=en.wikipedia.org&utm_campaign=imageinfo&utm_content=thumbnail 2x"
+                        },
+                        "url": "https://upload.wikimedia.org/wikipedia/commons/2/22/Santor%C3%ADni_aerial.jpg?utm_source=en.wikipedia.org&utm_campaign=imageinfo&utm_content=original",
+                        "descriptionurl": "https://commons.wikimedia.org/wiki/File:Santor%C3%ADni_aerial.jpg",
+                        "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=169278987",
+                        "mime": "image/jpeg"
+                    }
+                ]
+            }
+        ]
+    }
+}

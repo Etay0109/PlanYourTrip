@@ -15,6 +15,10 @@ import com.example.planyourtrip.data.document.AndroidDocumentFileStore
 import com.example.planyourtrip.data.document.DocumentFileStore
 import com.example.planyourtrip.data.document.DocumentRepository
 import com.example.planyourtrip.data.document.RoomDocumentRepository
+import com.example.planyourtrip.data.photo.DestinationPhotoRepository
+import com.example.planyourtrip.data.photo.RoomDestinationPhotoRepository
+import com.example.planyourtrip.data.photo.WikipediaPhotoSource
+import com.example.planyourtrip.data.photo.photoUserAgent
 import com.example.planyourtrip.data.sharing.FirestoreInviteRepository
 import com.example.planyourtrip.data.sharing.InviteRepository
 import com.example.planyourtrip.data.sync.AndroidNetworkMonitor
@@ -156,6 +160,21 @@ class AppContainer(context: Context) {
     val destinationSuggestions: DestinationSuggestions by lazy {
         DestinationSuggestions(PhotonPlaceSearch(appVersion = appVersion))
     }
+
+    /** Destination photos (Home cards, trip header): Wikipedia lookups remembered in Room, this device only. */
+    val destinationPhotoRepository: DestinationPhotoRepository by lazy {
+        RoomDestinationPhotoRepository(
+            dao = database.destinationPhotoDao(),
+            source = WikipediaPhotoSource(appVersion, log = { Log.i("DestinationPhoto", it) }),
+            network = networkMonitor,
+            clock = clock,
+            scope = appScope,
+            log = { message, error -> Log.w("DestinationPhoto", message, error) },
+        )
+    }
+
+    /** Sent with every Wikipedia request and every photo download (PhotoImageLoader), as Wikimedia asks. */
+    val imageUserAgent: String get() = photoUserAgent(appVersion)
 
     private val appVersion: String = runCatching {
         context.packageManager.getPackageInfo(context.packageName, 0).versionName

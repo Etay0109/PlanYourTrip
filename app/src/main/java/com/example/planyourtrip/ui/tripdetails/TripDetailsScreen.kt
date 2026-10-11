@@ -117,6 +117,7 @@ fun TripDetailsScreen(
     val currencyCard by viewModel.currencyCard.collectAsStateWithLifecycle()
     val currencyPicker by viewModel.currencyPicker.collectAsStateWithLifecycle()
     val deletedActivity by viewModel.deletedActivity.collectAsStateWithLifecycle()
+    val headerPhoto by viewModel.headerPhoto.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     // "Activity deleted" with "Undo", once per delete; Undo brings the activity back.
     val deletedMessage = stringResource(R.string.activity_deleted)
@@ -227,6 +228,7 @@ fun TripDetailsScreen(
         splitActions = splitActions,
         isRefreshing = refresh.isRefreshing,
         onRefresh = refreshViewModel::onRefresh,
+        headerPhotoUrl = headerPhoto?.cardUrl,
     )
 
     currencyPicker?.let { picker ->
@@ -298,6 +300,8 @@ fun TripDetailsContent(
     /** Pull to refresh (every tab): a full sync with the cloud. */
     isRefreshing: Boolean = false,
     onRefresh: () -> Unit = {},
+    /** The header's destination photo (about 960 px); null = the gradient only. */
+    headerPhotoUrl: String? = null,
 ) {
     when (state) {
         // Nothing is drawn until Room answers, so no placeholder flashes.
@@ -354,6 +358,7 @@ fun TripDetailsContent(
                                 onShare = { onShareTrip(state.trip.id) },
                                 onDelete = { onDeleteTrip(state.trip) },
                                 isOwner = state.members?.isOwner ?: true,
+                                photoUrl = headerPhotoUrl,
                             )
                         }
                         when (selectedTab) {

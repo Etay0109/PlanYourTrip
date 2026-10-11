@@ -1,0 +1,21 @@
+{
+    "claims": {
+        "P18": [
+            {
+                "mainsnak": {
+                    "snaktype": "value",
+                    "property": "P18",
+                    "hash": "49b8838aadb1bd067d09c0765987c4db19028fb0",
+                    "datavalue": {
+                        "value": "Santor\u00edni aerial.jpg",
+                        "type": "string"
+                    },
+                    "datatype": "commonsMedia"
+                },
+                "type": "statement",
+                "id": "Q129296$37ba832e-4b06-1660-e3b7-17125f594fa5",
+                "rank": "normal"
+            }
+        ]
+    }
+}

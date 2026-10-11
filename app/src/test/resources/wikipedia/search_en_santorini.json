@@ -1,0 +1,142 @@
+{
+    "batchcomplete": true,
+    "continue": {
+        "gsroffset": 5,
+        "continue": "gsroffset||"
+    },
+    "query": {
+        "pages": [
+            {
+                "pageid": 28377,
+                "ns": 0,
+                "title": "Santorini",
+                "index": 1,
+                "coordinates": [
+                    {
+                        "lat": 36.415,
+                        "lon": 25.4325,
+                        "primary": true,
+                        "type": "isle"
+                    }
+                ],
+                "thumbnail": {
+                    "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/bf/2011_Dimos_Thiras.png/960px-2011_Dimos_Thiras.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+                    "width": 960,
+                    "height": 601
+                },
+                "original": {
+                    "source": "https://upload.wikimedia.org/wikipedia/commons/b/bf/2011_Dimos_Thiras.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=original",
+                    "width": 2000,
+                    "height": 1253
+                },
+                "pageimage": "2011_Dimos_Thiras.png",
+                "pageprops": {
+                    "wikibase_item": "Q129296"
+                }
+            },
+            {
+                "pageid": 4217801,
+                "ns": 0,
+                "title": "Minoan eruption",
+                "index": 2,
+                "coordinates": [
+                    {
+                        "lat": 36.41,
+                        "lon": 25.4,
+                        "primary": true,
+                        "type": "event"
+                    }
+                ],
+                "thumbnail": {
+                    "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/06/Santorini_ASTER.jpg/960px-Santorini_ASTER.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+                    "width": 960,
+                    "height": 991
+                },
+                "original": {
+                    "source": "https://upload.wikimedia.org/wikipedia/commons/0/06/Santorini_ASTER.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=original",
+                    "width": 1191,
+                    "height": 1230
+                },
+                "pageimage": "Santorini_ASTER.jpg",
+                "pageprops": {
+                    "wikibase_item": "Q1144693"
+                }
+            },
+            {
+                "pageid": 9305336,
+                "ns": 0,
+                "title": "Santorini International Airport",
+                "index": 5,
+                "coordinates": [
+                    {
+                        "lat": 36.40083333,
+                        "lon": 25.47833333,
+                        "primary": true,
+                        "type": "airport"
+                    }
+                ],
+                "thumbnail": {
+                    "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ac/Santorini_Airport_Building.jpg/960px-Santorini_Airport_Building.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+                    "width": 960,
+                    "height": 540
+                },
+                "original": {
+                    "source": "https://upload.wikimedia.org/wikipedia/commons/a/ac/Santorini_Airport_Building.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=original",
+                    "width": 4032,
+                    "height": 2268
+                },
+                "pageimage": "Santorini_Airport_Building.jpg",
+                "pageprops": {
+                    "wikibase_item": "Q1432775"
+                }
+            },
+            {
+                "pageid": 25647638,
+                "ns": 0,
+                "title": "Santorini (game)",
+                "index": 4,
+                "thumbnail": {
+                    "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/ec/Santorini_game_render.jpg/960px-Santorini_game_render.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+                    "width": 960,
+                    "height": 768
+                },
+                "original": {
+                    "source": "https://upload.wikimedia.org/wikipedia/commons/e/ec/Santorini_game_render.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=original",
+                    "width": 2700,
+                    "height": 2160
+                },
+                "pageimage": "Santorini_game_render.jpg",
+                "pageprops": {
+                    "wikibase_item": "Q4179219"
+                }
+            },
+            {
+                "pageid": 31538932,
+                "ns": 0,
+                "title": "Santorini caldera",
+                "index": 3,
+                "coordinates": [
+                    {
+                        "lat": 36.39555556,
+                        "lon": 25.45916667,
+                        "primary": true
+                    }
+                ],
+                "thumbnail": {
+                    "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e6/Santorini_Caldera_ASTER.jpg/960px-Santorini_Caldera_ASTER.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+                    "width": 960,
+                    "height": 991
+                },
+                "original": {
+                    "source": "https://upload.wikimedia.org/wikipedia/commons/e/e6/Santorini_Caldera_ASTER.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=original",
+                    "width": 1191,
+                    "height": 1230
+                },
+                "pageimage": "Santorini_Caldera_ASTER.jpg",
+                "pageprops": {
+                    "wikibase_item": "Q2071883"
+                }
+            }
+        ]
+    }
+}

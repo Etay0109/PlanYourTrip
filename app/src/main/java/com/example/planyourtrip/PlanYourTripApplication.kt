@@ -4,8 +4,11 @@ import android.app.Application
 import android.content.res.Configuration
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.viewmodel.CreationExtras
+import coil3.ImageLoader
+import coil3.PlatformContext
+import coil3.SingletonImageLoader
 
-class PlanYourTripApplication : Application() {
+class PlanYourTripApplication : Application(), SingletonImageLoader.Factory {
     lateinit var container: AppContainer
         private set
 
@@ -19,6 +22,10 @@ class PlanYourTripApplication : Application() {
         container.syncManager.start()
         container.cleanUpDocumentFiles()
     }
+
+    /** Coil's loader for the destination photos (User-Agent, disk cache). */
+    override fun newImageLoader(context: PlatformContext): ImageLoader =
+        photoImageLoader(context, container.imageUserAgent)
 
     // Android resets the JVM default locale to the system language when it changes; keep it English.
     override fun onConfigurationChanged(newConfig: Configuration) {

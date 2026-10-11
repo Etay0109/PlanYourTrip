@@ -1,0 +1,141 @@
+{
+    "batchcomplete": true,
+    "continue": {
+        "gsroffset": 5,
+        "continue": "gsroffset||"
+    },
+    "query": {
+        "pages": [
+            {
+                "pageid": 17867,
+                "ns": 0,
+                "title": "London",
+                "index": 1,
+                "coordinates": [
+                    {
+                        "lat": 51.50722222,
+                        "lon": -0.1275,
+                        "primary": true
+                    }
+                ],
+                "thumbnail": {
+                    "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/67/London_Skyline_%28125508655%29.jpeg/960px-London_Skyline_%28125508655%29.jpeg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+                    "width": 960,
+                    "height": 540
+                },
+                "original": {
+                    "source": "https://upload.wikimedia.org/wikipedia/commons/6/67/London_Skyline_%28125508655%29.jpeg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=original",
+                    "width": 2048,
+                    "height": 1152
+                },
+                "pageimage": "London_Skyline_(125508655).jpeg",
+                "pageprops": {
+                    "wikibase_item": "Q84"
+                }
+            },
+            {
+                "pageid": 40353,
+                "ns": 0,
+                "title": "London, Ontario",
+                "index": 4,
+                "coordinates": [
+                    {
+                        "lat": 42.985,
+                        "lon": -81.24527778,
+                        "primary": true,
+                        "type": "city"
+                    }
+                ],
+                "thumbnail": {
+                    "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/26/London_Ontario_Skyline_2017_%28cropped%29.jpg/960px-London_Ontario_Skyline_2017_%28cropped%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+                    "width": 960,
+                    "height": 489
+                },
+                "original": {
+                    "source": "https://upload.wikimedia.org/wikipedia/commons/2/26/London_Ontario_Skyline_2017_%28cropped%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=original",
+                    "width": 3852,
+                    "height": 1961
+                },
+                "pageimage": "London_Ontario_Skyline_2017_(cropped).jpg",
+                "pageprops": {
+                    "wikibase_item": "Q92561"
+                }
+            },
+            {
+                "pageid": 42978,
+                "ns": 0,
+                "title": "Jack London",
+                "index": 5,
+                "thumbnail": {
+                    "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2d/Jack_London_young.jpg/960px-Jack_London_young.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+                    "width": 960,
+                    "height": 1263
+                },
+                "original": {
+                    "source": "https://upload.wikimedia.org/wikipedia/commons/2/2d/Jack_London_young.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=original",
+                    "width": 1469,
+                    "height": 1933
+                },
+                "pageimage": "Jack_London_young.jpg",
+                "pageprops": {
+                    "wikibase_item": "Q45765"
+                }
+            },
+            {
+                "pageid": 310113,
+                "ns": 0,
+                "title": "Chelsea, London",
+                "index": 3,
+                "coordinates": [
+                    {
+                        "lat": 51.4875,
+                        "lon": -0.1684,
+                        "primary": true,
+                        "type": "city"
+                    }
+                ],
+                "thumbnail": {
+                    "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/72/Kings_Road_-_geograph.org.uk_-_7180946.jpg/960px-Kings_Road_-_geograph.org.uk_-_7180946.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+                    "width": 960,
+                    "height": 720
+                },
+                "original": {
+                    "source": "https://upload.wikimedia.org/wikipedia/commons/7/72/Kings_Road_-_geograph.org.uk_-_7180946.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=original",
+                    "width": 2048,
+                    "height": 1536
+                },
+                "pageimage": "Kings_Road_-_geograph.org.uk_-_7180946.jpg",
+                "pageprops": {
+                    "wikibase_item": "Q743535"
+                }
+            },
+            {
+                "pageid": 45367389,
+                "ns": 0,
+                "title": "Greater London",
+                "index": 2,
+                "coordinates": [
+                    {
+                        "lat": 51.52,
+                        "lon": -0.1,
+                        "primary": true
+                    }
+                ],
+                "thumbnail": {
+                    "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/86/City_of_London%2C_seen_from_Tower_Bridge.jpg/960px-City_of_London%2C_seen_from_Tower_Bridge.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+                    "width": 960,
+                    "height": 638
+                },
+                "original": {
+                    "source": "https://upload.wikimedia.org/wikipedia/commons/8/86/City_of_London%2C_seen_from_Tower_Bridge.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=original",
+                    "width": 5993,
+                    "height": 3985
+                },
+                "pageimage": "City_of_London,_seen_from_Tower_Bridge.jpg",
+                "pageprops": {
+                    "wikibase_item": "Q23306"
+                }
+            }
+        ]
+    }
+}

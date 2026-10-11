@@ -658,6 +658,58 @@ class MigrationTest {
         db.close()
     }
 
+    @Test
+    fun migrate16To17_keepsEverything_andThePhotoTableStartsEmpty() {
+        helper.createDatabase(DB, 16).use { db ->
+            db.execSQL(
+                "INSERT INTO trips (id, owner_id, destination, start_date, end_date, color, budget_agorot, " +
+                    "currency_code, uuid, updated_at, pending_sync, cloud_owner_id, member_ids, budget_updated_at, " +
+                    "budget_pending, country_code, latitude, longitude) VALUES " +
+                    "(1, 'u1', 'Rome, Italy', 20769, 20774, 'SKY', 500000, 'EUR', 't-1', 5, 0, 'u1', 'u1,u2', 5, 0, " +
+                    "'IT', 41.89, 12.48), " +
+                    "(2, 'u1', 'Lisbon', 20928, 20934, 'PEACH', NULL, NULL, 't-2', 6, 1, 'u1', 'u1', 0, 0, NULL, NULL, NULL)"
+            )
+            db.execSQL(
+                "INSERT INTO expenses (id, trip_id, name, amount_agorot, category, date, paid_by, split_between, " +
+                    "uuid, updated_at, pending_sync) VALUES (1, 1, 'Dinner', 10000, 'FOOD', 20770, 'u1', 'u1,u2', 'e-1', 6, 0)"
+            )
+        }
+
+        val db = helper.runMigrationsAndValidate(DB, 17, true)
+
+        db.query(
+            "SELECT destination, budget_agorot, updated_at, pending_sync, country_code, latitude FROM trips ORDER BY id"
+        ).use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(listOf("Rome, Italy", "IT"), listOf(c.getString(0), c.getString(4)))
+            assertEquals(listOf(500000, 5, 0), listOf(c.getInt(1), c.getInt(2), c.getInt(3)))
+            assertEquals(41.89, c.getDouble(5), 0.0)
+            assertTrue(c.moveToNext())
+            assertEquals("Lisbon", c.getString(0))
+            assertEquals(listOf(6, 1), listOf(c.getInt(2), c.getInt(3)))
+            assertFalse(c.moveToNext())
+        }
+        db.query("SELECT COUNT(*) FROM expenses").use { c -> assertTrue(c.moveToFirst()); assertEquals(1, c.getInt(0)) }
+        db.query("SELECT COUNT(*) FROM destination_photos").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(0, c.getInt(0))
+        }
+
+        // A photo row with and without URLs ("nothing found").
+        db.execSQL(
+            "INSERT INTO destination_photos (photo_key, card_url, thumb_url, file_page_url, checked_at) VALUES " +
+                "('rome, italy|41.890,12.480', 'https://a/960.jpg', 'https://a/250.jpg', 'https://c/File:a.jpg', 7), " +
+                "('lisbon|', NULL, NULL, NULL, 8)"
+        )
+        db.query("SELECT card_url, checked_at FROM destination_photos ORDER BY checked_at").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("https://a/960.jpg", c.getString(0))
+            assertTrue(c.moveToNext())
+            assertTrue(c.isNull(0))
+        }
+        db.close()
+    }
+
     private companion object {
         const val DB = "migration-test.db"
     }

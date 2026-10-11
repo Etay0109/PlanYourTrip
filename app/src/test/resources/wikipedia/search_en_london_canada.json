@@ -1,0 +1,112 @@
+{
+    "batchcomplete": true,
+    "continue": {
+        "gsroffset": 5,
+        "continue": "gsroffset||"
+    },
+    "query": {
+        "pages": [
+            {
+                "pageid": 17867,
+                "ns": 0,
+                "title": "London",
+                "index": 5,
+                "coordinates": [
+                    {
+                        "lat": 51.50722222,
+                        "lon": -0.1275,
+                        "primary": true
+                    }
+                ],
+                "thumbnail": {
+                    "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/67/London_Skyline_%28125508655%29.jpeg/960px-London_Skyline_%28125508655%29.jpeg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+                    "width": 960,
+                    "height": 540
+                },
+                "original": {
+                    "source": "https://upload.wikimedia.org/wikipedia/commons/6/67/London_Skyline_%28125508655%29.jpeg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=original",
+                    "width": 2048,
+                    "height": 1152
+                },
+                "pageimage": "London_Skyline_(125508655).jpeg",
+                "pageprops": {
+                    "wikibase_item": "Q84"
+                }
+            },
+            {
+                "pageid": 40353,
+                "ns": 0,
+                "title": "London, Ontario",
+                "index": 1,
+                "coordinates": [
+                    {
+                        "lat": 42.985,
+                        "lon": -81.24527778,
+                        "primary": true,
+                        "type": "city"
+                    }
+                ],
+                "thumbnail": {
+                    "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/26/London_Ontario_Skyline_2017_%28cropped%29.jpg/960px-London_Ontario_Skyline_2017_%28cropped%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+                    "width": 960,
+                    "height": 489
+                },
+                "original": {
+                    "source": "https://upload.wikimedia.org/wikipedia/commons/2/26/London_Ontario_Skyline_2017_%28cropped%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=original",
+                    "width": 3852,
+                    "height": 1961
+                },
+                "pageimage": "London_Ontario_Skyline_2017_(cropped).jpg",
+                "pageprops": {
+                    "wikibase_item": "Q92561"
+                }
+            },
+            {
+                "pageid": 1679528,
+                "ns": 0,
+                "title": "High Commission of Canada, London",
+                "index": 3,
+                "coordinates": [
+                    {
+                        "lat": 51.5079,
+                        "lon": -0.1294,
+                        "primary": true,
+                        "type": "landmark"
+                    }
+                ],
+                "thumbnail": {
+                    "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/25/Canada_House.jpg/960px-Canada_House.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+                    "width": 960,
+                    "height": 720
+                },
+                "original": {
+                    "source": "https://upload.wikimedia.org/wikipedia/commons/2/25/Canada_House.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=original",
+                    "width": 2848,
+                    "height": 2136
+                },
+                "pageimage": "Canada_House.jpg",
+                "pageprops": {
+                    "wikibase_item": "Q13589963"
+                }
+            },
+            {
+                "pageid": 30739022,
+                "ns": 0,
+                "title": "Orchestra London Canada",
+                "index": 4,
+                "pageprops": {
+                    "wikibase_item": "Q7100241"
+                }
+            },
+            {
+                "pageid": 34320366,
+                "ns": 0,
+                "title": "London Canadians",
+                "index": 2,
+                "pageprops": {
+                    "wikibase_item": "Q6670204"
+                }
+            }
+        ]
+    }
+}

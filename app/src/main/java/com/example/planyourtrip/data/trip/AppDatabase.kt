@@ -10,6 +10,8 @@ import com.example.planyourtrip.data.currency.ExchangeRateDao
 import com.example.planyourtrip.data.currency.ExchangeRateEntity
 import com.example.planyourtrip.data.document.DocumentDao
 import com.example.planyourtrip.data.document.DocumentEntity
+import com.example.planyourtrip.data.photo.DestinationPhotoDao
+import com.example.planyourtrip.data.photo.DestinationPhotoEntity
 import com.example.planyourtrip.data.sync.DeletionEntity
 import com.example.planyourtrip.data.sync.SyncDao
 
@@ -21,9 +23,9 @@ import com.example.planyourtrip.data.sync.SyncDao
     entities = [
         TripEntity::class, ExpenseEntity::class, ExchangeRateEntity::class, ActivityEntity::class,
         DeletionEntity::class, ChecklistItemEntity::class, DocumentEntity::class, TravelerEntity::class,
-        SettlementEntity::class, TripMemberEntity::class,
+        SettlementEntity::class, TripMemberEntity::class, DestinationPhotoEntity::class,
     ],
-    version = 16,
+    version = 17,
     exportSchema = true,
     autoMigrations = [
         // v2: trips.owner_id. Trips from v1 get "" and are not shown to any account.
@@ -63,6 +65,9 @@ import com.example.planyourtrip.data.sync.SyncDao
         // v16 (destination suggestions): trips.country_code / latitude / longitude, all null for existing trips
         // (free text). All data is kept.
         AutoMigration(from = 15, to = 16),
+        // v17 (destination photos): the destination_photos table (this device only, never synced), empty. All data
+        // is kept.
+        AutoMigration(from = 16, to = 17),
     ],
 )
 @TypeConverters(Converters::class)
@@ -86,6 +91,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun settlementDao(): SettlementDao
 
     abstract fun tripMemberDao(): TripMemberDao
+
+    abstract fun destinationPhotoDao(): DestinationPhotoDao
 
     companion object {
         fun create(context: Context): AppDatabase =

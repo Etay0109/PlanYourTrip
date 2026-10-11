@@ -3,12 +3,15 @@ package com.example.planyourtrip.ui.tripdetails
 import com.example.planyourtrip.FakeActivityRepository
 import com.example.planyourtrip.FakeAuthRepository
 import com.example.planyourtrip.FakeCurrencyRepository
+import com.example.planyourtrip.FakeDestinationPhotoRepository
 import com.example.planyourtrip.FakeExpenseRepository
 import com.example.planyourtrip.FakeTravelerRepository
 import com.example.planyourtrip.FakeTripRepository
 import com.example.planyourtrip.ME
 import com.example.planyourtrip.data.auth.AuthUser
 import com.example.planyourtrip.data.currency.ExchangeRate
+import com.example.planyourtrip.data.photo.DestinationPhoto
+import com.example.planyourtrip.data.photo.PhotoQuery
 import com.example.planyourtrip.data.trip.ActivityType
 import com.example.planyourtrip.data.trip.DeletedActivity
 import com.example.planyourtrip.data.trip.DeletedActivityStore
@@ -19,6 +22,7 @@ import com.example.planyourtrip.data.trip.TravelerColor
 import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.data.trip.TripActivity
 import com.example.planyourtrip.data.trip.TripColor
+import com.example.planyourtrip.data.trip.TripPlace
 import com.example.planyourtrip.ui.common.TripStatus
 import com.example.planyourtrip.ui.common.split.Person
 import java.math.BigDecimal
@@ -33,6 +37,7 @@ import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -529,5 +534,29 @@ class TripDetailsViewModelTest {
         trips.trips.value = listOf("u1" to rome, "other" to other)
         activities.activities.value = listOf(activity(1, nov(12), tripId = 2))
         assertFalse(vm().loaded().itinerary.hasActivities)
+    }
+
+    @Test
+    fun headerPhoto_followsTheTripsDestination() = runTest(dispatcher) {
+        val photos = FakeDestinationPhotoRepository()
+        val vm = TripDetailsViewModel(
+            1, trips, expenses, travelers, activities, auth, currencies, clock, dispatcher, deleted,
+            photoRepository = photos,
+        )
+        backgroundScope.launch { vm.headerPhoto.collect {} }
+        val romeQuery = PhotoQuery(rome.destination)
+
+        // No photo yet: the gradient only.
+        assertNull(vm.headerPhoto.value)
+        assertEquals(listOf(romeQuery), photos.requested)
+
+        val photo = DestinationPhoto("https://img.test/r-960.jpg", "https://img.test/r-250.jpg")
+        photos.photos.value = mapOf(romeQuery.key to photo)
+        assertEquals(photo, vm.headerPhoto.value)
+
+        // The destination is edited: the new one is looked up and the old photo goes.
+        trips.updateTrip(1, "u1", "Lisbon", rome.startDate, rome.endDate, null, TripPlace.NONE)
+        assertEquals(PhotoQuery("Lisbon"), photos.requested.last())
+        assertNull(vm.headerPhoto.value)
     }
 }

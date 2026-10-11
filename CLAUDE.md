@@ -18,6 +18,8 @@ Overview's Map card (a drawn illustration) opens Google Maps on the destination 
 has an "Open in Maps" button (a URL, no SDK, no key, no location permission). The destination field suggests places
 as you type (Photon, plus a built-in Hebrew table); a picked place gives the trip a country code and coordinates, shown
 as a flag next to the destination (see "Destination suggestions and flags"). Currencies show their flag everywhere.
+Trips show a **destination photo** from Wikipedia (Next trip card and trip header backgrounds, thumbnails on the other
+Home cards), remembered on this device only (see "Destination photos").
 Package: `com.example.planyourtrip`. minSdk 26, targetSdk 36.
 
 ## Commands
@@ -42,9 +44,10 @@ Package: `com.example.planyourtrip`. minSdk 26, targetSdk 36.
 ```
 app/src/main/java/com/example/planyourtrip/
   MainActivity.kt              # PlanYourTripTheme { AppNavHost() }; attachBaseContext → withAppLocale()
+  PhotoImageLoader.kt          # photoImageLoader(): Coil's app-wide loader (User-Agent, 50 MB disk cache)
   AppLocaleSetup.kt            # Context.withAppLocale() (English + LTR resources), applyDefaultAppLocale()
   PlanYourTripApplication.kt   # applyDefaultAppLocale() (also on config change), installAppCheck(), creates the
-                               # AppContainer, syncManager.start();
+                               # AppContainer, syncManager.start(); SingletonImageLoader.Factory (photoImageLoader);
                                # CreationExtras.appContainer() helper
   AppContainer.kt              # manual DI: AuthRepository, AppDatabase, TripRepository, ExpenseRepository,
                                # ActivityRepository, CurrencyRepository, AssistantRepository, Clock,
@@ -103,6 +106,12 @@ app/src/main/java/com/example/planyourtrip/
                                # withoutRepeats, toTripPlace), PlaceSearch (interface) + PhotonPlaceSearch (the only
                                # Photon HTTP code), PhotonJson (pure parser + type allowlist), HebrewPlaces (pure
                                # matching) + HebrewPlaceTable (GENERATED data), DestinationSuggestions (+ countryCurrency)
+  data/photo/                  # destination photos (this device only, nothing synced): DestinationPhotos (PhotoQuery,
+                               # photoKey, Trip.photoQuery, DestinationPhoto, PhotoResult, PhotoOrigin,
+                               # DestinationPhotoSource = the one provider interface, photoUserAgent), PhotoRules (pure:
+                               # filters, distance, choosePage, bestPageImage), WikipediaJson (pure parsers),
+                               # WikipediaPhotoSource (+ HttpGet, UrlConnectionHttpGet: the only Wikipedia/Wikidata HTTP
+                               # code), DestinationPhotoEntity/Dao, DestinationPhotoRepository + RoomDestinationPhoto…
   data/user/                   # CurrentUser (AuthUser.greetingName()), UserNames (firstName()/initials())
   ui/navigation/               # Routes.kt (type-safe routes), AppNavHost.kt, SessionViewModel
   ui/auth/                     # AuthScreen, AuthViewModel, AuthUiState, AuthValidator
@@ -189,8 +198,11 @@ ui/common/share/             # "Share trip" PDF: TripPdfContent (pure: model, bu
                                #   EditFormScaffold (+ FormDelete: the expense/activity form shell: top bar with delete,
                                #   loading gate, scrolling fields, Save), ConfirmDeleteDialog (title, body, red Delete,
                                #   Cancel), TintedFilterChip (category/type chip in its TintedColor),
-                               #   RefreshBox (PullToRefreshBox with the spinner below the status bar)
+                               #   RefreshBox (PullToRefreshBox with the spinner below the status bar),
+                               #   DestinationPhoto (HeroPhotoState, HeroPhoto, drawHeroPhotoScrim, PhotoSquare: the only
+                               #   Coil composables)
   ui/theme/                    # Color, ExtendedColors, Shape, Type (Inter + named styles), Dimens, Theme,
+                               # HeroPhotoScrim (the photo scrim's alpha levels),
                                # PdfColors (ARGB ints for the shared PDF, built from Color/ExtendedColors)
 app/src/debug/.../AppCheckSetup.kt    # installAppCheck(): App Check debug provider
 app/src/release/.../AppCheckSetup.kt  # installAppCheck(): Play Integrity provider
@@ -231,6 +243,9 @@ app/src/main/res/xml/file_paths.xml  # FileProvider paths: cache/shared_pdfs/ an
 - **The PDF stays behind an interface too.** Only `ui/common/share/AndroidTripPdfExporter.kt` uses `PdfDocument`,
   `StaticLayout` and `FileProvider`; `ShareTripViewModel` sees `TripPdfExporter`, tests use `FakeTripPdfExporter`.
   Screens only add `ShareTripHost(shareViewModel)` and call `onShareTrip(tripId)`.
+- **Photos stay behind an interface too.** Screens and Room see `DestinationPhotoRepository`; where photos come from
+  is `DestinationPhotoSource` (today `WikipediaPhotoSource`), so the provider can be replaced without touching either.
+  Coil appears only in `PhotoImageLoader.kt`, `PlanYourTripApplication` and `ui/common/components/DestinationPhoto.kt`.
 - **No map SDK.** Maps are Google Maps URLs opened with `ACTION_VIEW` (`GoogleMaps.kt`); there is no map library,
   place search or location permission in the app.
 - **Firebase stays behind interfaces.** Only `data/auth/FirebaseAuthRepository.kt`,
@@ -281,7 +296,7 @@ other RTL language. There are no translations (`res/values` only).
 - Money stays "₪2,550" (`money_shekels` = "₪%1$s", grouping from `AppLocale`).
 
 ## Data model (Room)
-Database `plan_your_trip.db`, `AppDatabase` version 16, ten tables:
+Database `plan_your_trip.db`, `AppDatabase` version 17, eleven tables:
 
 | `trips` column | Type | Notes |
 |---|---|---|
@@ -425,6 +440,16 @@ Deleting a settlement (`SettlementDao.deleteAndRecord`) records a `SETTLEMENT` d
 The cloud's member documents as of the last **full** sync (`RoomSyncLocalStore.replaceMembers` replaces a trip's rows
 as a whole). Never pending, never uploaded, no tombstones. Who is a member *now* is `trips.member_ids`.
 
+| `destination_photos` column | Type | Notes |
+|---|---|---|
+| `photo_key` | TEXT PK | `photoKey(destination, lat, lon)`: trimmed, lowercased, single-spaced text + `\|` + coordinates to 3 decimals (empty for free text) |
+| `card_url`, `thumb_url` | TEXT, nullable | the 960 px and 250 px images; both null = nothing found |
+| `file_page_url` | TEXT, nullable | the image's Commons description page (author, license), kept for a photo credit later |
+| `checked_at` | INTEGER | epoch millis of the lookup |
+
+Shared by every account (like `exchange_rates`: no personal data), never synced, kept on sign-out. Old keys (an edited
+destination) simply stay; rows are tiny.
+
 | `exchange_rates` column | Type | Notes |
 |---|---|---|
 | `currency_code` | TEXT PK | one cached rate per currency, shared by all accounts (rates are public) |
@@ -491,7 +516,8 @@ and the owner stays first in the list order, so every share, balance and transfe
 `PRAGMA foreign_keys` itself (the cascade is covered in `TripDaoTest`). v14 → v15 is an `AutoMigration` (invites and
 joining) that creates `trip_members` empty; all existing data is kept (`MigrationTest.migrate14To15…`). v15 → v16 is
 an `AutoMigration` (destination suggestions) that adds `trips.country_code` / `latitude` / `longitude`, null for every
-existing trip; nothing re-uploads (`MigrationTest.migrate15To16…`).
+existing trip; nothing re-uploads (`MigrationTest.migrate15To16…`). v16 → v17 is an `AutoMigration` (destination
+photos) that creates `destination_photos` empty; all data is kept (`MigrationTest.migrate16To17…`).
 - **Never seed sample trips into the database.** Sample data belongs only in previews and tests.
 - **Changing the schema:** bump `version`, add a `Migration` or `AutoMigration`, build, and commit the new JSON in
   `app/schemas/`. Do not use `fallbackToDestructiveMigration` — users would lose their trips.
@@ -1278,7 +1304,7 @@ distances, weather, plan photo, microphone or like/dislike buttons; **no orange*
 Reference: `design/home_screen.png`. Match it closely when adding or changing screens.
 - **Use theme tokens, never hard-coded colors in screens.** Material roles come from `MaterialTheme.colorScheme`;
   brand colors without a Material role come from `ExtendedTheme.colors` (hero gradient and its overlay, wave and glow
-  colors, mint dot, badge, past-card colors, pastel letter squares, `budgetWarning` orange (also overdue due dates), `budgetTrack`,
+  colors, the destination photo's tint, shade and chip (`heroPhoto…`, see "Destination photos"), mint dot, badge, past-card colors, pastel letter squares, `budgetWarning` orange (also overdue due dates), `budgetTrack`,
   `iconChip`, `categories`, `activityTypes`, `travelers` and `removedTraveler`). Raw color values live only in `ui/theme/Color.kt` and
   `ExtendedColors.kt` — no exceptions.
 - **Activity type and category colors** (`ExtendedColors.activityTypes` / `categories`, both
@@ -1446,6 +1472,56 @@ Reference: `design/home_screen.png`. Match it closely when adding or changing sc
   coordinates exist (a coordinates search shows a bare pin); the coordinates are kept for destination photos and a
   future Map tab.
 
+## Destination photos (`data/photo`, `ui/common/components/DestinationPhoto.kt`)
+- **Where:** the Next trip card and the trip header (all four tabs) draw the photo (960 px) behind their content; the
+  Upcoming and Past cards show a 56dp thumbnail (250 px) in place of the letter square (`PhotoSquare`, same size and
+  shape). Not in the PDF, the assistant or anywhere else.
+- **No photo = exactly as before:** no URL, loading or a failed load draws nothing (no placeholder, spinner or error
+  icon, no size change). A downloaded photo fades in (400 ms, together with its scrim); one from the memory cache shows
+  at once. `HeroPhotoState.visibility` (0..1) also blends the hero's muted texts to full white, the countdown box,
+  status chip and round buttons to `heroPhotoChip`, adds a chip behind the Next card's menu, and fades the gradient's
+  `HeroWaves` out.
+- **Scrim** (`HeroPhotoScrim`, tokens `heroPhotoTint` / `heroPhotoShade` / `heroPhotoChip`): a light tint over the whole
+  photo, then the shade only where text sits, so the place stays recognizable. Next card: `TEXT` (0.55) up to where
+  the label, destination and dates end (each measured, they wrap their content), then easing to `OPEN` (0.10) at the
+  card's right edge (countdown box and menu have chips). Header: `STATUS_BAR` (0.18) at the top easing to `OPEN`
+  around the buttons, rising to `LARGE_TEXT` (0.40) at the measured title and `TEXT` at the dates line to the bottom.
+  Every change is a smoothstep fade (`HeroPhotoScrim.easedStops`, ≥ `MinFade` 96dp where there is room): a short
+  linear drop showed a visible seam on bright photos. Text positions come from `HeroPhotoState.track` (bounds relative to the
+  hero); until measured the whole hero gets `TEXT`. `HeroPhotoTest` checks, on a pure-white and a pure-black pixel in
+  both themes: small text ≥ 4.5:1, the large bold title ≥ 3:1, chip text ≥ 4.5:1 even in the open area, and the
+  scrim ≤ 0.4 opaque where no text sits. Change the levels or tokens only with it passing.
+- **Lookup** (`WikipediaPhotoSource`, no key, `User-Agent: PlanYourTrip/<version>
+  (https://github.com/Etay0109/PlanYourTrip; Android; com.example.planyourtrip)`, no email; Coil's downloads send the
+  same): search Wikipedia for the destination text (5 results, `generator=search` + coordinates, page image,
+  pageprops); text with Hebrew letters searches he.wikipedia first, then en. **Picked place:** the first result (in
+  search order, not disambiguation) whose own coordinates are within 50 km (city, landmark, no type), 400 km (`state`,
+  `adm1st/2nd/3rd`, `isle`, `region`) or 4,000 km (`country`, `continent`) of the trip's coordinates ("London" with
+  Ontario's coordinates skips London, Greater London and Chelsea). **Free text:** the first result. Only that page is
+  used (a nearby landmark never stands in).
+- **Image** (`PhotoRules`): JPEG or WebP only (SVG, GIF, TIFF and **PNG** never: places' PNG lead images are maps,
+  e.g. Santorini's and Mykonos'), ≥ 400 px wide, aspect 0.6–4.0, and no blocked word in the file name (whole words:
+  flag, coat, arms, coa, emblem, seal, logo, map(s), locator, location, locmap, orthographic, montage, collage,
+  collection, mosaic, composite, banner, symbol, icon, diagram, wappen, escudo, blason, and Hebrew דגל, סמל, מפה, מפת,
+  מונטאז, קולאז). Order: the page's lead image → its Wikidata item's image (P18, same rules) → the largest landscape
+  JPEG among the page's images → `NotFound`. Sizes are Wikimedia's standard thumbnail widths 960 and 250 (a smaller
+  original is used as is). Which step and file each destination got is logged (`adb logcat -s DestinationPhoto`).
+- **Storage** (`RoomDestinationPhotoRepository`, one consumer coroutine, so a key is never looked up twice at once):
+  found → kept for good; `NotFound` or an unreadable answer (`PhotoLookupException`) → stored with null URLs, retried
+  after 7 days; a connection failure (`IOException`) is not stored: offline nothing is tried, and it is retried when the
+  connection comes back (offline → online only) or a minute later when a screen asks again. Images are cached by Coil
+  (`cacheDir/destination_photos`, 50 MB, cache headers ignored), so photos show offline after the first load.
+- **Wiring:** `HomeViewModel` asks for every trip's `photoQuery` whenever the trip list emits and puts
+  `photos: Map<tripId, DestinationPhoto>` in `HomeUiState.Content`; `TripDetailsViewModel.headerPhoto` (its own
+  `StateFlow`) follows the trip's query. An edited destination is a new key, so it is looked up and its photo replaces
+  the old one. Nothing about photos goes to Firestore; `firestore.rules` and the sync are untouched.
+- **Credit:** not shown yet; `file_page_url` keeps each image's Commons page for when it is.
+- Tests: `PhotoRulesTest`, `WikipediaPhotoSourceTest` (recorded real answers in `src/test/resources/wikipedia/` +
+  hand-written ones, fake `HttpGet`), `DestinationPhotoRepositoryTest` (`FakePhotoSource`, `FakeDestinationPhotoDao`;
+  use `runCurrent()`, the consumer runs in `backgroundScope`), `HeroPhotoTest`, `HomeViewModelTest` /
+  `TripDetailsViewModelTest` (`FakeDestinationPhotoRepository`), androidTest `DestinationPhotoRoomTest`. **Never test
+  against the real Wikipedia** in automated tests.
+
 ## Conventions
 - **Never log passwords** (only their length) or other secrets.
 - All user-visible text lives in `res/values/strings.xml` (with `plurals` for counts) — no hard-coded strings in
@@ -1463,7 +1539,8 @@ Reference: `design/home_screen.png`. Match it closely when adding or changing sc
   that both `assembleDebug` and `assembleRelease` build after changing Compose versions. Kotlin 2.0 can read library metadata up to Kotlin 2.1:
   `kotlinx-serialization-json` uses the same version as `-core` (1.7.3). `firebase-auth` 24.1.0+ (BoM 34.13.0+) is compiled with Kotlin 2.3 metadata and fails to build
   ("incompatible version of Kotlin ... metadata is 2.3.0"), so upgrading Firebase requires upgrading Kotlin first. `firebase-ai` 17.11.0 (in BoM 34.12.0) is built
-  with Kotlin 2.0.21 + serialization 1.7.3; check its POM before upgrading the BoM. Only declare dependencies that code actually uses (`androidx.test:runner` is declared
+  with Kotlin 2.0.21 + serialization 1.7.3; check its POM before upgrading the BoM. **Coil 3.0.4** (`coil-compose`, `coil-network-okhttp`, + `okhttp` 4.12.0 which `PhotoImageLoader` uses directly) is
+the last Coil built with Kotlin 2.0.21 (3.1+ needs a newer stdlib); upgrade it together with Kotlin. Only declare dependencies that code actually uses (`androidx.test:runner` is declared
   explicitly because `AndroidJUnitRunner` needs it).
 - Keep pure logic in plain Kotlin and unit-test it: expense splitting (`SplitTest`: uneven split with the extra agorot
   in list order, an expense I'm not part of, not shared, paid for someone else, three travelers with crossing debts,

@@ -1,0 +1,46 @@
+{
+    "batchcomplete": true,
+    "query": {
+        "normalized": [
+            {
+                "fromencoded": false,
+                "from": "File:Pet\u0159\u00edn Tower View IMG 3020.JPG",
+                "to": "\u05e7\u05d5\u05d1\u05e5:Pet\u0159\u00edn Tower View IMG 3020.JPG"
+            }
+        ],
+        "pages": [
+            {
+                "ns": 6,
+                "title": "\u05e7\u05d5\u05d1\u05e5:Pet\u0159\u00edn Tower View IMG 3020.JPG",
+                "missing": true,
+                "known": true,
+                "imagerepository": "shared",
+                "imageinfo": [
+                    {
+                        "size": 5126001,
+                        "width": 3456,
+                        "height": 2304,
+                        "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1f/Pet%C5%99%C3%ADn_Tower_View_IMG_3020.JPG/960px-Pet%C5%99%C3%ADn_Tower_View_IMG_3020.JPG?utm_source=he.wikipedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+                        "thumbwidth": 960,
+                        "thumbheight": 640,
+                        "responsiveUrls": {
+                            "2": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1f/Pet%C5%99%C3%ADn_Tower_View_IMG_3020.JPG/1920px-Pet%C5%99%C3%ADn_Tower_View_IMG_3020.JPG?utm_source=he.wikipedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+                        },
+                        "thumbattribs": {
+                            "src": "//thumb.wikimedia.org/wikipedia/commons/thumb/1/1f/Pet%C5%99%C3%ADn_Tower_View_IMG_3020.JPG/960px-Pet%C5%99%C3%ADn_Tower_View_IMG_3020.JPG?utm_source=he.wikipedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+                            "decoding": "async",
+                            "loading": "lazy",
+                            "width": 960,
+                            "height": 640,
+                            "srcset": "//thumb.wikimedia.org/wikipedia/commons/thumb/1/1f/Pet%C5%99%C3%ADn_Tower_View_IMG_3020.JPG/1920px-Pet%C5%99%C3%ADn_Tower_View_IMG_3020.JPG?utm_source=he.wikipedia.org&utm_campaign=imageinfo&utm_content=thumbnail 2x"
+                        },
+                        "url": "https://upload.wikimedia.org/wikipedia/commons/1/1f/Pet%C5%99%C3%ADn_Tower_View_IMG_3020.JPG?utm_source=he.wikipedia.org&utm_campaign=imageinfo&utm_content=original",
+                        "descriptionurl": "https://commons.wikimedia.org/wiki/File:Pet%C5%99%C3%ADn_Tower_View_IMG_3020.JPG",
+                        "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=64329791",
+                        "mime": "image/jpeg"
+                    }
+                ]
+            }
+        ]
+    }
+}

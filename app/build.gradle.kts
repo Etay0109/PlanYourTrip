@@ -80,6 +80,12 @@ dependencies {
     debugImplementation(libs.firebase.appcheck.debug)
     releaseImplementation(libs.firebase.appcheck.playintegrity)
     implementation(libs.kotlinx.coroutines.play.services)
+    // Destination photos: image loading and the disk cache (PhotoImageLoader.kt, DestinationPhoto.kt).
+    // 3.0.4 is the last Coil built with Kotlin 2.0.21 (3.1+ needs a newer Kotlin stdlib).
+    implementation(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
+    // The OkHttp client Coil uses, with the Wikimedia User-Agent (same version as coil-network-okhttp 3.0.4).
+    implementation(libs.okhttp)
     ksp(libs.androidx.room.compiler)
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

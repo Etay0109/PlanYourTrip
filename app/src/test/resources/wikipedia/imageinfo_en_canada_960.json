@@ -1,0 +1,39 @@
+{
+    "batchcomplete": true,
+    "query": {
+        "pages": [
+            {
+                "ns": 6,
+                "title": "File:NASA astronaut Scott Kelly took this aurora image over Canada on Jan. 21, 2016 01.jpg",
+                "missing": true,
+                "known": true,
+                "imagerepository": "shared",
+                "imageinfo": [
+                    {
+                        "size": 2265374,
+                        "width": 4928,
+                        "height": 3280,
+                        "thumburl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0c/NASA_astronaut_Scott_Kelly_took_this_aurora_image_over_Canada_on_Jan._21%2C_2016_01.jpg/960px-NASA_astronaut_Scott_Kelly_took_this_aurora_image_over_Canada_on_Jan._21%2C_2016_01.jpg?utm_source=en.wikipedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+                        "thumbwidth": 960,
+                        "thumbheight": 639,
+                        "responsiveUrls": {
+                            "2": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0c/NASA_astronaut_Scott_Kelly_took_this_aurora_image_over_Canada_on_Jan._21%2C_2016_01.jpg/1920px-NASA_astronaut_Scott_Kelly_took_this_aurora_image_over_Canada_on_Jan._21%2C_2016_01.jpg?utm_source=en.wikipedia.org&utm_campaign=imageinfo&utm_content=thumbnail"
+                        },
+                        "thumbattribs": {
+                            "src": "//thumb.wikimedia.org/wikipedia/commons/thumb/0/0c/NASA_astronaut_Scott_Kelly_took_this_aurora_image_over_Canada_on_Jan._21%2C_2016_01.jpg/960px-NASA_astronaut_Scott_Kelly_took_this_aurora_image_over_Canada_on_Jan._21%2C_2016_01.jpg?utm_source=en.wikipedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+                            "decoding": "async",
+                            "loading": "lazy",
+                            "width": 960,
+                            "height": 639,
+                            "srcset": "//thumb.wikimedia.org/wikipedia/commons/thumb/0/0c/NASA_astronaut_Scott_Kelly_took_this_aurora_image_over_Canada_on_Jan._21%2C_2016_01.jpg/1920px-NASA_astronaut_Scott_Kelly_took_this_aurora_image_over_Canada_on_Jan._21%2C_2016_01.jpg?utm_source=en.wikipedia.org&utm_campaign=imageinfo&utm_content=thumbnail 2x"
+                        },
+                        "url": "https://upload.wikimedia.org/wikipedia/commons/0/0c/NASA_astronaut_Scott_Kelly_took_this_aurora_image_over_Canada_on_Jan._21%2C_2016_01.jpg?utm_source=en.wikipedia.org&utm_campaign=imageinfo&utm_content=original",
+                        "descriptionurl": "https://commons.wikimedia.org/wiki/File:NASA_astronaut_Scott_Kelly_took_this_aurora_image_over_Canada_on_Jan._21,_2016_01.jpg",
+                        "descriptionshorturl": "https://commons.wikimedia.org/w/index.php?curid=99230105",
+                        "mime": "image/jpeg"
+                    }
+                ]
+            }
+        ]
+    }
+}

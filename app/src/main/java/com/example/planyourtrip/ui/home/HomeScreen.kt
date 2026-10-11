@@ -275,6 +275,7 @@ fun HomeContent(
                                 onShare = { onShareTrip(next.trip.id) },
                                 onDelete = { onDeleteTrip(next.trip) },
                                 isOwner = content.isOwner(next.trip),
+                                photoUrl = content.photos[next.trip.id]?.cardUrl,
                             )
                         }
                     }
@@ -310,6 +311,7 @@ fun HomeContent(
                                 onShare = { onShareTrip(item.trip.id) },
                                 onDelete = { onDeleteTrip(item.trip) },
                                 isOwner = content.isOwner(item.trip),
+                                thumbUrl = content.photos[item.trip.id]?.thumbUrl,
                             )
                         }
                     }
@@ -345,6 +347,7 @@ fun HomeContent(
                                 onShare = { onShareTrip(trip.id) },
                                 onDelete = { onDeleteTrip(trip) },
                                 isOwner = content.isOwner(trip),
+                                thumbUrl = content.photos[trip.id]?.thumbUrl,
                             )
                         }
                     }

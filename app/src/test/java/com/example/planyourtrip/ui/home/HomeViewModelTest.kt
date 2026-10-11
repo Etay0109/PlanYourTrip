@@ -1,8 +1,12 @@
 package com.example.planyourtrip.ui.home
 
 import com.example.planyourtrip.FakeAuthRepository
+import com.example.planyourtrip.FakeDestinationPhotoRepository
 import com.example.planyourtrip.FakeTripRepository
 import com.example.planyourtrip.data.auth.AuthUser
+import com.example.planyourtrip.data.photo.DestinationPhoto
+import com.example.planyourtrip.data.photo.PhotoQuery
+import com.example.planyourtrip.data.trip.TripPlace
 import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.data.trip.TripColor
 import com.example.planyourtrip.ui.common.TripStatus
@@ -119,6 +123,53 @@ class HomeViewModelTest {
         val content = vm.uiState.filterIsInstance<HomeUiState.Content>().first { it.sections.isEmpty }
         assertNull(content.sections.next)
         assertTrue(content.sections.past.isEmpty())
+    }
+
+    @Test
+    fun photos_areMappedToTheirTrips_andEveryDestinationIsRequested() = runTest(dispatcher) {
+        val rome = Trip(1, "Rome, Italy", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17), TripColor.SKY,
+            countryCode = "IT", latitude = 41.89, longitude = 12.48)
+        val paris = Trip(2, "Paris", LocalDate.of(2026, 12, 1), LocalDate.of(2026, 12, 3), TripColor.PEACH)
+        val trips = FakeTripRepository(listOf("u1" to rome, "u1" to paris))
+        val photos = FakeDestinationPhotoRepository()
+        val romePhoto = DestinationPhoto("https://img.test/rome-960.jpg", "https://img.test/rome-250.jpg")
+        photos.photos.value = mapOf(PhotoQuery("Rome, Italy", 41.89, 12.48).key to romePhoto)
+
+        val content = HomeViewModel(trips, FakeAuthRepository(etay), clock, dispatcher, photos).content()
+
+        // Paris has no photo yet: its card keeps the letter square.
+        assertEquals(mapOf(1L to romePhoto), content.photos)
+        assertEquals(
+            listOf(PhotoQuery("Rome, Italy", 41.89, 12.48), PhotoQuery("Paris")),
+            photos.requested,
+        )
+    }
+
+    @Test
+    fun aPhotoThatArrivesLater_reachesItsCard() = runTest(dispatcher) {
+        val paris = Trip(2, "Paris", LocalDate.of(2026, 12, 1), LocalDate.of(2026, 12, 3), TripColor.PEACH)
+        val photos = FakeDestinationPhotoRepository()
+        val vm = HomeViewModel(FakeTripRepository(listOf("u1" to paris)), FakeAuthRepository(etay), clock, dispatcher, photos)
+        assertTrue(vm.content().photos.isEmpty())
+
+        val photo = DestinationPhoto("https://img.test/paris-960.jpg", "https://img.test/paris-250.jpg")
+        photos.photos.value = mapOf(PhotoQuery("Paris").key to photo)
+
+        assertEquals(photo, vm.uiState.filterIsInstance<HomeUiState.Content>().first { it.photos.isNotEmpty() }.photos[2L])
+    }
+
+    @Test
+    fun anEditedDestination_requestsTheNewDestinationsPhoto() = runTest(dispatcher) {
+        val rome = Trip(1, "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17), TripColor.SKY)
+        val trips = FakeTripRepository(listOf("u1" to rome))
+        val photos = FakeDestinationPhotoRepository()
+        val vm = HomeViewModel(trips, FakeAuthRepository(etay), clock, dispatcher, photos)
+        vm.content()
+
+        trips.updateTrip(1, "u1", "London, Canada", rome.startDate, rome.endDate, null, TripPlace("CA", 42.98, -81.24))
+        vm.uiState.filterIsInstance<HomeUiState.Content>().first { it.sections.next?.trip?.destination == "London, Canada" }
+
+        assertEquals(PhotoQuery("London, Canada", 42.98, -81.24), photos.requested.last())
     }
 
     private fun homeViewModel(trips: FakeTripRepository, auth: FakeAuthRepository) =

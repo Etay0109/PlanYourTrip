@@ -1,5 +1,6 @@
 package com.example.planyourtrip.ui.home
 
+import com.example.planyourtrip.data.photo.DestinationPhoto
 import com.example.planyourtrip.data.trip.Trip
 
 sealed interface HomeUiState {
@@ -12,6 +13,8 @@ sealed interface HomeUiState {
         val sections: TripSections,
         /** The signed-in account's uid ("Delete trip" for my own trips, "Leave trip" for others' shared trips). */
         val uid: String = "",
+        /** Destination photos by trip id; a trip without one shows the gradient / letter square. */
+        val photos: Map<Long, DestinationPhoto> = emptyMap(),
     ) : HomeUiState {
         /** My own trip (or one without a known owner); a shared trip someone else owns is left, not deleted. */
         fun isOwner(trip: Trip): Boolean = trip.ownerId.isBlank() || trip.ownerId == uid

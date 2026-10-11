@@ -1,0 +1,36 @@
+{
+    "claims": {
+        "P18": [
+            {
+                "mainsnak": {
+                    "snaktype": "value",
+                    "property": "P18",
+                    "hash": "bd41ea829a9558e19a146f416c750b47ab586809",
+                    "datavalue": {
+                        "value": "Pet\u0159\u00edn Tower View IMG 3020.JPG",
+                        "type": "string"
+                    },
+                    "datatype": "commonsMedia"
+                },
+                "type": "statement",
+                "id": "q1085$435f94ea-4d39-4ce0-d0d0-a75690c0bbbd",
+                "rank": "preferred"
+            },
+            {
+                "mainsnak": {
+                    "snaktype": "value",
+                    "property": "P18",
+                    "hash": "4f4102c0715be64ddde19936c461a39657d55161",
+                    "datavalue": {
+                        "value": "Prague - 50175672531.jpg",
+                        "type": "string"
+                    },
+                    "datatype": "commonsMedia"
+                },
+                "type": "statement",
+                "id": "Q1085$e2e9f397-4248-91b0-1b10-394e17822cf1",
+                "rank": "normal"
+            }
+        ]
+    }
+}

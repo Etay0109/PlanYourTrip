@@ -1,0 +1,109 @@
+{
+    "batchcomplete": true,
+    "continue": {
+        "gsroffset": 5,
+        "continue": "gsroffset||"
+    },
+    "query": {
+        "pages": [
+            {
+                "pageid": 75763,
+                "ns": 0,
+                "title": "Provinces and territories of Canada",
+                "index": 5,
+                "thumbnail": {
+                    "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/92/Political_map_of_Canada.svg/960px-Political_map_of_Canada.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+                    "width": 960,
+                    "height": 782
+                },
+                "original": {
+                    "source": "https://upload.wikimedia.org/wikipedia/commons/9/92/Political_map_of_Canada.svg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=original",
+                    "width": 1130,
+                    "height": 920
+                },
+                "pageimage": "Political_map_of_Canada.svg",
+                "pageprops": {
+                    "wikibase_item": "Q2879"
+                }
+            },
+            {
+                "pageid": 5042916,
+                "ns": 0,
+                "title": "Canada",
+                "index": 1,
+                "coordinates": [
+                    {
+                        "lat": 60,
+                        "lon": -100,
+                        "primary": true,
+                        "type": "country"
+                    }
+                ],
+                "thumbnail": {
+                    "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d9/Flag_of_Canada_%28Pantone%29.svg/960px-Flag_of_Canada_%28Pantone%29.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+                    "width": 960,
+                    "height": 480
+                },
+                "original": {
+                    "source": "https://upload.wikimedia.org/wikipedia/commons/d/d9/Flag_of_Canada_%28Pantone%29.svg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=original",
+                    "width": 1200,
+                    "height": 600
+                },
+                "pageimage": "Flag_of_Canada_(Pantone).svg",
+                "pageprops": {
+                    "wikibase_item": "Q16"
+                }
+            },
+            {
+                "pageid": 8304293,
+                "ns": 0,
+                "title": "Thanksgiving (Canada)",
+                "index": 3,
+                "thumbnail": {
+                    "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/cf/Shopping_for_pumpkins_in_Ottawa.jpg/960px-Shopping_for_pumpkins_in_Ottawa.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+                    "width": 960,
+                    "height": 623
+                },
+                "original": {
+                    "source": "https://upload.wikimedia.org/wikipedia/commons/c/cf/Shopping_for_pumpkins_in_Ottawa.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=original",
+                    "width": 4227,
+                    "height": 2745
+                },
+                "pageimage": "Shopping_for_pumpkins_in_Ottawa.jpg",
+                "pageprops": {
+                    "wikibase_item": "Q2672785"
+                }
+            },
+            {
+                "pageid": 11177515,
+                "ns": 0,
+                "title": "Ca\u00f1ada",
+                "index": 4,
+                "pageprops": {
+                    "disambiguation": "",
+                    "wikibase_item": "Q426438"
+                }
+            },
+            {
+                "pageid": 19851291,
+                "ns": 0,
+                "title": "Canadians",
+                "index": 2,
+                "thumbnail": {
+                    "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d9/Flag_of_Canada_%28Pantone%29.svg/960px-Flag_of_Canada_%28Pantone%29.svg.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+                    "width": 960,
+                    "height": 480
+                },
+                "original": {
+                    "source": "https://upload.wikimedia.org/wikipedia/commons/d/d9/Flag_of_Canada_%28Pantone%29.svg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=original",
+                    "width": 1200,
+                    "height": 600
+                },
+                "pageimage": "Flag_of_Canada_(Pantone).svg",
+                "pageprops": {
+                    "wikibase_item": "Q1196645"
+                }
+            }
+        ]
+    }
+}
