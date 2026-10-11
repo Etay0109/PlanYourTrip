@@ -127,6 +127,7 @@ class TripDetailsViewModel(
                 TripDetailsUiState.Loaded(
                     trip = trip,
                     status = tripStatus(trip, today),
+                    currentYear = today.year,
                     summary = budgetSummary(
                         trip.budgetAgorot, myShares.values.sum(), trip.startDate, trip.endDate, today,
                     ),

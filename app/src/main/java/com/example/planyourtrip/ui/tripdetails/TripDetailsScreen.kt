@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.planyourtrip.R
+import com.example.planyourtrip.ui.common.shortDestination
 import com.example.planyourtrip.ui.common.components.BackTopAppBar
 import com.example.planyourtrip.ui.common.components.BrandMark
 import com.example.planyourtrip.ui.common.components.CurrencyPickerSheet
@@ -253,7 +254,8 @@ fun TripDetailsScreen(
     InviteHost(
         viewModel = inviteViewModel,
         members = (state as? TripDetailsUiState.Loaded)?.members,
-        destination = destination,
+        // "Invite to London" and the shared message use the short name ("London, United Kingdom" → "London").
+        destination = loadedTrip?.let { shortDestination(it.destination, it.countryCode) }.orEmpty(),
         snackbarHostState = snackbarHostState,
         onLeave = { loadedTrip?.let(deleteViewModel::onRemoveTrip) },
     )
@@ -345,7 +347,7 @@ fun TripDetailsContent(
                 key(selectedTab) {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        // Extra room at the end so the assistant button never covers the last card.
+                        // The buttons float over the list; this end padding lets the last card scroll fully above them.
                         contentPadding = PaddingValues(bottom = innerPadding.calculateBottomPadding() + FabClearance),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
@@ -359,6 +361,7 @@ fun TripDetailsContent(
                                 onDelete = { onDeleteTrip(state.trip) },
                                 isOwner = state.members?.isOwner ?: true,
                                 photoUrl = headerPhotoUrl,
+                                currentYear = state.currentYear,
                             )
                         }
                         when (selectedTab) {
@@ -422,8 +425,11 @@ internal fun EmptyMessage(@DrawableRes icon: Int, title: String, body: String) {
     }
 }
 
-/** Bottom list padding that keeps the last card clear of the assistant button. */
-private val FabClearance = 96.dp
+/**
+ * Bottom list padding on every tab: the buttons' height (56dp, the round sparkle and the "+ Add expense" pill alike),
+ * the Scaffold's 16dp gap above the navigation bar, and 24dp of air, so the last card can scroll fully above them.
+ */
+private val FabClearance = 56.dp + 16.dp + 24.dp
 
 /** Round button with a sparkle that opens the trip assistant. */
 @Composable

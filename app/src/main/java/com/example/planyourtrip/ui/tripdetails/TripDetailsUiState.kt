@@ -40,6 +40,8 @@ sealed interface TripDetailsUiState {
         val itinerary: ItineraryState,
         /** The Overview's "Traveling together" card; null only in previews and tests that don't need it. */
         val members: MembersState? = null,
+        /** Today's year: the header's dates leave it out for a trip in this year ("19–24 Oct"); null = always shown. */
+        val currentYear: Int? = null,
     ) : TripDetailsUiState
 }
 

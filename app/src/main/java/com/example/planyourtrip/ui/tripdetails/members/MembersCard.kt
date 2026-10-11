@@ -2,6 +2,7 @@ package com.example.planyourtrip.ui.tripdetails.members
 
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -12,17 +13,22 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -30,6 +36,8 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -39,6 +47,7 @@ import com.example.planyourtrip.data.trip.TravelerColor
 import com.example.planyourtrip.ui.common.components.Pill
 import com.example.planyourtrip.ui.common.split.Person
 import com.example.planyourtrip.ui.theme.Dimens
+import com.example.planyourtrip.ui.theme.minFitTextScale
 import com.example.planyourtrip.ui.theme.PlanYourTripTheme
 import com.example.planyourtrip.ui.tripdetails.components.TravelerAvatar
 import com.example.planyourtrip.ui.tripdetails.components.personName
@@ -75,30 +84,7 @@ fun MembersCard(
             .semantics { contentDescription = cardDescription },
     ) {
         Column(Modifier.padding(start = 20.dp, end = 16.dp, top = 16.dp, bottom = 20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.heightIn(min = Dimens.TouchTarget)) {
-                Text(
-                    text = stringResource(R.string.members_card_title),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier
-                        .weight(1f, fill = false)
-                        .semantics { heading() },
-                )
-                Spacer(Modifier.width(10.dp))
-                Pill(
-                    text = count.toString(),
-                    container = MaterialTheme.colorScheme.surfaceContainerHighest,
-                    content = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.clearAndSetSemantics { contentDescription = countText },
-                )
-                Spacer(Modifier.weight(1f))
-                if (state.isOwner) {
-                    Spacer(Modifier.width(8.dp))
-                    InviteButton(onInvite)
-                }
-            }
+            MembersCardTitleRow(count, countText, state.isOwner, onInvite)
             Spacer(Modifier.height(12.dp))
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -109,6 +95,111 @@ fun MembersCard(
                 state.members.forEach { MemberAvatarItem(it) }
             }
         }
+    }
+}
+
+/**
+ * "Traveling together", the count pill and (owner) "Invite", always on one line: when they don't all fit, "Invite"
+ * becomes a round icon button (same action, TalkBack says "Invite"); on the narrowest screens the title also gets a
+ * smaller size, so it never wraps.
+ */
+@Composable
+private fun MembersCardTitleRow(count: Int, countText: String, isOwner: Boolean, onInvite: () -> Unit) {
+    val title = stringResource(R.string.members_card_title)
+    val inviteLabel = stringResource(R.string.members_invite)
+    val titleStyle = MaterialTheme.typography.titleLarge
+    val pillStyle = MaterialTheme.typography.labelMedium
+    val inviteStyle = MaterialTheme.typography.labelLarge
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val measurer = rememberTextMeasurer()
+        val density = LocalDensity.current
+        val available = constraints.maxWidth
+        val minScale = minFitTextScale(density.fontScale)
+        val layout = remember(title, inviteLabel, count, isOwner, titleStyle, available, density) {
+            fun width(text: String, style: TextStyle) =
+                measurer.measure(text, style, maxLines = 1, softWrap = false).size.width
+            with(density) {
+                val pill = width(count.toString(), pillStyle) + PillPadding.roundToPx()
+                val fixed = TitleGap.roundToPx() + pill
+                val fullInvite = if (isOwner) {
+                    InviteGap.roundToPx() + width(inviteLabel, inviteStyle) + InviteButtonExtra.roundToPx()
+                } else {
+                    0
+                }
+                val iconInvite = if (isOwner) InviteGap.roundToPx() + Dimens.TouchTarget.roundToPx() else 0
+                val titleWidth = width(title, titleStyle)
+                when {
+                    titleWidth + fixed + fullInvite <= available -> TitleRowLayout(compactInvite = false, titleStyle)
+                    else -> {
+                        // Shrink the title only as much as needed (see minFitTextScale).
+                        val room = available - fixed - iconInvite
+                        // Text width doesn't scale exactly with the size: check it and step down until it fits.
+                        fun scaled(scale: Float) = titleStyle.copy(fontSize = titleStyle.fontSize * scale)
+                        var scale = (room.toFloat() / titleWidth).coerceIn(minScale, 1f)
+                        while (scale > minScale && width(title, scaled(scale)) > room) {
+                            scale = (scale - 0.02f).coerceAtLeast(minScale)
+                        }
+                        val style = if (scale < 1f) scaled(scale) else titleStyle
+                        TitleRowLayout(compactInvite = isOwner, style)
+                    }
+                }
+            }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.heightIn(min = Dimens.TouchTarget)) {
+            // Title and count stay together on the left; "Invite" sits at the right edge.
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = layout.titleStyle,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        .semantics { heading() },
+                )
+                Spacer(Modifier.width(TitleGap))
+                Pill(
+                    text = count.toString(),
+                    container = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    content = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.clearAndSetSemantics { contentDescription = countText },
+                )
+            }
+            if (isOwner) {
+                Spacer(Modifier.width(InviteGap))
+                if (layout.compactInvite) InviteIconButton(onInvite) else InviteButton(onInvite)
+            }
+        }
+    }
+}
+
+private data class TitleRowLayout(val compactInvite: Boolean, val titleStyle: TextStyle)
+
+/** Gaps and paddings of the title row (they decide when "Invite" turns into an icon). */
+private val TitleGap = 10.dp
+private val InviteGap = 8.dp
+private val PillPadding = 28.dp
+/** The button's horizontal padding (2 × 16), icon (18) and icon gap (8), plus a little slack. */
+private val InviteButtonExtra = 66.dp
+
+/** "Invite" as a round tonal icon button, for narrow cards. */
+@Composable
+private fun InviteIconButton(onClick: () -> Unit) {
+    FilledTonalIconButton(
+        onClick = onClick,
+        colors = IconButtonDefaults.filledTonalIconButtonColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        ),
+        modifier = Modifier.size(Dimens.TouchTarget),
+    ) {
+        Icon(
+            painterResource(R.drawable.ic_person_add),
+            contentDescription = stringResource(R.string.members_invite),
+            modifier = Modifier.size(20.dp),
+        )
     }
 }
 
@@ -136,7 +227,8 @@ internal fun InviteButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
 private fun MemberAvatarItem(member: MemberEntry) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.width(MemberItemWidth),
+        // At least the item width; wider only when "Owner" needs it (large fonts). Names keep the item width.
+        modifier = Modifier.widthIn(min = MemberItemWidth),
     ) {
         TravelerAvatar(member.person, Dimens.TravelerAvatarSize)
         Spacer(Modifier.height(8.dp))
@@ -147,6 +239,7 @@ private fun MemberAvatarItem(member: MemberEntry) {
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center,
+            modifier = Modifier.widthIn(max = MemberItemWidth),
         )
         if (member.isOwner) {
             Spacer(Modifier.height(4.dp))

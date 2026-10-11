@@ -91,3 +91,13 @@ fun travelerAvatarTextStyle(avatarSize: Dp, letters: Int, fontScale: Float): Tex
         letterSpacing = 0.sp,
     )
 }
+
+/**
+ * How far a text that must stay on one line (trip dates, the "Traveling together" title, destination titles) may
+ * shrink at [fontScale]: never below [share] of its size at the normal font scale (75%; destinations 80%, see
+ * DestinationTitleMinShare), so with a large font it stays at least that big (and never below half of its scaled size).
+ */
+fun minFitTextScale(fontScale: Float, share: Float = 0.75f): Float = (share / fontScale).coerceIn(0.5f, 1f)
+
+/** Destination titles shrink only a little before they wrap between words: down to 80% of their normal size. */
+const val DestinationTitleMinShare = 0.8f

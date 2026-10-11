@@ -54,6 +54,8 @@ class HomeViewModelTest {
         assertEquals("Etay Zahavi", content.userName)
         assertEquals("Etay", content.firstName)
         assertTrue(content.sections.isEmpty)
+        // The cards leave this year out of their dates.
+        assertEquals(2026, content.currentYear)
     }
 
     @Test

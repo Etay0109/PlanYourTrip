@@ -50,6 +50,8 @@ object Dimens {
 
     /** The round check of a Prep checklist row. */
     val ChecklistCheckSize = 26.dp
+    /** The unchecked circle's ring. */
+    val ChecklistCheckBorder = 2.dp
 
     /** Round traveler avatars in the Budget tab's Travelers row (and the dashed "+ Add" circle). */
     val TravelerAvatarSize = 56.dp

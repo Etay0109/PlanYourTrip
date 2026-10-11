@@ -276,6 +276,7 @@ fun HomeContent(
                                 onDelete = { onDeleteTrip(next.trip) },
                                 isOwner = content.isOwner(next.trip),
                                 photoUrl = content.photos[next.trip.id]?.cardUrl,
+                                currentYear = content.currentYear,
                             )
                         }
                     }
@@ -312,6 +313,7 @@ fun HomeContent(
                                 onDelete = { onDeleteTrip(item.trip) },
                                 isOwner = content.isOwner(item.trip),
                                 thumbUrl = content.photos[item.trip.id]?.thumbUrl,
+                                currentYear = content.currentYear,
                             )
                         }
                     }

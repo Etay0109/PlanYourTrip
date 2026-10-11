@@ -332,13 +332,10 @@ private fun HistoryPage(
             ) {
                 TransferAvatars(state.person(settlement.fromKey), state.person(settlement.toKey))
                 Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
+                // Like the expense rows: who paid whom with the date under it, the amount in bold on the right.
+                Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
                     Text(
-                        text = stringResource(
-                            R.string.settle_history_row,
-                            settlementSentence(settlement, state),
-                            shekels(settlement.amountAgorot),
-                        ),
+                        text = settlementSentence(settlement, state),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
@@ -348,6 +345,14 @@ private fun HistoryPage(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = shekels(settlement.amountAgorot),
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    softWrap = false,
+                )
                 IconButton(onClick = { onDeleteSettlement(settlement) }) {
                     Icon(
                         painterResource(R.drawable.ic_delete),

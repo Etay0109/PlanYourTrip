@@ -28,7 +28,6 @@ import com.example.planyourtrip.ui.common.components.PhotoSquare
 import com.example.planyourtrip.ui.common.components.Pill
 import com.example.planyourtrip.ui.common.components.TripDatesRow
 import com.example.planyourtrip.ui.common.components.TripMoreButton
-import com.example.planyourtrip.ui.common.datesWithLength
 import com.example.planyourtrip.ui.common.statusLabel
 import com.example.planyourtrip.ui.home.ActiveTrip
 import com.example.planyourtrip.ui.theme.Dimens
@@ -50,6 +49,8 @@ fun UpcomingTripCard(
     isOwner: Boolean = true,
     /** The destination photo's thumbnail; null = the letter square. */
     thumbUrl: String? = null,
+    /** Today's year: dates in this year leave it out ("19–24 Oct"); null = always shown. */
+    currentYear: Int? = null,
 ) {
     val colors = ExtendedTheme.colors
     val pastel = colors.pastel(item.trip.color)
@@ -59,7 +60,9 @@ fun UpcomingTripCard(
         TripListCard(
             destination = item.trip.destination,
             countryCode = item.trip.countryCode,
-            dates = datesWithLength(item.trip),
+            dates = { color, style ->
+                TripDatesRow(item.trip.startDate, item.trip.endDate, currentYear, color, style)
+            },
             containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
             shadowElevation = 1.dp,
             letterContainer = pastel.container,
@@ -105,7 +108,7 @@ fun PastTripCard(
     TripListCard(
         destination = trip.destination,
         countryCode = trip.countryCode,
-        dates = TripFormatting.monthYear(trip.startDate),
+        dates = { color, style -> TripDatesRow(TripFormatting.monthYear(trip.startDate), color, style) },
         containerColor = colors.pastCardContainer,
         border = BorderStroke(1.dp, colors.pastCardBorder),
         letterContainer = colors.pastLetterContainer,
@@ -131,7 +134,8 @@ fun PastTripCard(
 private fun TripListCard(
     destination: String,
     countryCode: String?,
-    dates: String,
+    /** The dates line, drawn in the given color and style. */
+    dates: @Composable (Color, TextStyle) -> Unit,
     containerColor: Color,
     letterContainer: Color,
     letterContent: Color,
@@ -166,11 +170,7 @@ private fun TripListCard(
             Column(modifier = Modifier.weight(1f)) {
                 DestinationTitle(destination, countryCode, titleStyle, titleColor, maxLines = 2)
                 Spacer(Modifier.height(4.dp))
-                TripDatesRow(
-                    text = dates,
-                    color = datesColor,
-                    style = MaterialTheme.typography.bodyLarge,
-                )
+                dates(datesColor, MaterialTheme.typography.bodyLarge)
                 belowDates()
             }
             beforeMenu()

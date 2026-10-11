@@ -49,10 +49,12 @@ class HomeViewModel(
                 val queries = trips.associate { it.id to it.photoQuery }
                 photoRepository.request(queries.values)
                 photoRepository.observe(queries.values.mapTo(HashSet()) { it.key }).map { photos ->
+                    val today = LocalDate.now(clock)
                     HomeUiState.Content(
                         userName = name,
                         firstName = firstName(name),
-                        sections = groupTrips(trips, LocalDate.now(clock)),
+                        sections = groupTrips(trips, today),
+                        currentYear = today.year,
                         uid = user.uid,
                         photos = queries.mapNotNull { (id, query) -> photos[query.key]?.let { id to it } }.toMap(),
                     )

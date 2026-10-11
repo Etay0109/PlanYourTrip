@@ -35,6 +35,24 @@ class TripFormattingTest {
     }
 
     @Test
+    fun currentYear_leavesTheYearOut() {
+        fun range(start: LocalDate, end: LocalDate) = TripFormatting.dateRange(start, end, en, currentYear = 2026)
+        assertEquals("19–24 Oct", range(d(2026, 10, 19), d(2026, 10, 24)))
+        assertEquals("28 Nov – 3 Dec", range(d(2026, 11, 28), d(2026, 12, 3)))
+        assertEquals("12 Nov", range(d(2026, 11, 12), d(2026, 11, 12)))
+    }
+
+    @Test
+    fun otherYears_keepTheYear() {
+        fun range(start: LocalDate, end: LocalDate) = TripFormatting.dateRange(start, end, en, currentYear = 2026)
+        assertEquals("19–24 Oct 2027", range(d(2027, 10, 19), d(2027, 10, 24)))
+        assertEquals("12 Nov 2025", range(d(2025, 11, 12), d(2025, 11, 12)))
+        // A trip that crosses into the next year keeps both years.
+        assertEquals("28 Dec 2026 – 3 Jan 2027", range(d(2026, 12, 28), d(2027, 1, 3)))
+        assertEquals("28 Dec 2025 – 3 Jan 2026", range(d(2025, 12, 28), d(2026, 1, 3)))
+    }
+
+    @Test
     fun date() {
         assertEquals("3 Dec 2026", TripFormatting.date(d(2026, 12, 3), en))
     }

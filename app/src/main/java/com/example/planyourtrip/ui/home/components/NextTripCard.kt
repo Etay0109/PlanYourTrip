@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,6 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -25,8 +27,11 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.R
 import com.example.planyourtrip.ui.common.TripStatus
@@ -35,12 +40,13 @@ import com.example.planyourtrip.ui.common.components.HeroPhoto
 import com.example.planyourtrip.ui.common.components.HeroPhotoState
 import com.example.planyourtrip.ui.common.components.HeroWaves
 import com.example.planyourtrip.ui.common.components.chipColor
+import com.example.planyourtrip.ui.common.components.destinationMinScale
+import com.example.planyourtrip.ui.common.components.destinationOneLineWidth
 import com.example.planyourtrip.ui.common.components.drawHeroPhotoScrim
 import com.example.planyourtrip.ui.common.components.mutedTextColor
 import com.example.planyourtrip.ui.common.components.rememberHeroPhotoState
 import com.example.planyourtrip.ui.common.components.TripDatesRow
 import com.example.planyourtrip.ui.common.components.TripMoreButton
-import com.example.planyourtrip.ui.common.datesWithLength
 import com.example.planyourtrip.ui.home.ActiveTrip
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
@@ -63,6 +69,8 @@ fun NextTripCard(
     isOwner: Boolean = true,
     /** The destination photo; null = the gradient only. */
     photoUrl: String? = null,
+    /** Today's year: dates in this year leave it out ("19–24 Oct"); null = always shown. */
+    currentYear: Int? = null,
 ) {
     val colors = ExtendedTheme.colors
     val shape = MaterialTheme.shapes.extraLarge
@@ -79,52 +87,110 @@ fun NextTripCard(
         HeroPhoto(photo, Modifier.matchParentSize()) { drawCardScrim(photo, colors.heroPhotoTint, colors.heroPhotoShade) }
         // The decorations belong to the gradient: they fade out as the photo fades in.
         HeroWaves(Modifier.matchParentSize().graphicsLayer { alpha = 1f - photo.visibility })
-        Row(
-            modifier = Modifier.padding(start = 24.dp, end = Dimens.CardMenuEndPadding, top = 24.dp, bottom = 24.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = photo.track(LABEL_AREA)) {
-                    Box(
-                        Modifier
-                            .size(8.dp)
-                            .background(colors.heroLiveDot, CircleShape)
+        BoxWithConstraints {
+            // The destination first shrinks a little; if it still can't fit on one line, the countdown box gets
+            // narrower before the name wraps between words (DestinationTitle never breaks inside a word).
+            val compactCountdown = rememberCompactCountdown(next, constraints.maxWidth)
+            Row(
+                modifier = Modifier
+                    .padding(start = 24.dp, end = Dimens.CardMenuEndPadding, top = 24.dp, bottom = 24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = photo.track(LABEL_AREA)) {
+                        Box(
+                            Modifier
+                                .size(8.dp)
+                                .background(colors.heroLiveDot, CircleShape)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(R.string.home_next_trip),
+                            style = HeroLabelStyle,
+                            color = mutedText,
+                        )
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    DestinationTitle(
+                        destination = next.trip.destination,
+                        countryCode = next.trip.countryCode,
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = colors.onHero,
+                        maxLines = 3,
+                        modifier = photo.track(TITLE_AREA),
                     )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = stringResource(R.string.home_next_trip),
-                        style = HeroLabelStyle,
+                    Spacer(Modifier.height(16.dp))
+                    TripDatesRow(
+                        start = next.trip.startDate,
+                        end = next.trip.endDate,
+                        currentYear = currentYear,
                         color = mutedText,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = photo.track(DATES_AREA),
                     )
                 }
-                Spacer(Modifier.height(16.dp))
-                DestinationTitle(
-                    destination = next.trip.destination,
-                    countryCode = next.trip.countryCode,
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = colors.onHero,
-                    maxLines = 3,
-                    modifier = photo.track(TITLE_AREA),
-                )
-                Spacer(Modifier.height(16.dp))
-                TripDatesRow(
-                    text = datesWithLength(next.trip),
-                    color = mutedText,
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = photo.track(DATES_AREA),
+                Spacer(Modifier.width(12.dp))
+                CountdownBox(next.status, photo, compactCountdown)
+                // The button's own inset gives the gap to the countdown box. On a photo it sits on a round chip.
+                val menuChip = photo.color(Color.Transparent, colors.heroPhotoChip)
+                TripMoreButton(
+                    next.trip.destination, onShare, onDelete, tint = mutedText, isOwner = isOwner,
+                    modifier = Modifier.drawBehind { drawCircle(menuChip, radius = MenuChipRadius.toPx()) },
                 )
             }
-            Spacer(Modifier.width(12.dp))
-            CountdownBox(next.status, photo)
-            // The button's own inset gives the gap to the countdown box. On a photo it sits on a round chip.
-            val menuChip = photo.color(Color.Transparent, colors.heroPhotoChip)
-            TripMoreButton(
-                next.trip.destination, onShare, onDelete, tint = mutedText, isOwner = isOwner,
-                modifier = Modifier.drawBehind { drawCircle(menuChip, radius = MenuChipRadius.toPx()) },
-            )
         }
     }
 }
+
+/**
+ * True when the destination can't fit on one line even at its smallest size ([destinationMinScale]) beside the
+ * regular countdown box, so the box should get narrower. [cardWidth] is the card's width in pixels.
+ */
+@Composable
+private fun rememberCompactCountdown(next: ActiveTrip, cardWidth: Int): Boolean {
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val titleStyle = MaterialTheme.typography.headlineMedium
+    val minScale = destinationMinScale()
+    val box = countdownTexts(next.status, compact = false)
+    return remember(next.trip.destination, next.trip.countryCode, box, cardWidth, titleStyle, minScale, density) {
+        fun width(text: String, style: TextStyle) =
+            measurer.measure(text, style, maxLines = 1, softWrap = false).size.width
+        with(density) {
+            val content = box.maxOf { (text, style) -> width(text, style) }
+            val boxWidth = maxOf(CountdownMinWidth.roundToPx(), content + 2 * CountdownPadding.roundToPx())
+            val fixed = 24.dp.roundToPx() + Dimens.CardMenuEndPadding.roundToPx() + 12.dp.roundToPx() +
+                Dimens.TouchTarget.roundToPx()
+            val room = cardWidth - fixed - boxWidth
+            destinationOneLineWidth(
+                measurer, density, next.trip.destination, next.trip.countryCode, titleStyle, minScale,
+            ) > room
+        }
+    }
+}
+
+/** The countdown box's texts and their styles: "Now", or the number and "DAYS"; smaller in the compact box. */
+@Composable
+private fun countdownTexts(status: TripStatus, compact: Boolean): List<Pair<String, TextStyle>> = when (status) {
+    TripStatus.Now -> listOf(stringResource(R.string.home_now) to countdownNowStyle(compact))
+    is TripStatus.InDays -> listOf(
+        status.days.toString() to countdownNumberStyle(compact),
+        pluralStringResource(R.plurals.countdown_unit, status.days) to HeroLabelStyle,
+    )
+}
+
+@Composable
+private fun countdownNowStyle(compact: Boolean): TextStyle =
+    if (compact) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineMedium
+
+@Composable
+private fun countdownNumberStyle(compact: Boolean): TextStyle =
+    if (compact) MaterialTheme.typography.headlineLarge else MaterialTheme.typography.displaySmall
+
+/** The regular countdown box: at least this wide, with this side padding; the compact one has neither minimum. */
+private val CountdownMinWidth = 92.dp
+private val CountdownPadding = 14.dp
+private val CompactCountdownPadding = 8.dp
 
 /** The texts on the left (each wraps its content, so its bounds end where its text ends). */
 private const val LABEL_AREA = "label"
@@ -158,23 +224,23 @@ private fun DrawScope.drawCardScrim(
 }
 
 @Composable
-private fun CountdownBox(status: TripStatus, photo: HeroPhotoState) {
+private fun CountdownBox(status: TripStatus, photo: HeroPhotoState, compact: Boolean) {
     val colors = ExtendedTheme.colors
     val shape = MaterialTheme.shapes.large
     Column(
         modifier = Modifier
-            .widthIn(min = 92.dp)
+            .widthIn(min = if (compact) 0.dp else CountdownMinWidth)
             .clip(shape)
             .background(photo.chipColor())
             .border(1.dp, colors.heroOverlayBorder, shape)
-            .padding(horizontal = 14.dp, vertical = 14.dp),
+            .padding(horizontal = if (compact) CompactCountdownPadding else CountdownPadding, vertical = 14.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
         when (status) {
             TripStatus.Now -> Text(
                 text = stringResource(R.string.home_now),
-                style = MaterialTheme.typography.headlineMedium,
+                style = countdownNowStyle(compact),
                 color = colors.onHero,
                 maxLines = 1,
                 modifier = Modifier.padding(vertical = 10.dp),
@@ -182,7 +248,7 @@ private fun CountdownBox(status: TripStatus, photo: HeroPhotoState) {
             is TripStatus.InDays -> {
                 Text(
                     text = status.days.toString(),
-                    style = MaterialTheme.typography.displaySmall,
+                    style = countdownNumberStyle(compact),
                     color = colors.onHero,
                     maxLines = 1,
                 )

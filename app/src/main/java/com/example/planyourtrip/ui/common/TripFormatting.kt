@@ -36,14 +36,23 @@ object TripFormatting {
      * - same month: "12–17 Nov 2026"
      * - same year:  "28 Nov – 3 Dec 2026"
      * - otherwise:  "28 Dec 2026 – 3 Jan 2027"
+     *
+     * With [currentYear] (the year of "today"), a trip that starts and ends in that year leaves the year out:
+     * "12 Nov", "12–17 Nov", "28 Nov – 3 Dec". Trips in other years always keep it.
      */
-    fun dateRange(start: LocalDate, end: LocalDate, locale: Locale = AppLocale.locale): String {
+    fun dateRange(
+        start: LocalDate,
+        end: LocalDate,
+        locale: Locale = AppLocale.locale,
+        currentYear: Int? = null,
+    ): String {
         val f = formatters(locale)
+        val last = if (start.year == end.year && start.year == currentYear) f.dayMonth else f.full
         return when {
-            start == end -> start.format(f.full)
+            start == end -> start.format(last)
             start.year == end.year && start.month == end.month ->
-                "${start.format(f.day)}–${end.format(f.full)}"
-            start.year == end.year -> "${start.format(f.dayMonth)} – ${end.format(f.full)}"
+                "${start.format(f.day)}–${end.format(last)}"
+            start.year == end.year -> "${start.format(f.dayMonth)} – ${end.format(last)}"
             else -> "${start.format(f.full)} – ${end.format(f.full)}"
         }
     }

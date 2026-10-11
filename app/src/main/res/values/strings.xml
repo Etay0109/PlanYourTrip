@@ -120,8 +120,6 @@
     <string name="plan_days_open">%d open</string>
 
     <!-- Itinerary (Plan tab and the Overview day section) -->
-    <string name="itinerary_title">Itinerary</string>
-    <string name="itinerary_subtitle">%1$s · %2$s</string>
     <!-- \u00A0 keeps "Day 1" and the date each on one line. -->
     <string name="itinerary_day_chip">Day\u00A0%1$d · %2$s</string>
     <string name="itinerary_daily_rhythm">DAILY RHYTHM</string>
@@ -396,7 +394,6 @@
     </plurals>
     <string name="members_invite">Invite</string>
     <string name="members_title">Members</string>
-    <string name="members_sheet_title">Members of %1$s</string>
     <string name="member_more_options">More options for %1$s</string>
     <string name="member_remove">Remove from trip</string>
     <string name="member_remove_title">Remove %1$s?</string>
@@ -461,9 +458,6 @@
     <string name="activity_deleted">Activity deleted</string>
 
     <!-- Prep tab -->
-    <string name="prep_title">Trip prep</string>
-    <!-- "19–24 Oct 2026 · Rome, Italy": the dates first, so a Hebrew destination never reorders the line -->
-    <string name="prep_subtitle">%1$s · %2$s</string>
     <!-- "12 of 20 done" -->
     <string name="prep_progress_done">%1$d of %2$d done</string>
     <string name="prep_progress_percent">%1$d%%</string>

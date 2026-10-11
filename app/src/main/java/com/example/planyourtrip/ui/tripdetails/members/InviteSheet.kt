@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -77,6 +78,7 @@ import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
 import com.example.planyourtrip.ui.theme.HeroLabelStyle
 import com.example.planyourtrip.ui.theme.PlanYourTripTheme
+import com.example.planyourtrip.ui.theme.isLargeFontScale
 import com.example.planyourtrip.ui.tripdetails.components.TravelerAvatar
 import com.example.planyourtrip.ui.tripdetails.components.personName
 import java.time.LocalDate
@@ -217,18 +219,9 @@ fun InviteSheetContent(
             Spacer(Modifier.height(24.dp))
             CodeSection(state.code, destination, actions)
             Spacer(Modifier.height(32.dp))
-        } else {
-            Text(
-                text = stringResource(R.string.members_sheet_title, destination),
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.semantics { heading() },
-            )
-            Spacer(Modifier.height(20.dp))
         }
-        MembersList(members, actions)
+        // Without the invite part, "Members" with the count is the sheet's only title.
+        MembersList(members, actions, isSheetTitle = mode != MembersSheetMode.INVITE || !members.isOwner)
         if (!members.isOwner) {
             Spacer(Modifier.height(20.dp))
             OutlinedButton(
@@ -401,13 +394,16 @@ private fun InfoPill(icon: Int, text: String) {
     }
 }
 
-/** "Members" + count, then a card with one row per member; the owner's ⋮ removes the others. */
+/**
+ * "Members" + count, then a card with one row per member; the owner's ⋮ removes the others. [isSheetTitle]: it is
+ * the sheet's title (members only, no invite code above it), so it gets the title size.
+ */
 @Composable
-private fun MembersList(members: MembersState, actions: InviteSheetActions) {
+private fun MembersList(members: MembersState, actions: InviteSheetActions, isSheetTitle: Boolean) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
             text = stringResource(R.string.members_title),
-            style = MaterialTheme.typography.titleLarge,
+            style = if (isSheetTitle) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.semantics { heading() },
         )
@@ -420,7 +416,7 @@ private fun MembersList(members: MembersState, actions: InviteSheetActions) {
             modifier = Modifier.clearAndSetSemantics { contentDescription = countText },
         )
     }
-    Spacer(Modifier.height(12.dp))
+    Spacer(Modifier.height(if (isSheetTitle) 20.dp else 12.dp))
     val shape = MaterialTheme.shapes.large
     Column(
         Modifier
@@ -446,65 +442,69 @@ private fun MembersList(members: MembersState, actions: InviteSheetActions) {
 @Composable
 private fun MemberRow(member: MemberEntry, onRemove: (() -> Unit)?) {
     val name = personName(member.person)
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 72.dp)
-            .padding(start = 16.dp, end = if (onRemove != null) 4.dp else 16.dp, top = 8.dp, bottom = 8.dp),
-    ) {
-        TravelerAvatar(member.person, Dimens.TravelerAvatarSize)
-        Spacer(Modifier.width(16.dp))
-        Column(Modifier.weight(1f)) {
-            Text(
-                text = name,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            val joined = member.joinedOn
-            if (!member.isOwner && joined != null) {
+    // On narrow sheets or large fonts "Owner" goes under the name, so the name keeps the row's width.
+    BoxWithConstraints {
+        val ownerInline = maxWidth >= Dimens.NarrowContentWidth && !isLargeFontScale()
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 72.dp)
+                .padding(start = 16.dp, end = if (onRemove != null) 4.dp else 16.dp, top = 8.dp, bottom = 8.dp),
+        ) {
+            TravelerAvatar(member.person, Dimens.TravelerAvatarSize)
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f)) {
                 Text(
-                    text = stringResource(R.string.member_joined, TripFormatting.dayMonth(joined)),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = name,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
-            }
-        }
-        if (member.isOwner) {
-            Spacer(Modifier.width(8.dp))
-            Pill(
-                text = stringResource(R.string.member_owner),
-                container = MaterialTheme.colorScheme.primaryContainer,
-                content = MaterialTheme.colorScheme.onPrimaryContainer,
-            )
-        }
-        if (onRemove != null) {
-            var open by rememberSaveable { mutableStateOf(false) }
-            Box {
-                IconButton(onClick = { open = true }) {
-                    Icon(
-                        painterResource(R.drawable.ic_more_vert),
-                        contentDescription = stringResource(R.string.member_more_options, name),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                if (member.isOwner && !ownerInline) {
+                    Spacer(Modifier.height(4.dp))
+                    OwnerRowPill()
+                }
+                val joined = member.joinedOn
+                if (!member.isOwner && joined != null) {
+                    Text(
+                        text = stringResource(R.string.member_joined, TripFormatting.dayMonth(joined)),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.member_remove), color = MaterialTheme.colorScheme.error) },
-                        leadingIcon = {
-                            Icon(
-                                painterResource(R.drawable.ic_delete),
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error,
-                            )
-                        },
-                        onClick = {
-                            open = false
-                            onRemove()
-                        },
-                    )
+            }
+            if (member.isOwner && ownerInline) {
+                Spacer(Modifier.width(8.dp))
+                OwnerRowPill()
+            }
+            if (onRemove != null) {
+                var open by rememberSaveable { mutableStateOf(false) }
+                Box {
+                    IconButton(onClick = { open = true }) {
+                        Icon(
+                            painterResource(R.drawable.ic_more_vert),
+                            contentDescription = stringResource(R.string.member_more_options, name),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.member_remove), color = MaterialTheme.colorScheme.error) },
+                            leadingIcon = {
+                                Icon(
+                                    painterResource(R.drawable.ic_delete),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                )
+                            },
+                            onClick = {
+                                open = false
+                                onRemove()
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -596,4 +596,14 @@ private fun MembersSheetMemberPreview() {
             InviteSheetActions.None,
         )
     }
+}
+
+/** "Owner" in the members list. */
+@Composable
+private fun OwnerRowPill() {
+    Pill(
+        text = stringResource(R.string.member_owner),
+        container = MaterialTheme.colorScheme.primaryContainer,
+        content = MaterialTheme.colorScheme.onPrimaryContainer,
+    )
 }

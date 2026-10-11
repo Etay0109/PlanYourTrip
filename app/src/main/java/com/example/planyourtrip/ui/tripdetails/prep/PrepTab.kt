@@ -22,7 +22,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.R
 import com.example.planyourtrip.data.trip.ChecklistKind
-import com.example.planyourtrip.ui.common.TripFormatting
 import com.example.planyourtrip.ui.common.components.Pill
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
@@ -61,38 +60,18 @@ data class PrepActions(
 }
 
 /**
- * The Prep tab below the trip header (reference: design/trip_prep.png): title, progress over both checklists,
- * documents (this device only) and the checklist. Nothing is drawn until the data has loaded.
+ * The Prep tab below the trip header (reference: design/trip_prep.png): progress over both checklists, documents
+ * (this device only) and the checklist. The header already shows the destination and dates, so there is no title. Nothing is drawn until the data has loaded.
  */
 fun LazyListScope.prepTab(state: PrepUiState, actions: PrepActions) {
     if (state !is PrepUiState.Loaded) return
-    item(key = "prep_title") { PrepTitle(state) }
     item(key = "prep_progress") {
-        PrepProgressCard(state.progress, state.message, Modifier.padding(horizontal = Dimens.ScreenPadding))
+        PrepProgressCard(
+            state.progress, state.message, Modifier.padding(horizontal = Dimens.ScreenPadding).padding(top = 8.dp),
+        )
     }
     item(key = "prep_documents") { DocumentsSection(state.documents, actions) }
     item(key = "prep_checklist") { ChecklistSection(state, actions) }
-}
-
-@Composable
-private fun PrepTitle(state: PrepUiState.Loaded) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = Dimens.ScreenPadding).padding(top = 8.dp)) {
-        Text(
-            text = stringResource(R.string.prep_title),
-            style = MaterialTheme.typography.headlineLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Spacer(Modifier.height(4.dp))
-        Text(
-            text = stringResource(
-                R.string.prep_subtitle,
-                TripFormatting.dateRange(state.startDate, state.endDate),
-                state.destination,
-            ),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
 }
 
 /** "12 of 20 done", the percent pill, the bar and what is left; an invitation while both lists are empty. */

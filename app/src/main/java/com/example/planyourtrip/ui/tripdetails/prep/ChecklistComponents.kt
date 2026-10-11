@@ -3,6 +3,7 @@ package com.example.planyourtrip.ui.tripdetails.prep
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -256,14 +257,23 @@ private fun ChecklistRow(row: ChecklistRowState, hasDueDates: Boolean, actions: 
     }
 }
 
+/**
+ * Checked: filled teal with a check. Unchecked: an empty circle with a clear `onSurfaceVariant` ring (≥ 3:1 on the card; the
+ * theme's `outline` is too faint), so it
+ * reads as something to tap. The whole row is the touch target (at least 56dp tall).
+ */
 @Composable
 private fun CheckCircle(checked: Boolean) {
+    val shape = CircleShape
     Box(
         modifier = Modifier
             .size(Dimens.ChecklistCheckSize)
-            .background(
-                if (checked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest,
-                CircleShape,
+            .then(
+                if (checked) {
+                    Modifier.background(MaterialTheme.colorScheme.primary, shape)
+                } else {
+                    Modifier.border(Dimens.ChecklistCheckBorder, MaterialTheme.colorScheme.onSurfaceVariant, shape)
+                },
             ),
         contentAlignment = Alignment.Center,
     ) {

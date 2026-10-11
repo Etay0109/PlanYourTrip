@@ -20,7 +20,6 @@ import com.example.planyourtrip.ui.tripdetails.components.AddActivityButton
 import com.example.planyourtrip.ui.tripdetails.components.DayChipsRow
 import com.example.planyourtrip.ui.tripdetails.components.DaySummaryCard
 import com.example.planyourtrip.ui.tripdetails.components.ItineraryActions
-import com.example.planyourtrip.ui.tripdetails.components.ItineraryHeader
 import com.example.planyourtrip.ui.tripdetails.components.PlanTimeline
 
 internal fun LazyListScope.planTab(
@@ -29,11 +28,12 @@ internal fun LazyListScope.planTab(
 ) {
     val itinerary = state.itinerary
     val plan = itinerary.plan
-    item(key = "itinerary-header") {
-        ItineraryHeader(state.trip, modifier = cardPadding.padding(top = 8.dp))
-    }
+    // The header above already shows the destination and dates: the day chips come first.
     item(key = "day-chips") {
-        DayChipsRow(itinerary.days, selected = plan.day, onSelect = actions.onPlanDaySelected)
+        DayChipsRow(
+            itinerary.days, selected = plan.day, onSelect = actions.onPlanDaySelected,
+            modifier = Modifier.padding(top = 8.dp),
+        )
     }
     item(key = "day-summary") {
         DaySummaryCard(plan, modifier = cardPadding)

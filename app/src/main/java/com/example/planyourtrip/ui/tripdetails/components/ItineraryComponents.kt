@@ -39,7 +39,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.R
-import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.data.trip.TripActivity
 import com.example.planyourtrip.ui.common.TripFormatting
 import com.example.planyourtrip.ui.common.components.PrimaryButton
@@ -66,40 +65,6 @@ class ItineraryActions(
     /** "Open in Maps" on a Plan activity card that has a location. */
     val onOpenInMaps: (TripActivity) -> Unit = {},
 )
-
-/** "Itinerary" with the trip dates and destination under it. */
-@Composable
-fun ItineraryHeader(trip: Trip, modifier: Modifier = Modifier) {
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    Column(modifier) {
-        Text(
-            text = stringResource(R.string.itinerary_title),
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
-        Spacer(Modifier.height(4.dp))
-        Row(verticalAlignment = Alignment.Top) {
-            Icon(
-                painter = painterResource(R.drawable.ic_calendar),
-                contentDescription = null,
-                tint = muted,
-                modifier = Modifier
-                    .padding(top = 3.dp)
-                    .size(18.dp),
-            )
-            Spacer(Modifier.width(6.dp))
-            Text(
-                text = stringResource(
-                    R.string.itinerary_subtitle,
-                    TripFormatting.dateRange(trip.startDate, trip.endDate),
-                    trip.destination,
-                ),
-                style = MaterialTheme.typography.bodyLarge,
-                color = muted,
-            )
-        }
-    }
-}
 
 /** Horizontal row of "Day 1 · Thu 12 Nov" chips; the selected one is filled teal with a check icon. */
 @Composable

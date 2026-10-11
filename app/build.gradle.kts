@@ -95,5 +95,11 @@ dependencies {
     androidTestImplementation(libs.kotlinx.coroutines.test)
     // MigrationTestHelper (Room schema migrations).
     androidTestImplementation(libs.androidx.room.testing)
+    // Compose UI tests (layout checks on narrow screens and large fonts); the manifest adds their host activity.
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    // ui-test-junit4 brings espresso-core 3.5, which fails on API 36 (InputManager.getInstance is gone).
+    androidTestImplementation(libs.androidx.test.espresso.core)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

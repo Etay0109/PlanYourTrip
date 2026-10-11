@@ -25,7 +25,8 @@ Package: `com.example.planyourtrip`. minSdk 26, targetSdk 36.
 ## Commands
 - Build: `./gradlew assembleDebug` (also regenerates the Room schema JSON in `app/schemas/`)
 - Unit tests: `./gradlew testDebugUnitTest`
-- Instrumented tests (needs an emulator): **never** `connectedDebugAndroidTest` (it wipes app data and the App Check
+- Instrumented tests (needs an emulator; Room tests + Compose layout tests `ui/LayoutPolishTest`, which also save
+  pictures to the app's `files/layout-checks/`): **never** `connectedDebugAndroidTest` (it wipes app data and the App Check
   token). Instead: airplane mode on, `assembleDebug assembleDebugAndroidTest`, `adb install -r` both APKs,
   `adb shell am instrument -w com.example.planyourtrip.test/androidx.test.runner.AndroidJUnitRunner`, then uninstall
   only `com.example.planyourtrip.test`.
@@ -794,7 +795,8 @@ Timestamps are device clocks (no server time), so a device with a very wrong clo
   "K7M4 XP2R", "K7M4-XP2R" in the shared message (which `extract` finds again when pasted). Work once, expire 7 days
   after the server's `createdAt`.
 - **Overview "Traveling together" card** (`MembersCard`, first on the Overview; reference `design/trip_members.png`,
-  only this card; the rest of the Overview is unchanged): title + count pill, 56dp avatars ("You" first, then the
+  only this card; the rest of the Overview is unchanged): title + count pill on one line (when "Invite" doesn't fit
+  it becomes a round icon button, then the title gets smaller, `minFitTextScale`; never wraps), 56dp avatars ("You" first, then the
   others in join order), "Owner" pill under the owner, tonal "Invite" (owner only). Tapping the card opens the members
   sheet. State: `TripDetailsUiState.Loaded.members` (`membersState(me, trip, members, zone)`).
 - **Invite sheet** (`InviteSheet`, `InviteViewModel` (default owner = `TripDetails` entry); `design/trip_invite.png`):
@@ -802,7 +804,8 @@ Timestamps are device clocks (no server time), so a device with a very wrong clo
   batch: owner's member document, invite, pointer); the code on the hero gradient with a copy button, "Expires 16 Oct"
   and "Works once" pills, "Share code" (`ACTION_SEND` chooser, `invite_share_message`), "Cancel this code" (then
   "Create a new code"); offline → "Try again"; a trip with 10 members → no code. Then "Members" with each member's
-  row ("Joined 9 Oct", "Owner"); the owner's ⋮ → "Remove from trip" → confirmation (`isRemoving` synchronous) →
+  row ("Joined 9 Oct", "Owner"; under the name on narrow sheets / large fonts). Opened from the card it has one title,
+  "Members" + count; the invite mode says "Invite to London" (`shortDestination`, also in the shared message). The owner's ⋮ → "Remove from trip" → confirmation (`isRemoving` synchronous) →
   `SyncController.removeMember`; a non-owner gets "Leave trip".
 - **Leaving:** non-owners see "Leave trip" (`ic_logout`) instead of "Delete trip" in every trip menu and "Leave" on
   the Home swipe (`Trip.ownerId` vs the uid; a blank owner counts as mine). `DeleteTripViewModel.onRemoveTrip(trip)`
@@ -862,7 +865,20 @@ TripDetails ──("Leave trip" confirmed)──▶ the same with "pendingLeaveT
   - Countdown = days from today to the start date (always ≥ 1 for future trips).
 - Trip length is inclusive: 12–17 Nov is 6 days.
 - Date ranges (`TripFormatting.dateRange`): `12–17 Nov 2026`, `28 Nov – 3 Dec 2026`, `28 Dec 2026 – 3 Jan 2027`,
-  and `12 Nov 2026` for a single day.
+  and `12 Nov 2026` for a single day. With `currentYear` (Home cards and the trip header: `HomeUiState.Content.currentYear`
+  / `TripDetailsUiState.Loaded.currentYear`, from the injected `Clock`) a trip that starts and ends this year leaves the
+  year out (`19–24 Oct`); the PDF and other places keep it.
+- **Destination titles never break inside a word** (`DestinationTitle`, Next trip / Upcoming / Past cards and the trip
+  header; `fitDestinationTitle` in `ui/common/DestinationFit.kt`, pure + `DestinationFitTest`): the name and its flag
+  first shrink to stay on one line, down to `destinationMinScale()` (80% of the normal-font size); on the Next trip card
+  the countdown box then gets narrower (no 92dp minimum, smaller "Now"/number, 8dp padding) when even that isn't
+  enough; only then the name wraps between words (largest size at which every word fits), and a single word too long
+  even at the minimum stays on one line with "…". `DestinationTitleLayoutKey` (a semantics property TalkBack ignores)
+  reports the lines for `LayoutPolishTest`.
+- **The dates line never wraps** (`TripDatesRow(start, end, currentYear, …)` on the Next trip and Upcoming cards and the
+  trip header): "19–24 Oct · 6 days" when it fits on one line, else the length is dropped ("19–24 Oct"), else the dates
+  get smaller (down to `minFitTextScale`: 75% of the normal-font size), "…" only beyond that. TalkBack always reads the
+  whole line. Past cards keep "Aug 2026".
 - The Upcoming title shows the count pill ("2 trips"); the Past title shows "N archived".
 - **Empty state:** when there are no trips, show the friendly message and an "Add your first trip" button. The FAB
   stays visible. While Room loads for the first time, the state is `Loading` and nothing is drawn, so the empty
@@ -895,10 +911,13 @@ splitting").
   **Pull to refresh** on every tab (`RefreshBox`, spinner below the status bar; own `RefreshViewModel`) runs a full
   sync, same message as Home on failure.
   A round `secondary` FAB with a sparkle (`AssistantFab`) sits above the navigation bar on all four tabs and opens
-  the assistant; the list has `FabClearance` bottom padding so it never covers the last card. On the Budget tab the
-  FAB slot holds a full-width row (`FabPosition.Center`): the primary pill "+ Add expense" (`AddExpenseFab`,
-  `ExtendedFloatingActionButton`) at the bottom left and the sparkle at the right, never overlapping.
+  the assistant. On the Budget tab the FAB slot holds a full-width row (`FabPosition.Center`): the primary pill
+  "+ Add expense" (`AddExpenseFab`, `ExtendedFloatingActionButton`) at the bottom left and the sparkle at the right,
+  never overlapping (see "Floating buttons" below).
 - **Prep tab:** see "Prep tab" below. `TripTab.PREP` replaced `TripTab.MAP` in the same (third) position.
+- **Floating buttons** float over the scrolling list (content passes under them while scrolling). Every tab's list
+  ends with `FabClearance` = button height 56dp + the Scaffold's 16dp gap + 24dp, so the last card can always be
+  scrolled fully above them.
 - **Header** (`TripHeader`, on every tab, scrolls with the list): hero gradient + `HeroWaves`, only bottom corners
   rounded (`extraLarge`), drawn behind the status bar (`contentWindowInsets = WindowInsets(0)` +
   `statusBarsPadding()`); back circle, status pill ("In 38 days" / "Now", **hidden after the trip ended**), edit
@@ -983,7 +1002,8 @@ the By category legend uses round dots, ₪0 rows (expenses I'm not part of) com
   single one is picked already); the amount field starts at the full amount (`Money.toInput`) and may be lowered for a
   partial payment (`validateSettleAmount`: `EMPTY`, `INVALID` (≤ 0 / unparseable), `TOO_MUCH` (> the open amount));
   "Mark as paid" saves `Settlement(from, to, amount, today)` and closes the sheet; `isSaving` is synchronous. "History"
-  switches the sheet to the payments, newest first ("Noa paid you · ₪100", date), each with a delete icon →
+  switches the sheet to the payments, newest first (like expense rows: "Noa paid you" with the date under it, the
+  amount bold on the right, never wrapped), each with a delete icon →
   confirmation → delete (the debt reopens).
 - **Expense form:** with other travelers, under the amount: "Paid by" (`FilterChip`s with 18dp avatars, single) and
   "Split between" (a "Not shared" chip = `[payer]`, then one chip per person, multi). New expense: paid by me, split
@@ -1044,7 +1064,7 @@ never looks like a second type label.
   a selection that is no longer inside the trip dates (dates edited) falls back to the default
   (`validDayOrDefault`). The tab itself stays Compose state.
 - **Ordering** (`sortActivities`, `ui/common/TripDays.kt`): by date, then start time with **untimed activities last**, then id.
-- **Plan tab** (below the usual `TripHeader`): "Itinerary" + "12–17 Nov 2026 · Rome, Italy"; `DayChipsRow`
+- **Plan tab** (below the usual `TripHeader`, no title of its own: the header shows destination and dates): `DayChipsRow`
   ("Day 1 · Thu 12 Nov", selected = filled teal + check icon, opens scrolled to the selected chip);
   `DaySummaryCard` ("DAILY RHYTHM", "N activities", "~₪210 planned" = `dailyCostAgorot`, hidden when no activity
   of the day has a cost); the timeline (`PlanTimeline` → `TimelineRow` + `ActivityCard`: 24-hour time, title,
@@ -1087,7 +1107,7 @@ Reference: `design/trip_prep.png`, **with these deliberate differences**: the us
   `SavedStateHandle`; `Clock` + `computeDispatcher` like the others). `TripDetailsScreen` collects it and passes
   `prep: PrepUiState` + `PrepActions` to `TripDetailsContent` (`prepTab(...)` items); `rememberPrepActions` /
   `PrepDialogs` (`PrepHost.kt`) own the file picker, the viewer intent, the dialogs and the snackbars.
-- **Layout:** "Trip prep" (`headlineLarge`) + gray subtitle; `PrepProgressCard` ("12 of 20 done", percent `Pill` in
+- **Layout:** no title of its own (the header shows destination and dates); `PrepProgressCard` ("12 of 20 done", percent `Pill` in
   `primaryContainer`, bar `primary` on `budgetTrack`, "8 things left before your trip" before the trip / "N things left"
   from its first day / "All done…"; both lists empty → "Nothing on your lists yet" + an invitation, no bar);
   Documents; Checklist.
@@ -1096,8 +1116,9 @@ Reference: `design/trip_prep.png`, **with these deliberate differences**: the us
   shown in `budgetWarning` orange (a11y "Overdue, due 18 Oct"); otherwise gray.
 - **Checklist:** chips "Before the trip (5/8)" / "Packing (7/12)" (selected filled `primary`, the other
   `surfaceContainerLowest` + `outlineVariant` border; `FlowRow`, the selected list is Compose `rememberSaveable`
-  state). One card: rows in `created_at` order, tap toggles (`Role.Checkbox`, state "Done"/"Not done"), checked = filled
-  teal check + gray line-through text; **long press** opens a `DropdownMenu`: Edit text (dialog, VM `editText`), Set /
+  state). One card: rows in `created_at` order, tap toggles (`Role.Checkbox`, state "Done"/"Not done", the whole row
+  ≥ 56dp is the target), unchecked = empty circle with a 2dp `onSurfaceVariant` ring, checked = filled teal check +
+  gray line-through text; **long press** opens a `DropdownMenu`: Edit text (dialog, VM `editText`), Set /
   Change due date (`DatePickerPopup`, "Before the trip" only, no min/max), Clear due date, Delete → snackbar "Item
   deleted" + Undo (`deletedItem` in the VM, `SnackbarDuration.Long`). Last row "Add item…": a `BasicTextField` whose
   text is Compose state; IME Done → `onAddItem` (false for blank text, the field keeps it), cleared on success, the
@@ -1365,7 +1386,8 @@ Reference: `design/home_screen.png`. Match it closely when adding or changing sc
   `TripMoreMenu`/`TripMoreButton`, `EditFormScaffold` (create/edit forms), `ConfirmDeleteDialog`, `TintedFilterChip`.
   Trip-area cards that need a gray fill (note box, day summary, compact activity cards, progress box, unselected
   day chips) use `surfaceContainerHighest`. The upcoming and past cards share one private `TripListCard` skeleton.
-- **Long text never gets cut off.** Dates have no `maxLines` and wrap; destinations wrap to at most 2–3 lines
+- **Long text never gets cut off.** The trip dates line stays on one line by dropping the length, then shrinking (see
+  "Home screen rules"); other dates have no `maxLines` and wrap; destinations shrink a little, then wrap between words (never inside one) to at most 2–3 lines
   with an ellipsis. Text columns use `weight(1f)`. Upcoming cards move the countdown badge under the dates when
   the card is narrower than 360dp or the font scale is above 1.2. Trip lengths and badges use non-breaking spaces
   ("6 days", "In 120 days"), so a line can break only before the length. Check new layouts with the

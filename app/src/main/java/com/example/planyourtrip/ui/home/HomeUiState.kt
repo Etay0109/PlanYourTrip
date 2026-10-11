@@ -15,6 +15,8 @@ sealed interface HomeUiState {
         val uid: String = "",
         /** Destination photos by trip id; a trip without one shows the gradient / letter square. */
         val photos: Map<Long, DestinationPhoto> = emptyMap(),
+        /** Today's year: the cards' dates leave it out for trips in this year ("19–24 Oct"); null = always shown. */
+        val currentYear: Int? = null,
     ) : HomeUiState {
         /** My own trip (or one without a known owner); a shared trip someone else owns is left, not deleted. */
         fun isOwner(trip: Trip): Boolean = trip.ownerId.isBlank() || trip.ownerId == uid

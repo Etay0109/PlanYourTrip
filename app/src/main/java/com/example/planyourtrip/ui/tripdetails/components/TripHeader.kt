@@ -45,7 +45,6 @@ import com.example.planyourtrip.ui.common.components.mutedTextColor
 import com.example.planyourtrip.ui.common.components.rememberHeroPhotoState
 import com.example.planyourtrip.ui.common.components.TripDatesRow
 import com.example.planyourtrip.ui.common.components.TripMoreMenu
-import com.example.planyourtrip.ui.common.datesWithLength
 import com.example.planyourtrip.ui.common.statusLabel
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
@@ -72,6 +71,8 @@ fun TripHeader(
     isOwner: Boolean = true,
     /** The destination photo; null = the gradient only. */
     photoUrl: String? = null,
+    /** Today's year: dates in this year leave it out ("19–24 Oct"); null = always shown. */
+    currentYear: Int? = null,
 ) {
     val colors = ExtendedTheme.colors
     val shape = MaterialTheme.shapes.extraLarge.copy(topStart = CornerSize(0.dp), topEnd = CornerSize(0.dp))
@@ -126,7 +127,9 @@ fun TripHeader(
                 )
                 Spacer(Modifier.height(8.dp))
                 TripDatesRow(
-                    text = datesWithLength(trip),
+                    start = trip.startDate,
+                    end = trip.endDate,
+                    currentYear = currentYear,
                     color = photo.mutedTextColor(),
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = photo.track(DATES_AREA),

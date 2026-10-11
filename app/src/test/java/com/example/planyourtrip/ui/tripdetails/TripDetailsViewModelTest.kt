@@ -90,6 +90,8 @@ class TripDetailsViewModelTest {
         val state = vm().loaded()
         assertEquals(rome, state.trip)
         assertEquals(TripStatus.InDays(38), state.status)
+        // The header leaves this year out of its dates.
+        assertEquals(2026, state.currentYear)
         assertNull(state.summary)
         assertTrue(state.expenses.isEmpty())
         assertTrue(state.categoryTotals.isEmpty())
