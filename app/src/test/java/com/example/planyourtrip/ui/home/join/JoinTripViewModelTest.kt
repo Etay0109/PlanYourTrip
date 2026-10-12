@@ -32,7 +32,7 @@ class JoinTripViewModelTest {
     private val preview = InvitePreview(
         code, "t1", "Rome, Italy", LocalDate.of(2026, 10, 19), LocalDate.of(2026, 10, 24), "Noa",
     )
-    private val auth = FakeAuthRepository(AuthUser("u1", "Etay", "etay@example.com"))
+    private val auth = FakeAuthRepository(AuthUser("u1", "Yael", "yael@example.com"))
     private val invites = FakeInviteRepository()
     private lateinit var trips: FakeTripRepository
     private lateinit var sync: FakeSyncController
@@ -116,7 +116,7 @@ class JoinTripViewModelTest {
         gate.complete(Unit)
 
         assertEquals(1, invites.joins.size)
-        assertEquals("Etay", invites.joins.single().second)
+        assertEquals("Yael", invites.joins.single().second)
         assertFalse(state.isOpen)
         assertEquals("Rome, Italy", state.joinedDestination)
         assertEquals(1, sync.refreshCalls)
@@ -126,10 +126,10 @@ class JoinTripViewModelTest {
 
     @Test
     fun theMemberNameIsNeverTheEmail() {
-        auth.currentUser.value = AuthUser("u1", null, "etay@example.com")
+        auth.currentUser.value = AuthUser("u1", null, "yael@example.com")
         viewModel.onCodeChange(code)
         viewModel.onJoin()
-        assertFalse(invites.joins.single().second.contains("etay"))
+        assertFalse(invites.joins.single().second.contains("yael"))
     }
 
     @Test

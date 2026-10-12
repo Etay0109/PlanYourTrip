@@ -39,7 +39,7 @@ class InviteViewModelTest {
         1, "Rome, Italy", LocalDate.of(2026, 10, 19), LocalDate.of(2026, 10, 24), TripColor.SKY,
         ownerId = "u1", memberIds = listOf("u1", "noa"), uuid = "t1",
     )
-    private val auth = FakeAuthRepository(AuthUser("u1", "Etay", "etay@example.com"))
+    private val auth = FakeAuthRepository(AuthUser("u1", "Yael", "yael@example.com"))
     private val invites = FakeInviteRepository(now = { nowMillis })
     private lateinit var trips: FakeTripRepository
     private lateinit var sync: FakeSyncController
@@ -66,7 +66,7 @@ class InviteViewModelTest {
 
         val ready = state.code as InviteCodeState.Ready
         assertEquals(MembersSheetMode.INVITE, state.sheet)
-        assertEquals(listOf("t1" to "Etay"), invites.created)
+        assertEquals(listOf("t1" to "Yael"), invites.created)
         assertEquals(LocalDate.of(2026, 10, 16), ready.expiresOn)
     }
 

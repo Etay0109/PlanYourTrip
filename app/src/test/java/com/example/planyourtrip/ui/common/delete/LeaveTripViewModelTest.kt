@@ -33,7 +33,7 @@ class LeaveTripViewModelTest {
         2, "Athens", nov(20), nov(24), TripColor.PEACH, ownerId = "noa", memberIds = listOf("noa", "u1"), uuid = "t2",
     )
 
-    private val auth = FakeAuthRepository(AuthUser("u1", "Etay", "etay@example.com"))
+    private val auth = FakeAuthRepository(AuthUser("u1", "Yael", "yael@example.com"))
     private lateinit var trips: FakeTripRepository
     private lateinit var sync: FakeSyncController
     private lateinit var viewModel: DeleteTripViewModel

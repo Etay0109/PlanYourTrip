@@ -55,9 +55,9 @@ class SharedTripRoomTest {
         val uuid = uuidOf(id)
         sync.replaceMembers(
             "u1",
-            mapOf(uuid to listOf(TripMember("u1", "Etay", 1, false), TripMember("noa", "Noa", 2, false))),
+            mapOf(uuid to listOf(TripMember("u1", "Yael", 1, false), TripMember("noa", "Noa", 2, false))),
         )
-        assertEquals(listOf("Etay", "Noa"), members.observeMembers(id, "u1").first().map { it.name })
+        assertEquals(listOf("Yael", "Noa"), members.observeMembers(id, "u1").first().map { it.name })
         assertTrue(members.observeMembers(id, "u2").first().isEmpty())
 
         sync.replaceMembers("u1", mapOf(uuid to listOf(TripMember("noa", "Noa", 2, true))))

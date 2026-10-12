@@ -451,7 +451,7 @@ private fun previewState(trips: List<Trip>) = HomeUiState.Content(
     sections = groupTrips(trips, previewToday),
 )
 
-private val previewAccount = AccountState(userName = "Etay Zahavi", email = "etay@example.com", initials = "EZ")
+private val previewAccount = AccountState(userName = "Etay Zahavi", email = "traveler@example.com", initials = "EZ")
 
 @Preview(name = "Home", widthDp = 411, heightDp = 891)
 @Composable

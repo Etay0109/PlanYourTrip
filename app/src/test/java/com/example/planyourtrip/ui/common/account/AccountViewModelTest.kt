@@ -24,7 +24,7 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class AccountViewModelTest {
 
-    private val etay = AuthUser(uid = "u1", displayName = "Etay Zahavi", email = "etay@example.com")
+    private val yael = AuthUser(uid = "u1", displayName = "Yael Shamir", email = "yael@example.com")
     private val dispatcher = UnconfinedTestDispatcher()
 
     @Before
@@ -37,10 +37,10 @@ class AccountViewModelTest {
 
     @Test
     fun showsNameEmailAndInitials() = runTest(dispatcher) {
-        val auth = FakeAuthRepository(etay)
+        val auth = FakeAuthRepository(yael)
         val state = AccountViewModel(auth, FakeSyncController(auth)).current()
 
-        assertEquals(AccountState("Etay Zahavi", "etay@example.com", "EZ"), state)
+        assertEquals(AccountState("Yael Shamir", "yael@example.com", "YS"), state)
     }
 
     @Test
@@ -54,7 +54,7 @@ class AccountViewModelTest {
 
     @Test
     fun syncStatus_isShown() = runTest(dispatcher) {
-        val auth = FakeAuthRepository(etay)
+        val auth = FakeAuthRepository(yael)
         val sync = FakeSyncController(auth)
         val vm = AccountViewModel(auth, sync)
         assertEquals(SyncStatus.SAVED, vm.current().syncStatus)
@@ -66,7 +66,7 @@ class AccountViewModelTest {
 
     @Test
     fun signOut_goesThroughTheSync() = runTest(dispatcher) {
-        val auth = FakeAuthRepository(etay)
+        val auth = FakeAuthRepository(yael)
         val sync = FakeSyncController(auth)
         val vm = AccountViewModel(auth, sync)
 
@@ -79,22 +79,22 @@ class AccountViewModelTest {
 
     @Test
     fun signOut_withPendingChangesOffline_showsTheWarning_andCancelKeepsTheUserSignedIn() = runTest(dispatcher) {
-        val auth = FakeAuthRepository(etay)
+        val auth = FakeAuthRepository(yael)
         val sync = FakeSyncController(auth).apply { pendingOffline = true }
         val vm = AccountViewModel(auth, sync)
 
         vm.onSignOut()
         assertTrue(vm.current().showSignOutWarning)
-        assertEquals(etay, auth.currentUser.value)
+        assertEquals(yael, auth.currentUser.value)
 
         vm.onDismissSignOutWarning()
         assertFalse(vm.current().showSignOutWarning)
-        assertEquals(etay, auth.currentUser.value)
+        assertEquals(yael, auth.currentUser.value)
     }
 
     @Test
     fun signOutAnyway_forcesTheSignOut() = runTest(dispatcher) {
-        val auth = FakeAuthRepository(etay)
+        val auth = FakeAuthRepository(yael)
         val sync = FakeSyncController(auth).apply { pendingOffline = true }
         val vm = AccountViewModel(auth, sync)
         vm.onSignOut()
@@ -107,13 +107,13 @@ class AccountViewModelTest {
 
     @Test
     fun signOut_notConfirmedInTheCloud_showsThatWarning_andSignOutAnywayKeepsTheData() = runTest(dispatcher) {
-        val auth = FakeAuthRepository(etay)
+        val auth = FakeAuthRepository(yael)
         val sync = FakeSyncController(auth).apply { notConfirmed = true }
         val vm = AccountViewModel(auth, sync)
 
         vm.onSignOut()
         assertEquals(SignOutWarning.NOT_CONFIRMED, vm.current().signOutWarning)
-        assertEquals(etay, auth.currentUser.value)
+        assertEquals(yael, auth.currentUser.value)
 
         vm.onConfirmSignOut()
         assertEquals(listOf(false, true), sync.signOutCalls)
@@ -122,7 +122,7 @@ class AccountViewModelTest {
 
     @Test
     fun signOut_withPendingChanges_showsThePendingWarning() = runTest(dispatcher) {
-        val auth = FakeAuthRepository(etay)
+        val auth = FakeAuthRepository(yael)
         val vm = AccountViewModel(auth, FakeSyncController(auth).apply { pendingOffline = true })
 
         vm.onSignOut()
@@ -132,7 +132,7 @@ class AccountViewModelTest {
 
     @Test
     fun syncProblem_isShown_withTheTimeOfTheLastSuccessfulSync() = runTest(dispatcher) {
-        val auth = FakeAuthRepository(etay)
+        val auth = FakeAuthRepository(yael)
         val sync = FakeSyncController(auth)
         val vm = AccountViewModel(auth, sync)
 
@@ -145,7 +145,7 @@ class AccountViewModelTest {
 
     @Test
     fun tapToRetry_runsOneFullSync_evenWhenTappedTwice() = runTest(dispatcher) {
-        val auth = FakeAuthRepository(etay)
+        val auth = FakeAuthRepository(yael)
         val sync = FakeSyncController(auth).apply { refreshGate = CompletableDeferred() }
         val vm = AccountViewModel(auth, sync)
         sync.status.value = SyncStatus.PROBLEM

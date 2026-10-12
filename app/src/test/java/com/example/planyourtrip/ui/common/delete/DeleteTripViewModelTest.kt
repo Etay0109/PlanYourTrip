@@ -35,7 +35,7 @@ class DeleteTripViewModelTest {
     private val athens = Trip(2, "Athens, Greece", nov(20), nov(24), TripColor.PEACH)
     private val othersTrip = Trip(3, "Paris", nov(1), nov(3), TripColor.MINT)
 
-    private val auth = FakeAuthRepository(AuthUser("u1", "Etay", "etay@example.com"))
+    private val auth = FakeAuthRepository(AuthUser("u1", "Yael", "yael@example.com"))
     private val files = FakeDocumentFileStore()
     private lateinit var trips: FakeTripRepository
     private lateinit var documents: FakeDocumentRepository

@@ -20,7 +20,7 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class RefreshViewModelTest {
     private val dispatcher = UnconfinedTestDispatcher()
-    private val sync = FakeSyncController(FakeAuthRepository(AuthUser("u1", "Etay", "etay@example.com")))
+    private val sync = FakeSyncController(FakeAuthRepository(AuthUser("u1", "Yael", "yael@example.com")))
 
     @Before
     fun setUp() = Dispatchers.setMain(dispatcher)

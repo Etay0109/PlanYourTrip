@@ -14,14 +14,14 @@ class UserNamesAndColorTest {
 
     @Test
     fun firstName_andInitials() {
-        assertEquals("Etay", firstName("Etay Zahavi"))
-        assertEquals("EZ", initials("Etay Zahavi"))
+        assertEquals("Yael", firstName("Yael Shamir"))
+        assertEquals("YS", initials("Yael Shamir"))
     }
 
     @Test
     fun names_handleEdgeCases() {
-        assertEquals("Etay", firstName("  Etay   Zahavi "))
-        assertEquals("E", initials("etay"))
+        assertEquals("Yael", firstName("  Yael   Shamir "))
+        assertEquals("Y", initials("yael"))
         assertEquals("AC", initials("Anna Maria Cohen"))
         assertEquals("", firstName("   "))
         assertEquals("?", initials(""))
@@ -47,7 +47,7 @@ class UserNamesAndColorTest {
 
     @Test
     fun greetingName_prefersDisplayName_thenEmailPrefix() {
-        assertEquals("Etay Zahavi", AuthUser("u", "  Etay Zahavi ", "e@x.com").greetingName())
+        assertEquals("Yael Shamir", AuthUser("u", "  Yael Shamir ", "e@x.com").greetingName())
         assertEquals("yael.s", AuthUser("u", null, "yael.s@example.com").greetingName())
         assertEquals("yael.s", AuthUser("u", "   ", "yael.s@example.com").greetingName())
         assertEquals("", AuthUser("u", null, null).greetingName())

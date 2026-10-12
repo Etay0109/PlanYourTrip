@@ -45,8 +45,8 @@ import org.junit.Before
 import org.junit.Test
 
 /**
- * The Budget tab's "Yarden Tal Ronen joined this trip. Merge with the traveler 'Yarden'?" (the London trip on the
- * phone): I (u1) shared it, Yarden joined with her account, and I had added her by hand as "Yarden" before.
+ * The Budget tab's "Yarden Tal Ronen joined this trip. Merge with the traveler 'Yarden'?" (fictional people): I (u1)
+ * shared the trip, Yarden joined with her account, and I had added her by hand as "Yarden" before.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SplitMergeViewModelTest {
@@ -54,22 +54,22 @@ class SplitMergeViewModelTest {
     private val today = LocalDate.of(2026, 10, 10)
     private val clock = Clock.fixed(today.atStartOfDay(ZoneOffset.UTC).toInstant(), ZoneOffset.UTC)
     private val dispatcher = UnconfinedTestDispatcher()
-    private val auth = FakeAuthRepository(AuthUser(ME, "Etay Zahavi", "etay@example.com"))
+    private val auth = FakeAuthRepository(AuthUser(ME, "Amit Shamir", "amit@example.com"))
     private val her = "yarden-uid"
 
-    private val london = Trip(
-        1, "London", LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 5), TripColor.SKY,
-        ownerId = ME, memberIds = listOf(ME, her), uuid = "london",
+    private val lisbon = Trip(
+        1, "Lisbon", LocalDate.of(2026, 11, 1), LocalDate.of(2026, 11, 5), TripColor.SKY,
+        ownerId = ME, memberIds = listOf(ME, her), uuid = "lisbon",
     )
     private val yarden = Traveler(1, 1, "yarden-name", "Yarden", TravelerColor.ROSE)
     private val members = object : TripMemberRepository {
         override fun observeMembers(tripId: Long, ownerId: String): Flow<List<TripMember>> =
-            flowOf(listOf(TripMember(ME, "Etay Zahavi", 1, false), TripMember(her, "Yarden Tal Ronen", 2, false)))
+            flowOf(listOf(TripMember(ME, "Amit Shamir", 1, false), TripMember(her, "Yarden Tal Ronen", 2, false)))
     }
 
-    private val hotel = Expense(1, 1, "Marriott", 30_000, ExpenseCategory.HOTELS, today, paidBy = ME, splitBetween = listOf(ME, yarden.uuid))
-    private val zara = Expense(2, 1, "Zara", 25_000, ExpenseCategory.SHOPPING, today, paidBy = yarden.uuid, splitBetween = listOf(ME, yarden.uuid))
-    /** Hotel: she owes me 150; Zara: I owe her 125; she paid back 10: she still owes me 15. */
+    private val hotel = Expense(1, 1, "Hotel", 30_000, ExpenseCategory.HOTELS, today, paidBy = ME, splitBetween = listOf(ME, yarden.uuid))
+    private val shoes = Expense(2, 1, "Shoes", 25_000, ExpenseCategory.SHOPPING, today, paidBy = yarden.uuid, splitBetween = listOf(ME, yarden.uuid))
+    /** Hotel: she owes me 150; Shoes: I owe her 125; she paid back 10: she still owes me 15. */
     private val paidBack = Settlement(1, 1, "s1", yarden.uuid, ME, 1_000, today)
 
     private lateinit var trips: FakeTripRepository
@@ -81,8 +81,8 @@ class SplitMergeViewModelTest {
     @Before
     fun setUp() {
         Dispatchers.setMain(dispatcher)
-        trips = FakeTripRepository(listOf(ME to london))
-        expenses = FakeExpenseRepository(trips, listOf(hotel, zara))
+        trips = FakeTripRepository(listOf(ME to lisbon))
+        expenses = FakeExpenseRepository(trips, listOf(hotel, shoes))
         travelers = FakeTravelerRepository(trips, expenses, listOf(yarden))
         settlements = FakeSettlementRepository(trips, listOf(paidBack))
         travelers.settlements = settlements

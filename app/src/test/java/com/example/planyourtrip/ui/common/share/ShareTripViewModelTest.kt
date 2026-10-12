@@ -43,7 +43,7 @@ class ShareTripViewModelTest {
     private val rome = Trip(1, "Rome, Italy", nov(12), nov(17), TripColor.SKY, budgetAgorot = 600_000)
     private val othersTrip = Trip(2, "Paris", nov(1), nov(3), TripColor.MINT)
 
-    private val auth = FakeAuthRepository(AuthUser("u1", "Etay", "etay@example.com"))
+    private val auth = FakeAuthRepository(AuthUser("u1", "Yael", "yael@example.com"))
     private val exporter = FakeTripPdfExporter()
     private lateinit var trips: FakeTripRepository
     private lateinit var viewModel: ShareTripViewModel

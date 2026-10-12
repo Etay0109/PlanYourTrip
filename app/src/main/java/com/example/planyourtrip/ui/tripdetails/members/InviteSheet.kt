@@ -585,7 +585,7 @@ private fun MembersSheetMemberPreview() {
                 members = listOf(
                     MemberEntry(Person.You("noa"), isOwner = false, joinedOn = LocalDate.of(2026, 10, 9)),
                     MemberEntry(
-                        Person.Member("me", "Etay", com.example.planyourtrip.data.trip.TravelerColor.GREEN_TEAL, isOwner = true),
+                        Person.Member("me", "Amit", com.example.planyourtrip.data.trip.TravelerColor.GREEN_TEAL, isOwner = true),
                         isOwner = true,
                         joinedOn = null,
                     ),

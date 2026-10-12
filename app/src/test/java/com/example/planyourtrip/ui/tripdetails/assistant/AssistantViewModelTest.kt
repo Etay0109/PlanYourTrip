@@ -50,7 +50,7 @@ class AssistantViewModelTest {
 
     private fun nov(day: Int) = LocalDate.of(2026, 11, day)
     private val rome = Trip(1, "Rome, Italy", nov(12), nov(17), TripColor.SKY, budgetAgorot = 600_000, currencyCode = "EUR")
-    private val auth = FakeAuthRepository(AuthUser("u1", "Etay", "etay@example.com"))
+    private val auth = FakeAuthRepository(AuthUser("u1", "Yael", "yael@example.com"))
     private lateinit var trips: FakeTripRepository
     private lateinit var expenses: FakeExpenseRepository
     private lateinit var activities: FakeActivityRepository

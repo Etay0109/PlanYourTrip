@@ -33,7 +33,7 @@ class HomeViewModelTest {
 
     private val today = LocalDate.of(2026, 10, 5)
     private val clock = Clock.fixed(today.atStartOfDay(ZoneOffset.UTC).toInstant(), ZoneOffset.UTC)
-    private val etay = AuthUser(uid = "u1", displayName = "Etay Zahavi", email = "etay@example.com")
+    private val yael = AuthUser(uid = "u1", displayName = "Yael Shamir", email = "yael@example.com")
 
     private val dispatcher = UnconfinedTestDispatcher()
 
@@ -47,12 +47,12 @@ class HomeViewModelTest {
 
     @Test
     fun emptyRepository_givesEmptyContentWithUserInfo() = runTest(dispatcher) {
-        val vm = homeViewModel(FakeTripRepository(), FakeAuthRepository(etay))
+        val vm = homeViewModel(FakeTripRepository(), FakeAuthRepository(yael))
 
         val content = vm.content()
 
-        assertEquals("Etay Zahavi", content.userName)
-        assertEquals("Etay", content.firstName)
+        assertEquals("Yael Shamir", content.userName)
+        assertEquals("Yael", content.firstName)
         assertTrue(content.sections.isEmpty)
         // The cards leave this year out of their dates.
         assertEquals(2026, content.currentYear)
@@ -73,7 +73,7 @@ class HomeViewModelTest {
         val prague = Trip(2, "Prague", LocalDate.of(2026, 8, 10), LocalDate.of(2026, 8, 14), TripColor.MINT)
         val someoneElses = Trip(3, "Oslo", LocalDate.of(2026, 10, 20), LocalDate.of(2026, 10, 22), TripColor.ROSE)
         val trips = FakeTripRepository(listOf("u1" to prague, "u1" to rome, "other" to someoneElses))
-        val vm = homeViewModel(trips, FakeAuthRepository(etay))
+        val vm = homeViewModel(trips, FakeAuthRepository(yael))
 
         val sections = vm.content().sections
 
@@ -85,7 +85,7 @@ class HomeViewModelTest {
     @Test
     fun switchingAccount_showsTheNewAccountsTrips() = runTest(dispatcher) {
         val rome = Trip(1, "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17), TripColor.SKY)
-        val auth = FakeAuthRepository(etay)
+        val auth = FakeAuthRepository(yael)
         val vm = homeViewModel(FakeTripRepository(listOf("u1" to rome)), auth)
         assertEquals(rome, vm.content().sections.next?.trip)
 
@@ -102,7 +102,7 @@ class HomeViewModelTest {
         val athens = Trip(2, "Athens", LocalDate.of(2027, 2, 3), LocalDate.of(2027, 2, 7), TripColor.PEACH)
         val lisbon = Trip(3, "Lisbon", LocalDate.of(2027, 4, 20), LocalDate.of(2027, 4, 26), TripColor.MINT)
         val trips = FakeTripRepository(listOf("u1" to rome, "u1" to athens, "u1" to lisbon))
-        val vm = homeViewModel(trips, FakeAuthRepository(etay))
+        val vm = homeViewModel(trips, FakeAuthRepository(yael))
         assertEquals(rome, vm.content().sections.next?.trip)
 
         trips.deleteTrip(1, "u1")
@@ -117,7 +117,7 @@ class HomeViewModelTest {
     fun deletingTheLastTrip_showsTheEmptyState() = runTest(dispatcher) {
         val rome = Trip(1, "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17), TripColor.SKY)
         val trips = FakeTripRepository(listOf("u1" to rome))
-        val vm = homeViewModel(trips, FakeAuthRepository(etay))
+        val vm = homeViewModel(trips, FakeAuthRepository(yael))
         assertEquals(rome, vm.content().sections.next?.trip)
 
         trips.deleteTrip(1, "u1")
@@ -137,7 +137,7 @@ class HomeViewModelTest {
         val romePhoto = DestinationPhoto("https://img.test/rome-960.jpg", "https://img.test/rome-250.jpg")
         photos.photos.value = mapOf(PhotoQuery("Rome, Italy", 41.89, 12.48).key to romePhoto)
 
-        val content = HomeViewModel(trips, FakeAuthRepository(etay), clock, dispatcher, photos).content()
+        val content = HomeViewModel(trips, FakeAuthRepository(yael), clock, dispatcher, photos).content()
 
         // Paris has no photo yet: its card keeps the letter square.
         assertEquals(mapOf(1L to romePhoto), content.photos)
@@ -151,7 +151,7 @@ class HomeViewModelTest {
     fun aPhotoThatArrivesLater_reachesItsCard() = runTest(dispatcher) {
         val paris = Trip(2, "Paris", LocalDate.of(2026, 12, 1), LocalDate.of(2026, 12, 3), TripColor.PEACH)
         val photos = FakeDestinationPhotoRepository()
-        val vm = HomeViewModel(FakeTripRepository(listOf("u1" to paris)), FakeAuthRepository(etay), clock, dispatcher, photos)
+        val vm = HomeViewModel(FakeTripRepository(listOf("u1" to paris)), FakeAuthRepository(yael), clock, dispatcher, photos)
         assertTrue(vm.content().photos.isEmpty())
 
         val photo = DestinationPhoto("https://img.test/paris-960.jpg", "https://img.test/paris-250.jpg")
@@ -165,7 +165,7 @@ class HomeViewModelTest {
         val rome = Trip(1, "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17), TripColor.SKY)
         val trips = FakeTripRepository(listOf("u1" to rome))
         val photos = FakeDestinationPhotoRepository()
-        val vm = HomeViewModel(trips, FakeAuthRepository(etay), clock, dispatcher, photos)
+        val vm = HomeViewModel(trips, FakeAuthRepository(yael), clock, dispatcher, photos)
         vm.content()
 
         trips.updateTrip(1, "u1", "London, Canada", rome.startDate, rome.endDate, null, TripPlace("CA", 42.98, -81.24))

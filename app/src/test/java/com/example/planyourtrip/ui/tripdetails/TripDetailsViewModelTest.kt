@@ -57,7 +57,7 @@ class TripDetailsViewModelTest {
     private val dispatcher = UnconfinedTestDispatcher()
 
     private val rome = Trip(1, "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17), TripColor.SKY)
-    private val auth = FakeAuthRepository(AuthUser("u1", "Etay", "etay@example.com"))
+    private val auth = FakeAuthRepository(AuthUser("u1", "Yael", "yael@example.com"))
     private lateinit var trips: FakeTripRepository
     private lateinit var expenses: FakeExpenseRepository
     private lateinit var currencies: FakeCurrencyRepository

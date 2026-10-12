@@ -48,7 +48,7 @@ class ExpenseFormTest {
     private val today = LocalDate.of(2026, 10, 5)
     private val clock = Clock.fixed(today.atStartOfDay(ZoneOffset.UTC).toInstant(), ZoneOffset.UTC)
     private val dispatcher = StandardTestDispatcher()
-    private val auth = FakeAuthRepository(AuthUser("u1", "Etay", "etay@example.com"))
+    private val auth = FakeAuthRepository(AuthUser("u1", "Yael", "yael@example.com"))
 
     private val rome = Trip(1, "Rome", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17), TripColor.SKY)
     private val dinner = Expense(5, 1, "Dinner", 12_050, ExpenseCategory.FOOD, LocalDate.of(2026, 11, 13), paidBy = ME, splitBetween = listOf(ME))

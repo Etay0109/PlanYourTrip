@@ -19,8 +19,8 @@ import java.time.LocalDate
 import kotlin.random.Random
 
 /**
- * Merging a name-only traveler into the member they turned out to be. The first tests use the exact rows of the two
- * shared trips on the phone on 2026-10-10 (account A "Etay Zahavi", account B "Yarden Tal Ronen").
+ * Merging a name-only traveler into the member they turned out to be. The first tests use two shared trips shaped like
+ * a real case (fictional people, ids and amounts): account A "Amit Shamir", account B "Yarden Tal Ronen".
  */
 class TravelerMergingTest {
 
@@ -35,93 +35,93 @@ class TravelerMergingTest {
 
     private fun member(uid: String, name: String) = TripMember(uid, name, joinedAt = 1, left = false)
 
-    // ---------- London: A owns it, B joined; "Yarden" was added by hand before ----------
+    // ---------- Lisbon: A owns it, B joined; "Yarden" was added by hand before ----------
 
-    private val yarden = Traveler(1, 23, "20ef1952-b53d-42bc-b216-8df7f77ce7c3", "Yarden", TravelerColor.ROSE)
-    private val london = TravelerMergeInput(
+    private val yarden = Traveler(1, 23, "11111111-1111-4111-8111-111111111111", "Yarden", TravelerColor.ROSE)
+    private val lisbon = TravelerMergeInput(
         travelerKey = yarden.uuid,
         memberKey = b,
         me = a,
         memberIds = listOf(a, b),
         travelers = listOf(yarden),
         expenses = listOf(
-            expense(1, 30_000, paidBy = a, split = listOf(a, yarden.uuid)),
-            expense(2, 25_000, paidBy = yarden.uuid, split = listOf(a, yarden.uuid)),
+            expense(1, 42_000, paidBy = a, split = listOf(a, yarden.uuid)),
+            expense(2, 18_600, paidBy = yarden.uuid, split = listOf(a, yarden.uuid)),
         ),
         settlements = listOf(
-            settlement(1, yarden.uuid, a, 2_500),
-            settlement(2, a, yarden.uuid, 60_765),
-            settlement(3, a, yarden.uuid, 1_013),
-            settlement(4, yarden.uuid, a, 61_778),
+            settlement(1, yarden.uuid, a, 3_100),
+            settlement(2, a, yarden.uuid, 47_320),
+            settlement(3, a, yarden.uuid, 1_207),
+            settlement(4, yarden.uuid, a, 48_527),
         ),
     )
-    private val londonMembers = listOf(member(a, "Etay Zahavi"), member(b, "Yarden Tal Ronen"))
+    private val lisbonMembers = listOf(member(a, "Amit Shamir"), member(b, "Yarden Tal Ronen"))
 
-    // ---------- Crete: B owns it, A joined; "Etay" (A) was added by B before ----------
+    // ---------- Rhodes: B owns it, A joined; "Amit" (A) was added by B before ----------
 
-    private val etay = Traveler(2, 24, "a297cdf8-d936-409f-9e66-113c4057fcfd", "Etay", TravelerColor.ROSE)
-    private val crete = TravelerMergeInput(
-        travelerKey = etay.uuid,
+    private val amit = Traveler(2, 24, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", "Amit", TravelerColor.ROSE)
+    private val rhodes = TravelerMergeInput(
+        travelerKey = amit.uuid,
         memberKey = a,
         me = a,
         memberIds = listOf(b, a),
-        travelers = listOf(etay),
+        travelers = listOf(amit),
         expenses = listOf(
-            expense(3, 171_450, paidBy = b, split = listOf(b, etay.uuid)),
+            expense(3, 126_840, paidBy = b, split = listOf(b, amit.uuid)),
             // Odd: the extra agora goes to the first in list order, before and after the merge.
-            expense(4, 1_715, paidBy = etay.uuid, split = listOf(b, etay.uuid)),
+            expense(4, 1_333, paidBy = amit.uuid, split = listOf(b, amit.uuid)),
         ),
-        settlements = listOf(settlement(5, etay.uuid, b, 85_725)),
+        settlements = listOf(settlement(5, amit.uuid, b, 63_420)),
     )
-    private val creteMembers = listOf(member(b, "Yarden Tal Ronen"), member(a, "Etay Zahavi"))
+    private val rhodesMembers = listOf(member(b, "Yarden Tal Ronen"), member(a, "Amit Shamir"))
 
     @Test
     fun theSameNames_areTheMemberNameOrItsFirstWord_ignoringCaseAndSpaces() {
         assertTrue(isSameName("Yarden", "Yarden Tal Ronen"))
         assertTrue(isSameName(" yarden tal ronen ", "Yarden Tal Ronen"))
-        assertTrue(isSameName("ETAY", "Etay Zahavi"))
+        assertTrue(isSameName("AMIT", "Amit Shamir"))
         assertFalse(isSameName("Tal", "Yarden Tal Ronen"))
         assertFalse(isSameName("Yarde", "Yarden Tal Ronen"))
         assertFalse(isSameName("", "Yarden"))
     }
 
     @Test
-    fun london_suggestsMergingYardenIntoTheMember() {
-        val suggestions = mergeSuggestions(a, london.memberIds, londonMembers, london.travelers, london.expenses, london.settlements)
+    fun lisbon_suggestsMergingYardenIntoTheMember() {
+        val suggestions = mergeSuggestions(a, lisbon.memberIds, lisbonMembers, lisbon.travelers, lisbon.expenses, lisbon.settlements)
 
         assertEquals(listOf(MergeSuggestion(yarden, b, "Yarden Tal Ronen", isYou = false, blocked = null)), suggestions)
     }
 
     @Test
-    fun crete_suggestsMergingEtayIntoMe() {
-        val suggestions = mergeSuggestions(a, crete.memberIds, creteMembers, crete.travelers, crete.expenses, crete.settlements)
+    fun rhodes_suggestsMergingAmitIntoMe() {
+        val suggestions = mergeSuggestions(a, rhodes.memberIds, rhodesMembers, rhodes.travelers, rhodes.expenses, rhodes.settlements)
 
-        assertEquals(listOf(MergeSuggestion(etay, a, "Etay Zahavi", isYou = true, blocked = null)), suggestions)
+        assertEquals(listOf(MergeSuggestion(amit, a, "Amit Shamir", isYou = true, blocked = null)), suggestions)
     }
 
     @Test
-    fun london_merge_movesEverything_andKeepsEveryBalance() {
-        val changes = ready(london)
+    fun lisbon_merge_movesEverything_andKeepsEveryBalance() {
+        val changes = ready(lisbon)
 
         assertEquals(listOf(b, b), changes.expenses.map { it.splitBetween.last() })
         assertEquals(b, changes.expenses.single { it.id == 2L }.paidBy)
         assertEquals(4, changes.settlements.size)
         assertTrue(changes.deletedSettlementIds.isEmpty())
-        assertBalancesKept(london, changes)
+        assertBalancesKept(lisbon, changes)
     }
 
     @Test
-    fun crete_merge_keepsEveryBalance_includingTheOddAgora() {
-        val changes = ready(crete)
+    fun rhodes_merge_keepsEveryBalance_includingTheOddAgora() {
+        val changes = ready(rhodes)
 
         assertEquals(listOf(b, a), changes.expenses.single { it.id == 4L }.splitBetween)
-        assertEquals(Settlement(5, 1, "s5", a, b, 85_725, day), changes.settlements.single())
-        assertBalancesKept(crete, changes)
+        assertEquals(Settlement(5, 1, "s5", a, b, 63_420, day), changes.settlements.single())
+        assertBalancesKept(rhodes, changes)
     }
 
     @Test
     fun aSettlementBetweenTheTwo_isDeleted_itIsMoneyToOneself() {
-        val input = london.copy(settlements = london.settlements + settlement(9, b, yarden.uuid, 500))
+        val input = lisbon.copy(settlements = lisbon.settlements + settlement(9, b, yarden.uuid, 500))
 
         val changes = ready(input)
 
@@ -131,7 +131,7 @@ class TravelerMergingTest {
 
     @Test
     fun anExpenseSplitBetweenBoth_blocksTheMerge() {
-        val input = london.copy(expenses = london.expenses + expense(5, 9_000, paidBy = a, split = listOf(a, b, yarden.uuid)))
+        val input = lisbon.copy(expenses = lisbon.expenses + expense(5, 9_000, paidBy = a, split = listOf(a, b, yarden.uuid)))
 
         assertEquals(TravelerMergePlan.Blocked(MergeBlock.SHARED_TOGETHER), planTravelerMerge(input))
     }
@@ -158,18 +158,18 @@ class TravelerMergingTest {
 
     @Test
     fun aMemberWhoLeft_isNotMatched() {
-        val members = listOf(member(a, "Etay Zahavi"), member(b, "Yarden Tal Ronen").copy(left = true))
+        val members = listOf(member(a, "Amit Shamir"), member(b, "Yarden Tal Ronen").copy(left = true))
 
         assertTrue(mergeSuggestions(a, listOf(a), members, listOf(yarden), emptyList(), emptyList()).isEmpty())
     }
 
     @Test
     fun theTravelerIsLabeledNameOnly_untilMerged_andEveryoneIsListedOnce() {
-        val before = people(a, london.travelers, london.memberIds, londonMembers)
+        val before = people(a, lisbon.travelers, lisbon.memberIds, lisbonMembers)
         assertEquals(listOf(a, b, yarden.uuid), before.map { it.key })
         assertTrue((before.last() as Person.Named).nameOnly)
 
-        val after = people(a, emptyList(), london.memberIds, londonMembers)
+        val after = people(a, emptyList(), lisbon.memberIds, lisbonMembers)
         assertEquals(listOf(a, b), after.map { it.key })
     }
 
@@ -177,10 +177,10 @@ class TravelerMergingTest {
     fun aTravelerWithAnotherName_isNotLabeled() {
         val dana = Traveler(5, 1, "dana", "Dana", TravelerColor.SKY)
 
-        val person = people(a, listOf(dana), london.memberIds, londonMembers).last() as Person.Named
+        val person = people(a, listOf(dana), lisbon.memberIds, lisbonMembers).last() as Person.Named
 
         assertFalse(person.nameOnly)
-        assertNull(mergeSuggestions(a, london.memberIds, londonMembers, listOf(dana), emptyList(), emptyList()).firstOrNull())
+        assertNull(mergeSuggestions(a, lisbon.memberIds, lisbonMembers, listOf(dana), emptyList(), emptyList()).firstOrNull())
     }
 
     /** Random trips: every merge that is offered keeps every balance, recomputed independently of the planner. */

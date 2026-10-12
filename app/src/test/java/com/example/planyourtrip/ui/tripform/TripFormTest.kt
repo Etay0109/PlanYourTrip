@@ -29,7 +29,7 @@ import java.time.LocalDate
 class TripFormTest {
 
     private val dispatcher = StandardTestDispatcher()
-    private val user = FakeAuthRepository(AuthUser("u1", "Etay", "etay@example.com"))
+    private val user = FakeAuthRepository(AuthUser("u1", "Yael", "yael@example.com"))
     private lateinit var repo: FakeTripRepository
     private val currencies = FakeCurrencyRepository(now = { Instant.EPOCH })
     private val destinations = DestinationSuggestions(FakePlaceSearch(), hebrewTable = emptyList())

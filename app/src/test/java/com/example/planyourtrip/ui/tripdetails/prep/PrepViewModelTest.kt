@@ -42,7 +42,7 @@ class PrepViewModelTest {
     private val today = LocalDate.of(2026, 10, 7)
     private val clock = Clock.fixed(today.atStartOfDay(ZoneOffset.UTC).toInstant(), ZoneOffset.UTC)
     private val dispatcher = UnconfinedTestDispatcher()
-    private val auth = FakeAuthRepository(AuthUser("u1", "Etay", "etay@example.com"))
+    private val auth = FakeAuthRepository(AuthUser("u1", "Yael", "yael@example.com"))
 
     private val rome = Trip(1, "Rome, Italy", LocalDate.of(2026, 10, 19), LocalDate.of(2026, 10, 24), TripColor.SKY)
     private val othersTrip = Trip(2, "Paris", LocalDate.of(2026, 12, 1), LocalDate.of(2026, 12, 3), TripColor.MINT)
