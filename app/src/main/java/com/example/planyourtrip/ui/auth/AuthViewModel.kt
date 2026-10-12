@@ -63,7 +63,7 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
             validated.nameError, validated.emailError, validated.passwordError, validated.confirmError,
         ).any { it != null }
         if (hasErrors) {
-            _uiState.value = validated
+            _uiState.value = validated.copy(failedSubmits = state.failedSubmits + 1)
             return
         }
 

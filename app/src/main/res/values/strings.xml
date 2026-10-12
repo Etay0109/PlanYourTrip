@@ -2,16 +2,21 @@
     <string name="app_name">Plan Your Trip</string>
 
     <!-- Auth screen -->
-    <string name="auth_subtitle_sign_in">Welcome back</string>
-    <string name="auth_subtitle_sign_up">Create your account</string>
-    <string name="auth_tab_sign_in">Sign In</string>
-    <string name="auth_tab_sign_up">Sign Up</string>
+    <string name="auth_headline_sign_in">Every trip,\nin one place.</string>
+    <string name="auth_subtitle_sign_in">Welcome back. Your trips are waiting.</string>
+    <string name="auth_headline_sign_up">Plan your next\nadventure.</string>
+    <string name="auth_subtitle_sign_up">Create a free account to start planning.</string>
     <string name="auth_full_name">Full name</string>
     <string name="auth_email">Email</string>
     <string name="auth_password">Password</string>
     <string name="auth_confirm_password">Confirm password</string>
     <string name="auth_button_sign_in">Sign In</string>
-    <string name="auth_button_sign_up">Sign Up</string>
+    <string name="auth_button_sign_up">Create account</string>
+    <string name="auth_password_hint">At least 8 characters</string>
+    <string name="auth_new_here">New here?</string>
+    <string name="auth_create_account_link">Create an account</string>
+    <string name="auth_have_account">Already have an account?</string>
+    <string name="auth_sign_in_link">Sign in</string>
     <string name="auth_show_password">Show password</string>
     <string name="auth_hide_password">Hide password</string>
 
@@ -22,6 +27,7 @@
     <string name="error_empty_password">Please enter your password</string>
     <string name="error_password_too_short">Password must be at least 8 characters</string>
     <string name="error_passwords_dont_match">Passwords do not match</string>
+    <string name="error_empty_confirm">Please confirm your password</string>
 
     <!-- Auth backend errors and messages -->
     <string name="error_wrong_credentials">Wrong email or password</string>

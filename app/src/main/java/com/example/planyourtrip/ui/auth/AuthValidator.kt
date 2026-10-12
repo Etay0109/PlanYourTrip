@@ -8,6 +8,8 @@ enum class FieldError {
     EMPTY_PASSWORD,
     PASSWORD_TOO_SHORT,
     PASSWORDS_DONT_MATCH,
+    /** Sign Up: both password fields left empty (the password field shows [EMPTY_PASSWORD]). */
+    EMPTY_CONFIRM,
 
     // Returned by the auth backend
     WRONG_CREDENTIALS,
@@ -46,6 +48,33 @@ object AuthValidator {
     fun validateExistingPassword(password: String): FieldError? =
         if (password.isEmpty()) FieldError.EMPTY_PASSWORD else null
 
-    fun validateConfirm(password: String, confirm: String): FieldError? =
-        if (password != confirm) FieldError.PASSWORDS_DONT_MATCH else null
+    /**
+     * Different passwords → [FieldError.PASSWORDS_DONT_MATCH]. Both empty → [FieldError.EMPTY_CONFIRM], so the empty
+     * field gets its own message (the form was already blocked by the empty password).
+     */
+    fun validateConfirm(password: String, confirm: String): FieldError? = when {
+        password != confirm -> FieldError.PASSWORDS_DONT_MATCH
+        confirm.isEmpty() -> FieldError.EMPTY_CONFIRM
+        else -> null
+    }
+
+    /** Segments of the Sign Up strength bar. Display only: it never changes what [validateNewPassword] accepts. */
+    const val STRENGTH_SEGMENTS = 4
+
+    /**
+     * Filled segments of the strength bar: 0 when empty, 1 when anything is typed, 2 at [MIN_PASSWORD_LENGTH]+
+     * characters, 3 at 8+ with letters and digits, 4 at 12+ with letters, digits and a symbol.
+     */
+    fun passwordStrength(password: String): Int {
+        val hasLetter = password.any { it.isLetter() }
+        val hasDigit = password.any { it.isDigit() }
+        val hasSymbol = password.any { !it.isLetterOrDigit() && !it.isWhitespace() }
+        return when {
+            password.isEmpty() -> 0
+            password.length < MIN_PASSWORD_LENGTH -> 1
+            password.length >= 12 && hasLetter && hasDigit && hasSymbol -> 4
+            hasLetter && hasDigit -> 3
+            else -> 2
+        }
+    }
 }

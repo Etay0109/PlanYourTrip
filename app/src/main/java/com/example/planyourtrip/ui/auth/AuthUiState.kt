@@ -20,6 +20,8 @@ data class AuthUiState(
     val emailError: FieldError? = null,
     val passwordError: FieldError? = null,
     val confirmError: FieldError? = null,
+    /** Counts submits stopped by validation; each new value moves focus to the first field with an error. */
+    val failedSubmits: Int = 0,
     /** A sign in / sign up request is running. */
     val isLoading: Boolean = false,
     val message: AuthMessage? = null,

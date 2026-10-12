@@ -65,6 +65,24 @@ object Dimens {
     /** Avatars inside the expense form's "Paid by" / "Split between" chips (the chip's leading icon size). */
     val TravelerAvatarChipSize = 18.dp
 
+    /** Sign In / Sign Up: share of the screen height the hero photo takes (it grows when its text needs more). */
+    const val AuthHeroHeightFraction = 0.42f
+
+    /** Sign In / Sign Up: how far the white sheet's rounded top overlaps the hero, and its corner radius. */
+    val AuthSheetCorner = 32.dp
+
+    /** Sign In / Sign Up: how far below the status bar its fixed scrim fades out. */
+    val AuthStatusBarFade = 16.dp
+
+    /** Sign In / Sign Up: the app icon on the hero. */
+    val AuthAppIconSize = 64.dp
+
+    /** Sign In / Sign Up: height of the text fields and the primary button. */
+    val AuthFieldHeight = 56.dp
+
+    /** Sign In / Sign Up: the focused or error border of a text field. */
+    val AuthFieldBorder = 1.5.dp
+
     /** Screens (or cards) narrower than this move side-by-side parts under each other (badges, currency selector). */
     val CompactScreenWidth = 360.dp
 

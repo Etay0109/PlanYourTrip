@@ -44,6 +44,15 @@ data class ExtendedColors(
     val heroPhotoTint: Color,
     val heroPhotoShade: Color,
     val heroPhotoChip: Color,
+    /**
+     * Sign In / Sign Up hero photo: the gradient's bottom color (transparent at the top), and the white headline and
+     * subtitle on it. The same in light and dark mode, so the hero never changes with the theme.
+     */
+    val authHeroScrim: Color,
+    /** Fixed behind the status bar on Sign In / Sign Up, so the clock stays readable while the hero scrolls under it. */
+    val authStatusBarScrim: Color,
+    val onAuthHero: Color,
+    val onAuthHeroMuted: Color,
     val badgeContainer: Color,
     val onBadge: Color,
     val pastCardContainer: Color,
@@ -96,6 +105,10 @@ val LightExtendedColors = ExtendedColors(
     heroPhotoTint = Teal50.copy(alpha = 0.25f),
     heroPhotoShade = Teal10,
     heroPhotoChip = Teal10.copy(alpha = 0.6f),
+    authHeroScrim = Teal30.copy(alpha = 0.85f),
+    authStatusBarScrim = Teal30.copy(alpha = 0.4f),
+    onAuthHero = Color.White,
+    onAuthHeroMuted = Color.White.copy(alpha = 0.8f),
     badgeContainer = Gray150,
     onBadge = Teal40,
     pastCardContainer = Gray100,
@@ -156,6 +169,10 @@ val DarkExtendedColors = ExtendedColors(
     heroPhotoTint = Teal30.copy(alpha = 0.25f),
     heroPhotoShade = Teal10,
     heroPhotoChip = Teal10.copy(alpha = 0.6f),
+    authHeroScrim = Teal30.copy(alpha = 0.85f),
+    authStatusBarScrim = Teal30.copy(alpha = 0.4f),
+    onAuthHero = Color.White,
+    onAuthHeroMuted = Color.White.copy(alpha = 0.8f),
     badgeContainer = NightSurfaceHigh,
     onBadge = Teal80,
     pastCardContainer = Color(0xFF151B1E),

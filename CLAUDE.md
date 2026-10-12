@@ -115,7 +115,8 @@ app/src/main/java/com/example/planyourtrip/
                                # code), DestinationPhotoEntity/Dao, DestinationPhotoRepository + RoomDestinationPhoto…
   data/user/                   # CurrentUser (AuthUser.greetingName()), UserNames (firstName()/initials())
   ui/navigation/               # Routes.kt (type-safe routes), AppNavHost.kt, SessionViewModel
-  ui/auth/                     # AuthScreen, AuthViewModel, AuthUiState, AuthValidator
+  ui/auth/                     # AuthScreen (hero, sheet, fields, strength bar), AuthViewModel, AuthUiState,
+                               # AuthValidator (+ passwordStrength)
   ui/home/                     # HomeScreen, HomeViewModel, HomeUiState, TripGrouping,
                                # join/ (JoinTripViewModel, JoinUiState (+ CodeLookup, JoinError), JoinTripSheet),
                                # components/ (NextTripCard, TripCards: upcoming + past list cards,
@@ -214,6 +215,8 @@ design/trip_plan.png           # visual reference for the Plan tab (see "Plan ta
 design/trip_prep.png           # visual reference for the Prep tab (see "Prep tab" for the deliberate differences)
 design/trip_budget.png         # visual reference for the Budget tab (see "Budget tab and expense splitting")
 design/trip_assistant.png      # visual reference for the trip assistant (see "AI trip assistant")
+design/sign_in.png, sign_up.png  # visual references for Sign In / Sign Up (see "Auth screen behavior")
+design/hero_sign_in.jpg, hero_sign_up.jpg  # full-size sources of the auth hero photos (res/drawable-nodpi/auth_hero_*.webp)
 third_party/inter/OFL.txt      # Inter font license
 firestore.rules                # Firestore security rules (paste into the console)
 firebase.json                  # Firebase Emulator config (rules tests only; nothing is deployed from it)
@@ -1325,7 +1328,8 @@ distances, weather, plan photo, microphone or like/dislike buttons; **no orange*
 Reference: `design/home_screen.png`. Match it closely when adding or changing screens.
 - **Use theme tokens, never hard-coded colors in screens.** Material roles come from `MaterialTheme.colorScheme`;
   brand colors without a Material role come from `ExtendedTheme.colors` (hero gradient and its overlay, wave and glow
-  colors, the destination photo's tint, shade and chip (`heroPhoto…`, see "Destination photos"), mint dot, badge, past-card colors, pastel letter squares, `budgetWarning` orange (also overdue due dates), `budgetTrack`,
+  colors, the destination photo's tint, shade and chip (`heroPhoto…`, see "Destination photos"), the Sign In / Sign Up hero
+  (`authHeroScrim`, `authStatusBarScrim`, `onAuthHero`, `onAuthHeroMuted`), mint dot, badge, past-card colors, pastel letter squares, `budgetWarning` orange (also overdue due dates), `budgetTrack`,
   `iconChip`, `categories`, `activityTypes`, `travelers` and `removedTraveler`). Raw color values live only in `ui/theme/Color.kt` and
   `ExtendedColors.kt` — no exceptions.
 - **Activity type and category colors** (`ExtendedColors.activityTypes` / `categories`, both
@@ -1395,15 +1399,50 @@ Reference: `design/home_screen.png`. Match it closely when adding or changing sc
 - Icons are small vector drawables in `res/drawable` (Material Symbols paths), not `material-icons-extended`.
 
 ## Auth screen behavior
-- Two modes, `SIGN_IN` / `SIGN_UP`, switched with one tap on a Material 3 segmented button.
-- Switching modes **keeps** typed email/password and **clears** all errors.
-- Sign In: email, password (show/hide), "Sign In" button. There is no "Forgot password?" option (removed on
-  purpose), so the Sign In form has the same spacing as Sign Up.
-- Sign Up: full name, email, password, confirm password (each with show/hide), "Sign Up" button.
+Reference: `design/sign_in.png` and `design/sign_up.png`, **with these deliberate differences**: the icon is the real
+launcher icon (not the placeholder pin with a star), no "Terms and Privacy Policy" line (the app has no terms page),
+no check mark inside a filled field.
+- Two modes, `SIGN_IN` / `SIGN_UP`, **without a toggle**: the bottom line "New here? **Create an account**" /
+  "Already have an account? **Sign in**" switches (only the bold words are a button, `onModeToggle`).
+- Switching modes **keeps** typed email/password and **clears** all errors (and the focus).
+- **Hero** (`AuthHero`): at least `Dimens.AuthHeroHeightFraction` (42%) of the screen, taller when its text needs it
+  (320dp / font 1.5), edge to edge behind the status bar with **white status bar icons** (`WhiteStatusBarIcons`, the
+  previous setting comes back when the screen leaves). The photo (`AuthHeroPhoto`) is a **fixed** layer; the gradient,
+  icon and text (`AuthHeroContent`) and the sheet scroll over it, and the scrolling column is **clipped below the status
+  bar** (content never draws under the clock), with a fixed `authStatusBarScrim` (dark teal 40%, fading out
+  `Dimens.AuthStatusBarFade` below the bar, `StatusBarScrim`) on top. Photos `res/drawable-nodpi/auth_hero_sign_in.webp` /
+  `auth_hero_sign_up.webp` (1080 × 1080, cropped from `design/hero_sign_*.jpg` around the harbor / the peak and tree
+  line, `ContentScale.Crop`), a vertical gradient transparent → `authHeroScrim` (dark hero teal at 85%), the launcher
+  icon (`ic_launcher_background` color + `ic_launcher_foreground` drawn at 108/72 so it looks like the home-screen
+  icon, 64dp, shadow), headline (`AuthHeadlineStyle`) and subtitle in `onAuthHero` / `onAuthHeroMuted`. The
+  `authHero…`/`authStatusBarScrim`/`onAuthHero…` tokens are the same in light and dark mode: the hero never changes; the sheet follows the theme.
+- **Sheet**: `surfaceContainerLowest` with 32dp top corners (`Dimens.AuthSheetCorner`), overlapping the hero by 32dp;
+  the screen behind it has the same color, so it always reaches the bottom edge.
+- **Fields** (`AuthTextField`: `BasicTextField` + `TextFieldDefaults.DecorationBox` with a custom container): ≥ 56dp,
+  `shapes.medium` (16dp), `surfaceContainerHighest` fill and no border at rest; focused: `surfaceContainerLowest` + 1.5dp
+  `primary` border; error: `error` border and the message under it. Leading outlined icons (`ic_person_outline`,
+  `ic_mail_outline`, `ic_lock_outline`). TalkBack reads the label and the error (the field's `error` semantics; the
+  line under it is hidden from TalkBack so it isn't read twice).
+- Sign In: email, password (show/hide), "Sign In". There is no "Forgot password?" option (removed on purpose).
+- Sign Up: full name, email, password (+ strength bar + "At least 8 characters"), confirm password (each password
+  with show/hide), "Create account".
+- **Strength bar** (Sign Up, `AuthValidator.passwordStrength`, display only, never changes validation): 4 segments; 1
+  when anything is typed, 2 at 8+ characters, 3 at 8+ with letters and digits, 4 at 12+ with letters, digits and a
+  symbol (not a space). An error replaces the helper text; the bar stays.
+- **Button** (`AuthButton`): full width, ≥ 56dp, pill, `primary`, bold label + arrow, shadow. Always enabled; a tap
+  while `isLoading` (spinner) is ignored. A submit stopped by validation increments `AuthUiState.failedSubmits`, and the
+  screen moves focus to the first field with an error.
+- **Keyboard:** the column has `imePadding()` and scrolls (the hero scrolls away); whenever a field gets focus or the
+  keyboard's height changes, the screen scrolls so the focused field **and** the button are above the keyboard
+  (`AuthLayout` + `BringIntoViewRequester`, after `KEYBOARD_SETTLE_MILLIS`). IME "Next" moves to the next field, "Done"
+  (last field) submits.
 - A valid form calls `AuthRepository` (Firebase). Sign up creates the account and saves the full name as the display
   name. On success the ViewModel sets `isAuthenticated`, which navigates to Home.
 - **Requests and double taps:** while sign in/up runs, the main button shows a spinner (`isLoading`). `onSubmit`
   returns early while `isLoading`, and the flag is set synchronously, so double taps send one request.
+- UI test `ui/auth/AuthScreenTest` (androidTest, real `AuthViewModel` + a stub repository, never Firebase): no toggle,
+  the bottom links, empty-field messages and focus on both screens, field + button above the keyboard, 320dp / 1.5;
+  it saves full-screen pictures (status bar and keyboard included) to the app's `files/auth-shots/`.
 
 ### Backend errors (`AuthError`, mapped in `FirebaseAuthRepository`)
 | Firebase exception | `AuthError` | Shown |
@@ -1428,10 +1467,10 @@ Reference: `design/home_screen.png`. Match it closely when adding or changing sc
 | Full name | — | not blank |
 | Email | not blank + valid format | not blank + valid format |
 | Password | not empty | ≥ 8 characters |
-| Confirm | — | equals password |
+| Confirm | — | equals password; both empty → "Please confirm your password" (`EMPTY_CONFIRM`) |
 
 - Validation runs **when the submit button is tapped** (not while typing). Editing a field clears only that field's error.
-- Errors are shown under the field via `OutlinedTextField.supportingText` + `isError`.
+- Errors are shown under the field (the `DecorationBox` `supportingText` slot) with an error border; see "Auth screen behavior".
 - The 8-char minimum is enforced only on Sign Up: existing accounts may predate the rule, and the backend decides
   whether a sign-in password is correct.
 - Email regex is our own `Regex`, not `android.util.Patterns`, because `Patterns` is null in JVM unit tests.

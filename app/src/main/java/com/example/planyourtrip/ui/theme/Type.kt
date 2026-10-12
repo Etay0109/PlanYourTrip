@@ -60,6 +60,9 @@ val Typography = Typography(
 /** Letter-spaced caps label: hero card ("NEXT TRIP", "DAYS") and the budget card ("TRIP BUDGET"). */
 val HeroLabelStyle = Typography.labelLarge.copy(letterSpacing = 1.5.sp)
 
+/** The two-line headline on the Sign In / Sign Up hero photo ("Every trip,\nin one place."). */
+val AuthHeadlineStyle = Typography.headlineLarge.copy(fontSize = 34.sp, lineHeight = 40.sp, letterSpacing = (-0.6).sp)
+
 /**
  * Headline for the Material 3 DatePicker, which uses headlineLarge internally.
  * The app's headlineLarge (40sp bold, "My Trips") is too loud there.

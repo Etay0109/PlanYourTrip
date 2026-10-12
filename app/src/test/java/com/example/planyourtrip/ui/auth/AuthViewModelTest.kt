@@ -200,4 +200,59 @@ class AuthViewModelTest {
 
         assertEquals(listOf("signIn:user@example.com"), repo.calls)
     }
+
+    @Test
+    fun signUp_emptyFields_everyFieldGetsItsMessage() = runTest(dispatcher) {
+        vm.onModeToggle()
+        vm.onSubmit()
+        advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertEquals(FieldError.EMPTY_NAME, state.nameError)
+        assertEquals(FieldError.EMPTY_EMAIL, state.emailError)
+        assertEquals(FieldError.EMPTY_PASSWORD, state.passwordError)
+        assertEquals(FieldError.EMPTY_CONFIRM, state.confirmError)
+        assertTrue(repo.calls.isEmpty())
+    }
+
+    @Test
+    fun signUp_passwordTypedButNotConfirmed_stillSaysTheyDontMatch() {
+        vm.onModeToggle()
+        vm.onPasswordChange("12345678")
+        vm.onSubmit()
+
+        assertEquals(FieldError.PASSWORDS_DONT_MATCH, vm.uiState.value.confirmError)
+        assertNull(vm.uiState.value.passwordError)
+    }
+
+    @Test
+    fun failedSubmit_countsUp_validSubmitDoesNot() = runTest(dispatcher) {
+        assertEquals(0, vm.uiState.value.failedSubmits)
+        vm.onSubmit()
+        assertEquals(1, vm.uiState.value.failedSubmits)
+        vm.onSubmit() // same errors again: a new value, so focus moves again
+        assertEquals(2, vm.uiState.value.failedSubmits)
+
+        fillValidSignIn()
+        vm.onSubmit()
+        advanceUntilIdle()
+        assertEquals(2, vm.uiState.value.failedSubmits)
+        assertTrue(vm.uiState.value.isAuthenticated)
+    }
+
+    @Test
+    fun switchingBack_keepsEmailAndClearsErrors() {
+        vm.onModeToggle() // the bottom link: Sign In -> Sign Up
+        vm.onEmailChange("dana@example.com")
+        vm.onSubmit()
+        assertEquals(FieldError.EMPTY_NAME, vm.uiState.value.nameError)
+
+        vm.onModeToggle() // "Sign in"
+        val state = vm.uiState.value
+        assertEquals(AuthMode.SIGN_IN, state.mode)
+        assertEquals("dana@example.com", state.email)
+        assertNull(state.nameError)
+        assertNull(state.passwordError)
+        assertNull(state.confirmError)
+    }
 }
