@@ -28,6 +28,24 @@ class MoneyTest {
     }
 
     @Test
+    fun formatWholeShekels_roundsToWholeShekelsWithoutDecimals() {
+        assertEquals("1,792", Money.formatWholeShekels(179_241, en))
+        assertEquals("1,792", Money.formatWholeShekels(179_249, en))
+        assertEquals("1,793", Money.formatWholeShekels(179_250, en))
+        assertEquals("1,793", Money.formatWholeShekels(179_299, en))
+        assertEquals("2,550", Money.formatWholeShekels(255_000, en))
+        assertEquals("1,000,000", Money.formatWholeShekels(100_000_000, en))
+    }
+
+    @Test
+    fun formatWholeShekels_smallAndNegativeAmounts() {
+        assertEquals("0", Money.formatWholeShekels(0, en))
+        assertEquals("0", Money.formatWholeShekels(49, en))
+        assertEquals("1", Money.formatWholeShekels(50, en))
+        assertEquals("1,792", Money.formatWholeShekels(-179_241, en))
+    }
+
+    @Test
     fun parseAgorot_acceptsDotOrCommaAndUpToTwoDecimals() {
         assertEquals(12_000L, Money.parseAgorot("120"))
         assertEquals(1_250L, Money.parseAgorot("12.5"))

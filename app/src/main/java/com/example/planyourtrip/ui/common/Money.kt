@@ -34,6 +34,16 @@ object Money {
     }
 
     /**
+     * Number part in whole shekels, rounded half up and grouped for [locale]: "1,792" for ₪1,792.41, "1,793" for
+     * ₪1,792.50. Only for the budget chart's center total, which must fit on one line; every other amount keeps its
+     * agorot ([formatAgorot]). Negative amounts are shown by their absolute value.
+     */
+    fun formatWholeShekels(agorot: Long, locale: Locale = AppLocale.locale): String {
+        val shekels = (abs(agorot) + 50) / 100
+        return NumberFormat.getIntegerInstance(locale).apply { isGroupingUsed = true }.format(shekels)
+    }
+
+    /**
      * Parses what the user typed into agorot: digits with an optional "." or "," and at most two decimals
      * ("120", "12.5", "12,50"). Returns null for anything else (signs, letters, grouping, three decimals)
      * or above [MAX_AGOROT]. "0" parses to 0; callers decide whether zero is allowed.
@@ -70,3 +80,7 @@ object Money {
 /** "₪2,550" */
 @Composable
 fun shekels(agorot: Long): String = stringResource(R.string.money_shekels, Money.formatAgorot(agorot))
+
+/** "₪1,792": rounded to whole shekels ([Money.formatWholeShekels]); only the budget chart's center total. */
+@Composable
+fun wholeShekels(agorot: Long): String = stringResource(R.string.money_shekels, Money.formatWholeShekels(agorot))

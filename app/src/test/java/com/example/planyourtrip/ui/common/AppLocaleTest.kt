@@ -67,6 +67,7 @@ class AppLocaleTest(private val deviceLocale: Locale) {
     fun numbers_areEnglish() {
         assertEquals("2,550", Money.formatAgorot(255_000))
         assertEquals("1,234.50", Money.formatAgorot(123_450))
+        assertEquals("1,792", Money.formatWholeShekels(179_241))
         assertEquals("57.5%", Money.formatPercent(57.5))
         assertEquals("1,234.57", CurrencyConversion.formatRate(BigDecimal("1234.5678")))
         assertEquals("8,446", CurrencyConversion.formatUnitsPerShekel(BigDecimal("0.000118399242245")))

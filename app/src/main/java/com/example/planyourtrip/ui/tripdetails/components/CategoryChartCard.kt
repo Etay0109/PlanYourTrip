@@ -20,15 +20,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -37,10 +40,12 @@ import com.example.planyourtrip.ui.common.CategoryTotal
 import com.example.planyourtrip.ui.common.Money
 import com.example.planyourtrip.ui.common.labelRes
 import com.example.planyourtrip.ui.common.shekels
+import com.example.planyourtrip.ui.common.wholeShekels
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
 import com.example.planyourtrip.ui.theme.HeroLabelStyle
 import com.example.planyourtrip.ui.theme.isLargeFontScale
+import com.example.planyourtrip.ui.theme.minFitTextScale
 
 /**
  * "By category" card: donut chart of my spending per category (my share of each expense) with "TOTAL" in the middle,
@@ -130,13 +135,36 @@ private fun Donut(totals: List<CategoryTotal>, modifier: Modifier = Modifier) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
             )
-            Text(
-                text = shekels(totals.sumOf { it.amountAgorot }),
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center,
-            )
+            CenterTotal(wholeShekels(totals.sumOf { it.amountAgorot }))
         }
+    }
+}
+
+/**
+ * The donut's total, in whole shekels so it stays short. Always one line: when it doesn't fit inside the ring (a
+ * narrow screen, a large font) it gets a little smaller, down to [minFitTextScale]; an ellipsis only beyond that.
+ */
+@Composable
+private fun CenterTotal(text: String) {
+    val style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+    BoxWithConstraints(contentAlignment = Alignment.Center) {
+        val measurer = rememberTextMeasurer()
+        val minScale = minFitTextScale(LocalDensity.current.fontScale)
+        val maxWidthPx = constraints.maxWidth
+        val fitted = remember(text, style, maxWidthPx, minScale) {
+            val width = measurer.measure(text, style, maxLines = 1, softWrap = false).size.width
+            if (width <= maxWidthPx || width == 0) style
+            else style.copy(fontSize = style.fontSize * (maxWidthPx.toFloat() / width).coerceIn(minScale, 1f))
+        }
+        Text(
+            text = text,
+            style = fitted,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

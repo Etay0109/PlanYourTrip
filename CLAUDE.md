@@ -984,7 +984,7 @@ the By category legend uses round dots, ₪0 rows (expenses I'm not part of) com
 - **Layout** (top → bottom): `TripHeader`; `BudgetCard` (my share; on this tab without the wallet chip, edit icon next
   to the total); **Travelers** (title + count `Pill`, a sideways-scrolling row of 56dp round avatars with the name under
   each, "You" first and not tappable, then the dashed "+ Add" circle); **Who owes whom** (only with other travelers);
-  **By category** (`CategoryChartCard`: donut left with "TOTAL ₪X" inside, legend right with dots; stacked below
+  **By category** (`CategoryChartCard`: donut left with "TOTAL ₪X" inside (whole shekels, rounded half up: `Money.formatWholeShekels`; always one line, shrinks down to `minFitTextScale`; the legend and rows keep their agorot), legend right with dots; stacked below
   300dp or above font scale 1.2; categories with spending of mine largest first, then the ones with only ₪0 for me as
   "₪0 0%" without a slice; nothing at all of mine → an empty `budgetTrack` ring); "Expenses" + "Newest first"; rows (or
   the empty state). The "+ Add expense" pill is in the FAB row (see above).
