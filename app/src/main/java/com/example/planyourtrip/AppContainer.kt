@@ -17,6 +17,7 @@ import com.example.planyourtrip.data.document.DocumentRepository
 import com.example.planyourtrip.data.document.RoomDocumentRepository
 import com.example.planyourtrip.data.photo.DestinationPhotoRepository
 import com.example.planyourtrip.data.photo.RoomDestinationPhotoRepository
+import com.example.planyourtrip.data.photo.SharedPreferencesPhotoRetryFlags
 import com.example.planyourtrip.data.photo.WikipediaPhotoSource
 import com.example.planyourtrip.data.photo.photoUserAgent
 import com.example.planyourtrip.data.reminder.ReminderPermissionPrompt
@@ -178,6 +179,7 @@ class AppContainer(context: Context) {
             clock = clock,
             scope = appScope,
             log = { message, error -> Log.w("DestinationPhoto", message, error) },
+            retryFlags = SharedPreferencesPhotoRetryFlags(context.getSharedPreferences("photos", Context.MODE_PRIVATE)),
         )
     }
 

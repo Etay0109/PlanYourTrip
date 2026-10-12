@@ -37,4 +37,8 @@ interface DestinationPhotoDao {
 
     @Upsert
     suspend fun upsert(row: DestinationPhotoEntity)
+
+    /** Forgets every "nothing found" (one-time retry, [PhotoRetryFlags]); returns how many rows went. */
+    @Query("DELETE FROM destination_photos WHERE card_url IS NULL")
+    suspend fun deleteNotFound(): Int
 }

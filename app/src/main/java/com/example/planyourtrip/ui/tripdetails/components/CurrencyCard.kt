@@ -41,7 +41,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -49,6 +51,9 @@ import com.example.planyourtrip.R
 import com.example.planyourtrip.ui.common.components.CurrencyCodeLabel
 import com.example.planyourtrip.data.currency.ILS
 import com.example.planyourtrip.ui.common.TripFormatting
+import com.example.planyourtrip.ui.common.currencyFlag
+import com.example.planyourtrip.ui.theme.minFitTextScale
+import com.example.planyourtrip.ui.tripdetails.RateLine
 import com.example.planyourtrip.ui.common.components.PrimaryButton
 import com.example.planyourtrip.ui.theme.ConverterAmountStyles
 import com.example.planyourtrip.ui.theme.Dimens
@@ -170,20 +175,63 @@ private val ConverterInputSaver = listSaver<ConverterInput, String>(
     restore = { ConverterInput(ConverterSide.valueOf(it[0]), it[1], it[2].toBoolean()) },
 )
 
-/** "1 [EUR ▾] = ₪3.44" — the code chip opens the currency picker. */
+/**
+ * "1 [EUR ▾] = ₪3.44", or for a currency worth less than ₪0.10 "₪1 = 495.52 [ARS ▾]" ([CurrencyConversion.rateLine]);
+ * the code chip opens the currency picker. Always one line: when it doesn't fit (a narrow card, a large font) the text
+ * gets a little smaller, down to [minFitTextScale]; the chip keeps its size.
+ */
 @Composable
 private fun RateHeadline(state: CurrencyCardState.Rate, onChoose: () -> Unit, modifier: Modifier = Modifier) {
     val style = MaterialTheme.typography.titleLarge
     val color = MaterialTheme.colorScheme.onSurface
-    val rate = stringResource(R.string.money_shekels, CurrencyConversion.formatRate(state.ilsPerUnit))
-    Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-        Text(stringResource(R.string.currency_rate_one), style = style, color = color)
-        Spacer(Modifier.width(6.dp))
-        CodeChip(state.code, onChoose)
-        Spacer(Modifier.width(6.dp))
-        Text(stringResource(R.string.currency_rate_value, rate), style = style, color = color)
+    val (before, after) = when (val line = CurrencyConversion.rateLine(state.ilsPerUnit)) {
+        is RateLine.PerUnit -> stringResource(R.string.currency_rate_one) to
+            stringResource(R.string.currency_rate_value, stringResource(R.string.money_shekels, line.shekels))
+        is RateLine.PerShekel -> stringResource(R.string.currency_rate_per_shekel, line.units) to ""
+    }
+    BoxWithConstraints(modifier) {
+        val measurer = rememberTextMeasurer()
+        val density = LocalDensity.current
+        val chipStyle = MaterialTheme.typography.labelLarge
+        val minScale = minFitTextScale(density.fontScale)
+        val maxWidthPx = constraints.maxWidth
+        val textStyle = remember(before, after, state.code, style, chipStyle, maxWidthPx, density, minScale) {
+            fun width(text: String, textStyle: TextStyle) =
+                if (text.isEmpty()) 0 else measurer.measure(text, textStyle, maxLines = 1, softWrap = false).size.width
+            val flag = currencyFlag(state.code)?.let { "$it " }.orEmpty()
+            val chip = with(density) {
+                maxOf(
+                    width(flag + state.code, chipStyle) + ChipFixedWidth.roundToPx(),
+                    Dimens.TouchTarget.roundToPx(),
+                )
+            }
+            val gaps = with(density) { (RateGap * if (after.isEmpty()) 1 else 2).roundToPx() }
+            val texts = width(before, style) + width(after, style)
+            val room = (maxWidthPx - chip - gaps).toFloat()
+            val scale = if (texts <= room || texts == 0) 1f else (room / texts).coerceIn(minScale, 1f)
+            if (scale >= 1f) style else style.copy(fontSize = style.fontSize * scale, lineHeight = style.lineHeight)
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            RateText(before, textStyle, color)
+            Spacer(Modifier.width(RateGap))
+            CodeChip(state.code, onChoose)
+            if (after.isNotEmpty()) {
+                Spacer(Modifier.width(RateGap))
+                RateText(after, textStyle, color)
+            }
+        }
     }
 }
+
+@Composable
+private fun RateText(text: String, style: TextStyle, color: Color) {
+    Text(text, style = style, color = color, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+}
+
+private val RateGap = 6.dp
+
+/** The code chip's width besides its label: 10 + 4 dp padding, the 18 dp arrow and the flag's 4 dp gap. */
+private val ChipFixedWidth = 36.dp
 
 /** Small outlined chip with the currency code and a dropdown arrow; opens the currency picker. */
 @Composable
@@ -410,6 +458,17 @@ private fun JpyPreview() = PlanYourTripTheme {
         state = CurrencyCardState.Rate("JPY", BigDecimal("0.01944"), LocalDate.of(2026, 10, 2)),
         actions = CurrencyCardActions(onChooseCurrency = {}, onRetry = {}),
         initialConverter = ConverterInput(ConverterSide.ILS, "1234567.89", foreignOnLeft = false),
+        modifier = Modifier.padding(Dimens.ScreenPadding),
+    )
+}
+
+@Preview(name = "Rate per shekel – ARS, narrow, large font", widthDp = 320, fontScale = 1.5f)
+@Composable
+private fun ArsPreview() = PlanYourTripTheme {
+    CurrencyCard(
+        state = CurrencyCardState.Rate("ARS", BigDecimal("0.00201808201485"), LocalDate.of(2026, 10, 12)),
+        actions = CurrencyCardActions(onChooseCurrency = {}, onRetry = {}),
+        initialConverter = ConverterInput(),
         modifier = Modifier.padding(Dimens.ScreenPadding),
     )
 }

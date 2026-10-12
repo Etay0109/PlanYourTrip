@@ -3,6 +3,8 @@ package com.example.planyourtrip.ui.tripform
 import com.example.planyourtrip.FakeAuthRepository
 import com.example.planyourtrip.FakeCurrencyRepository
 import com.example.planyourtrip.FakePlaceSearch
+import com.example.planyourtrip.FakePlaceSearch.Companion.BUENOS_AIRES
+import com.example.planyourtrip.FakePlaceSearch.Companion.BUENOS_AIRES_PROVINCE
 import com.example.planyourtrip.FakePlaceSearch.Companion.CAIRO
 import com.example.planyourtrip.FakePlaceSearch.Companion.LONDON
 import com.example.planyourtrip.FakePlaceSearch.Companion.LONDON_ONTARIO
@@ -46,13 +48,14 @@ class TripFormPlaceTest {
     private val currencies = FakeCurrencyRepository(now = { Instant.EPOCH }).apply {
         currencyList = listOf(
             Currency("EUR", "Euro"), Currency("GBP", "British Pound"), Currency("JPY", "Japanese Yen"),
-            Currency("USD", "US Dollar"),
+            Currency("USD", "US Dollar"), Currency("ARS", "Argentine Peso"),
         )
     }
     private val search = FakePlaceSearch(
         mapOf(
             "lond" to listOf(LONDON, LONDON_ONTARIO), "London" to listOf(LONDON), "rome" to listOf(ROME),
             "toky" to listOf(TOKYO), "cairo" to listOf(CAIRO),
+            "buenos" to listOf(BUENOS_AIRES, BUENOS_AIRES_PROVINCE),
         ),
     )
     private val hebrew = listOf(HebrewPlace("לונדון", emptyList(), LONDON))
@@ -290,6 +293,32 @@ class TripFormPlaceTest {
         vm.onCurrencySelected("EUR")
         saveWithDates()
         assertEquals("EUR", saved().currencyCode)
+    }
+
+    @Test
+    fun argentina_theProvinceRow_fillsItsOwnText_andPreselectsTheArgentinePeso() = runTest(dispatcher) {
+        type("buenos")
+        val labels = vm.uiState.value.suggestions.map { it.label }
+        assertEquals(listOf("Buenos Aires, Argentina", "Buenos Aires Province, Argentina"), labels)
+
+        vm.onSuggestionPicked(BUENOS_AIRES_PROVINCE)
+        advanceUntilIdle()
+        assertEquals("Buenos Aires Province, Argentina", vm.uiState.value.destination)
+        assertEquals("ARS", vm.uiState.value.currencyCode)
+        assertEquals("Argentine Peso", vm.uiState.value.currencyName)
+
+        saveWithDates()
+        assertEquals("ARS", saved().currencyCode)
+        assertEquals("AR", saved().countryCode)
+    }
+
+    @Test
+    fun argentina_theCityRow_preselectsTheArgentinePesoToo() = runTest(dispatcher) {
+        type("buenos")
+        vm.onSuggestionPicked(BUENOS_AIRES)
+        advanceUntilIdle()
+        assertEquals("Buenos Aires, Argentina", vm.uiState.value.destination)
+        assertEquals("ARS", vm.uiState.value.currencyCode)
     }
 
     @Test

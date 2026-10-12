@@ -1,6 +1,7 @@
 package com.example.planyourtrip.data.place
 
 import com.example.planyourtrip.FakePlaceSearch
+import com.example.planyourtrip.OFFERED_CURRENCIES
 import com.example.planyourtrip.FakePlaceSearch.Companion.LONDON
 import com.example.planyourtrip.FakePlaceSearch.Companion.LONDON_ONTARIO
 import com.example.planyourtrip.FakePlaceSearch.Companion.TEL_AVIV
@@ -71,5 +72,24 @@ class DestinationSuggestionsTest {
         assertEquals("ILS", countryCurrency("IL"))
         assertEquals(null, countryCurrency("AQ"))
         assertEquals(null, countryCurrency("??"))
+    }
+
+    @Test
+    fun countryCurrency_argentina_andRecentChanges() {
+        assertEquals("ARS", countryCurrency("AR"))
+        assertEquals("EUR", countryCurrency("BG"))
+        assertEquals("EUR", countryCurrency("HR"))
+        assertEquals("VES", countryCurrency("VE"))
+        assertEquals("XCG", countryCurrency("CW"))
+        assertEquals("ZWG", countryCurrency("ZW"))
+    }
+
+    @Test
+    fun everyCountry_withACurrency_getsAnOfferedOne() {
+        // So picking any country preselects its currency (when the service offers it, which it then always does).
+        for (country in java.util.Locale.getISOCountries()) {
+            val code = countryCurrency(country) ?: continue
+            assertTrue("$country → $code", code in OFFERED_CURRENCIES)
+        }
     }
 }

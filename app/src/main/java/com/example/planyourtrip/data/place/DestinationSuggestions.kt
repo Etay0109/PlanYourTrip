@@ -35,9 +35,23 @@ class DestinationSuggestions(
 }
 
 /**
- * The currency of a country ("GB" → "GBP", "FR" → "EUR") from the platform's data; null when unknown or when the
- * country has none.
+ * The currency of a country ("GB" → "GBP", "AR" → "ARS", "FR" → "EUR") from the platform's data; null when unknown or
+ * when the country has none. [CURRENCY_CHANGES] first: the platform's data (the JVM's, or an older Android's ICU) can
+ * still name a replaced currency.
  */
-fun countryCurrency(countryCode: String): String? = runCatching {
-    java.util.Currency.getInstance(Locale.Builder().setRegion(countryCode).build())?.currencyCode
-}.getOrNull()?.takeIf { it.length == 3 && it != "XXX" }
+fun countryCurrency(countryCode: String): String? {
+    CURRENCY_CHANGES[countryCode.uppercase(Locale.ROOT)]?.let { return it }
+    return runCatching {
+        java.util.Currency.getInstance(Locale.Builder().setRegion(countryCode).build())?.currencyCode
+    }.getOrNull()?.takeIf { it.length == 3 && it != "XXX" }
+}
+
+/**
+ * Countries whose currency changed recently, so platform data may still give the old one: Bulgaria (euro, 2026),
+ * Croatia (euro, 2023), Venezuela (VES), Sierra Leone (SLE), Zimbabwe (ZWG), Mauritania (MRU), São Tomé (STN),
+ * Belarus (BYN), Curaçao and Sint Maarten (Caribbean guilder, 2025).
+ */
+private val CURRENCY_CHANGES = mapOf(
+    "BG" to "EUR", "HR" to "EUR", "VE" to "VES", "SL" to "SLE", "ZW" to "ZWG", "MR" to "MRU", "ST" to "STN",
+    "BY" to "BYN", "CW" to "XCG", "SX" to "XCG",
+)

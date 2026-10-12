@@ -106,9 +106,9 @@ class WikipediaPhotoSourceTest {
         http.search("en", "London", resource("search_en_london.json"))
 
         assertEquals(PhotoResult.NotFound, find(PhotoQuery("London", -33.87, 151.21)))
-        // No image was looked at.
+        // No image was looked at, and "London" isn't searched twice (the fallback reuses the results).
         assertEquals(1, http.requests.size)
-        assertTrue(logs.single().contains("no photo"))
+        assertTrue(logs.last().contains("no photo"))
     }
 
     @Test
@@ -126,7 +126,9 @@ class WikipediaPhotoSourceTest {
         assertEquals(file, photo.fileName)
         assertTrue(photo.cardUrl.contains("960px-"))
         assertTrue(photo.thumbUrl.contains("250px-"))
-        assertTrue(logs.single().contains("WIKIDATA"))
+        assertTrue(logs.last().contains("WIKIDATA"))
+        // The flag lead image was rejected, with the reason logged first.
+        assertTrue(logs.first(), logs.first().startsWith("Rejected lead image Flag of Canada") && logs.first().endsWith("type image/svg+xml"))
     }
 
     // --- Free text ----------------------------------------------------------------------------------------------
@@ -186,6 +188,122 @@ class WikipediaPhotoSourceTest {
     @Test
     fun freeText_withNoResults_hasNoPhoto() = runTest {
         assertEquals(PhotoResult.NotFound, find(PhotoQuery("Qwxzv Plorb")))
+    }
+
+    // --- A province's point far from its page's point --------------------------------------------------------
+
+    /** Photon's point of the Buenos Aires province (the trip's coordinates when that row is picked). */
+    private val provincePoint = PhotoQuery("Buenos Aires Province, Argentina", -36.3789925, -60.3855889)
+
+    @Test
+    fun provincePick_itsOwnPageInTheFirstResults_withinRegionDistance_isTakenWithoutASecondSearch() = runTest {
+        http.search("en", "Buenos Aires Province, Argentina", search(
+            page("Buenos Aires Province", 1, lead = "Casa y montaña.jpg", lat = -37.0, lon = -60.0),
+            page("Governor of Buenos Aires Province", 3),
+        ))
+
+        val photo = find(provincePoint).found()
+
+        assertEquals("Buenos Aires Province", photo.pageTitle)
+        assertEquals("Casa y montaña.jpg", photo.fileName)
+        assertFalse(http.requests.any { it.contains("gsrsearch=Buenos+Aires&") })
+    }
+
+    @Test
+    fun provincePick_noPageCloseEnough_searchesTheShortName_andTakesThePageTitledWithIt() = runTest {
+        // The first search finds nothing titled "Buenos Aires Province" with coordinates.
+        http.search("en", "Buenos Aires Province, Argentina", search(
+            page("Governor of Buenos Aires Province", 1),
+            page("Olivos, Buenos Aires", 2, lat = -34.5, lon = -58.48),
+        ))
+        http.search("en", "Buenos Aires", search(
+            page("University of Buenos Aires", 1, lat = -34.6, lon = -58.37, type = "edu"),
+            page("Buenos Aires Province", 2, lead = "Casa y montaña.jpg", lat = -37.0, lon = -60.0),
+            page("Buenos Aires", 3, lead = "Puerto Madero.jpg", lat = -34.6, lon = -58.38),
+        ))
+
+        val photo = find(provincePoint).found()
+
+        assertEquals("Buenos Aires Province", photo.pageTitle)
+        assertEquals("Casa y montaña.jpg", photo.fileName)
+        assertTrue(logs.any { it.contains("fallback search \"Buenos Aires\"") })
+    }
+
+    @Test
+    fun oldProvinceLabel_takesThePageTitledWithTheNameWithin400Km() = runTest {
+        // A trip saved before the region word: "Buenos Aires, Argentina" with the province's coordinates.
+        val query = PhotoQuery("Buenos Aires, Argentina", -36.3789925, -60.3855889)
+        http.search("en", "Buenos Aires, Argentina", search(
+            page("Buenos Aires", 1, lead = "Puerto Madero.jpg", lat = -34.60388889, lon = -58.38138889),
+        ))
+        http.search("en", "Buenos Aires", search(
+            page("Buenos Aires Stock Exchange", 1, lat = -34.6, lon = -58.37, type = "landmark"),
+            page("Buenos Aires", 2, lead = "Puerto Madero.jpg", lat = -34.60388889, lon = -58.38138889),
+        ))
+
+        assertEquals("Buenos Aires", find(query).found().pageTitle)
+    }
+
+    @Test
+    fun londonWithOntariosCoordinates_neverTakesLondonEngland() = runTest {
+        // Nothing near Ontario in either search: the fallback finds only London, England, 5,700 km away.
+        http.search("en", "London, Canada", search(
+            page("London", 1, lead = "London Skyline.jpg", lat = 51.507, lon = -0.128),
+        ))
+        http.search("en", "London", search(
+            page("London", 1, lead = "London Skyline.jpg", lat = 51.507, lon = -0.128),
+            page("London Bridge", 2, lead = "Bridge.jpg", lat = 51.508, lon = -0.088),
+        ))
+
+        assertEquals(PhotoResult.NotFound, find(PhotoQuery("London, Canada", 42.9832406, -81.243372)))
+    }
+
+    @Test
+    fun freeText_neverUsesTheFallback() = runTest {
+        // Without coordinates the first page is taken as before, and nothing is searched again.
+        assertEquals(PhotoResult.NotFound, find(PhotoQuery("Nowhere Province, Argentina")))
+        assertEquals(1, http.requests.size)
+    }
+
+    // --- Collages -----------------------------------------------------------------------------------------------
+
+    @Test
+    fun aGluedCollageName_isRejected_andTheRejectionIsLogged() = runTest {
+        http.search("en", "Dubai", search(page("Dubai", 1, lead = "DubaiCollage.jpg", item = "Q612")))
+        http.wikidata("Q612", wikidata("Dubai Marina.jpg"))
+        http.imageInfo("en", "Dubai Marina.jpg", 960, imageInfo("Dubai Marina.jpg", 4000, 2667))
+
+        val photo = find(PhotoQuery("Dubai")).found()
+
+        assertEquals("Dubai Marina.jpg", photo.fileName)
+        assertTrue(logs.toString(), logs.any { it.contains("Rejected lead image DubaiCollage.jpg") && it.contains("dubaicollage") })
+    }
+
+    @Test
+    fun aPortraitLead_triesTheWikidataImageFirst() = runTest {
+        http.search("en", "Lima", search(
+            page("Lima", 1, lead = "Lima Plaza San Martin.jpg", item = "Q2868", leadWidth = 1200, leadHeight = 1800),
+        ))
+        http.wikidata("Q2868", wikidata("Plaza Mayor de Lima.jpg"))
+        http.imageInfo("en", "Plaza Mayor de Lima.jpg", 960, imageInfo("Plaza Mayor de Lima.jpg", 4000, 2667))
+
+        assertEquals(PhotoOrigin.WIKIDATA, find(PhotoQuery("Lima")).found().origin)
+        assertTrue(logs.any { it.contains("Portrait lead Lima Plaza San Martin.jpg") })
+    }
+
+    @Test
+    fun aPortraitLead_isStillUsed_whenWikidataHasNothingBetter() = runTest {
+        http.search("en", "Valletta", search(
+            page("Valletta", 1, lead = "Valletta street.jpg", item = "Q23800", leadWidth = 1200, leadHeight = 1800),
+        ))
+        http.wikidata("Q23800", wikidata("Valletta coat of arms.jpg"))
+        http.imageInfo("en", "Valletta coat of arms.jpg", 960, imageInfo("Valletta coat of arms.jpg", 2000, 2000))
+
+        val photo = find(PhotoQuery("Valletta")).found()
+
+        assertEquals(PhotoOrigin.LEAD, photo.origin)
+        assertEquals("Valletta street.jpg", photo.fileName)
+        assertTrue(logs.any { it.contains("Rejected Wikidata image Valletta coat of arms.jpg") })
     }
 
     // --- Fallbacks ----------------------------------------------------------------------------------------------
@@ -292,6 +410,11 @@ class WikipediaPhotoSourceTest {
         lead: String? = null,
         item: String? = null,
         disambiguation: Boolean = false,
+        lat: Double? = null,
+        lon: Double? = null,
+        type: String? = null,
+        leadWidth: Int = 3000,
+        leadHeight: Int = 2000,
     ): String {
         val props = listOfNotNull(
             if (disambiguation) "\"disambiguation\":\"\"" else null,
@@ -299,10 +422,16 @@ class WikipediaPhotoSourceTest {
         ).joinToString(",")
         val image = lead?.let {
             val file = it.replace(' ', '_')
-            """"pageimage":"$file","original":{"source":"https://img.test/$file","width":3000,"height":2000},""" +
-                """"thumbnail":{"source":"https://img.test/960px-$file","width":960,"height":640},"""
+            """"pageimage":"$file","original":{"source":"https://img.test/$file","width":$leadWidth,""" +
+                """"height":$leadHeight},"thumbnail":{"source":"https://img.test/960px-$file","width":960},"""
         }.orEmpty()
-        return """{"title":"$title","index":$index,$image"pageprops":{$props}}"""
+        val coordinates = if (lat != null && lon != null) {
+            val typeField = type?.let { ""","type":"$it"""" }.orEmpty()
+            """"coordinates":[{"lat":$lat,"lon":$lon,"primary":true$typeField}],"""
+        } else {
+            ""
+        }
+        return """{"title":"$title","index":$index,$image$coordinates"pageprops":{$props}}"""
     }
 
     private fun search(vararg pages: String) = """{"query":{"pages":[${pages.joinToString(",")}]}}"""

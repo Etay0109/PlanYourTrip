@@ -93,6 +93,28 @@ class ExpenseCurrencyTest {
     }
 
     @Test
+    fun argentinePeso_isConvertedWithTheInvertedRate() {
+        val ars = ExchangeRate("ARS", BigDecimal("0.00201808201485"), oct2, Instant.EPOCH)
+        assertEquals(
+            ok(10090, ForeignAmount(BigDecimal("50000.00"), "ARS", ars.ilsPerUnit, oct2)),
+            resolve("50000", "ARS", ars),
+        )
+    }
+
+    @Test
+    fun tinyRates_vietnameseDongAndIranianRial() {
+        val vnd = ExchangeRate("VND", BigDecimal("0.000118399242245"), oct2, Instant.EPOCH)
+        assertEquals(
+            ok(17760, ForeignAmount(BigDecimal("1500000"), "VND", vnd.ilsPerUnit, oct2)),
+            resolve("1500000", "VND", vnd),
+        )
+        val irr = ExchangeRate("IRR", BigDecimal("0.00000175408746231"), oct2, Instant.EPOCH)
+        assertEquals(1754L, (resolve("10000000", "IRR", irr) as AmountResult.Ok).agorot)
+        // 300 rials are less than half an agora: not an amount.
+        assertEquals(invalid(ExpenseFieldError.INVALID_AMOUNT), resolve("300", "IRR", irr))
+    }
+
+    @Test
     fun noCachedRate_cannotBeSavedInTheTripCurrency() {
         assertEquals(invalid(ExpenseFieldError.NO_RATE), resolve("10", "EUR", rate = null))
         // A rate of another currency doesn't count.

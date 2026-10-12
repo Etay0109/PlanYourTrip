@@ -33,7 +33,9 @@ object PhotonJson {
         if (text("osm_key") != "place" || text("osm_value") !in PLACE_TYPES) return null
         val name = text("name") ?: return null
         val country = text("country")
-        val isCountry = text("osm_value") == "country"
+        val osmValue = text("osm_value")
+        val isCountry = osmValue == "country"
+        val countryCode = text("countrycode")?.uppercase()?.takeIf { it.matches(COUNTRY_CODE) }
         // GeoJSON order: [longitude, latitude].
         val coordinates = feature["geometry"]?.jsonObject?.get("coordinates")?.jsonArray
         val longitude = coordinates?.getOrNull(0)?.jsonPrimitive?.doubleOrNull
@@ -44,9 +46,10 @@ object PhotonJson {
             name = name,
             region = if (isCountry) null else (text("state") ?: text("county"))?.takeUnless { it.equals(name, true) },
             countryName = country,
-            countryCode = text("countrycode")?.uppercase()?.takeIf { it.matches(COUNTRY_CODE) },
+            countryCode = countryCode,
             latitude = if (coordinatesOk) latitude else null,
             longitude = if (coordinatesOk) longitude else null,
+            regionKind = RegionKind.of(osmValue, countryCode),
         )
     }
 }

@@ -33,8 +33,11 @@ data class ConverterInput(
  */
 object CurrencyConversion {
 
-    /** Longest whole part accepted in a converter field: up to 9,999,999.99. */
-    const val MAX_INTEGER_DIGITS = 7
+    /**
+     * Longest whole part accepted in a converter field: up to 999,999,999,999.99, so currencies worth a millionth of
+     * a shekel (IRR: ₪1,000 ≈ 570,000,000) fit. The amount text shrinks until it is fully visible.
+     */
+    const val MAX_INTEGER_DIGITS = 12
 
     private const val DECIMALS = 2
 
@@ -121,9 +124,49 @@ object CurrencyConversion {
         return format.format(rounded)
     }
 
+    /** Below this many shekels per unit the card's line is turned round: "₪1 = 495.52 ARS". */
+    val PER_SHEKEL_BELOW: BigDecimal = BigDecimal("0.10")
+
+    /** Units per shekel from this many up are shown whole ("₪1 = 8,446 VND"); below with 2 decimals. */
+    private val WHOLE_UNITS_FROM = BigDecimal(1000)
+
+    /**
+     * The currency card's rate line (display only; the converter, stored rates and expenses keep shekels per unit):
+     * "1 EUR = ₪3.43" ([RateLine.PerUnit], [formatRate]) for currencies worth ₪0.10 or more, otherwise "₪1 = 495.52
+     * ARS" ([RateLine.PerShekel], [formatUnitsPerShekel]), so weak currencies never show a long fraction of a shekel.
+     */
+    fun rateLine(ilsPerUnit: BigDecimal, locale: Locale = AppLocale.locale): RateLine =
+        if (ilsPerUnit < PER_SHEKEL_BELOW) RateLine.PerShekel(formatUnitsPerShekel(ilsPerUnit, locale))
+        else RateLine.PerUnit(formatRate(ilsPerUnit, locale))
+
+    /**
+     * Units of the currency per ₪1 (1 ÷ [ilsPerUnit]), half-up: whole from 1,000 ("8,446", "570,097"), otherwise 2
+     * decimals ("495.52", "39.81"), with grouping. Always the app's locale (see AppLocaleTest).
+     */
+    fun formatUnitsPerShekel(ilsPerUnit: BigDecimal, locale: Locale = AppLocale.locale): String {
+        val units = BigDecimal.ONE.divide(ilsPerUnit, MathContext(12, RoundingMode.HALF_UP))
+        // Decided after rounding, so 999.996 is "1,000", not "1,000.00".
+        val digits = if (units.setScale(DECIMALS, RoundingMode.HALF_UP) >= WHOLE_UNITS_FROM) 0 else DECIMALS
+        val format = NumberFormat.getNumberInstance(locale).apply {
+            isGroupingUsed = true
+            minimumFractionDigits = digits
+            maximumFractionDigits = digits
+        }
+        return format.format(units.setScale(digits, RoundingMode.HALF_UP))
+    }
+
     /** The currency's symbol ("€", "$"), or null when the platform knows none besides the code itself. */
     fun currencySymbol(code: String, locale: Locale = AppLocale.locale): String? {
         val symbol = runCatching { java.util.Currency.getInstance(code).getSymbol(locale) }.getOrNull()
         return symbol?.takeIf { it != code }
     }
+}
+
+/** How the currency card's rate line reads ([CurrencyConversion.rateLine]). */
+sealed interface RateLine {
+    /** "1 EUR = ₪3.43": [shekels] is the number part. */
+    data class PerUnit(val shekels: String) : RateLine
+
+    /** "₪1 = 495.52 ARS": [units] is the number part. */
+    data class PerShekel(val units: String) : RateLine
 }

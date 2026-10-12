@@ -2,6 +2,7 @@ package com.example.planyourtrip
 
 import com.example.planyourtrip.data.place.PlaceSearch
 import com.example.planyourtrip.data.place.PlaceSuggestion
+import com.example.planyourtrip.data.place.RegionKind
 import kotlinx.coroutines.CompletableDeferred
 import java.io.IOException
 
@@ -30,5 +31,11 @@ class FakePlaceSearch(var results: Map<String, List<PlaceSuggestion>> = emptyMap
         val TOKYO = PlaceSuggestion("Tokyo", null, "Japan", "JP", 35.6768601, 139.7638947)
         val CAIRO = PlaceSuggestion("Cairo", null, "Egypt", "EG", 30.0443879, 31.2357257)
         val TEL_AVIV = PlaceSuggestion("Tel Aviv", "Tel-Aviv District", "Israel", "IL", 32.0852997, 34.7818064)
+        val BUENOS_AIRES = PlaceSuggestion(
+            "Buenos Aires", "Autonomous City of Buenos Aires", "Argentina", "AR", -34.6095579, -58.3887904,
+        )
+        val BUENOS_AIRES_PROVINCE = PlaceSuggestion(
+            "Buenos Aires", null, "Argentina", "AR", -36.3789925, -60.3855889, RegionKind.PROVINCE,
+        )
     }
 }

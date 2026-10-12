@@ -58,6 +58,12 @@ class FakeDestinationPhotoDao : DestinationPhotoDao {
     override suspend fun upsert(row: DestinationPhotoEntity) {
         rows.value = rows.value + (row.key to row)
     }
+
+    override suspend fun deleteNotFound(): Int {
+        val gone = rows.value.values.count { it.cardUrl == null }
+        rows.value = rows.value.filterValues { it.cardUrl != null }
+        return gone
+    }
 }
 
 /** [DestinationPhotoRepository] for ViewModel tests: [photos] by key, every [request] recorded. */

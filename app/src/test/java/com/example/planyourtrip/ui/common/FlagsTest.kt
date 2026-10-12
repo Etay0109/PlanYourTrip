@@ -1,5 +1,8 @@
 package com.example.planyourtrip.ui.common
 
+import com.example.planyourtrip.OFFERED_CURRENCIES
+import com.example.planyourtrip.SERVICE_CURRENCIES
+import com.example.planyourtrip.data.currency.TravelCurrencies
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -8,15 +11,11 @@ import org.junit.Test
 
 class FlagsTest {
 
-    /**
-     * Every currency the rates service (Frankfurter `/v1/currencies`) offered on 2026-10-11, i.e. every currency the
-     * currency picker can list. When the service adds one, add it here and give it a flag or leave it out on purpose
-     * ([CURRENCIES_WITHOUT_FLAG]).
-     */
-    private val offeredCurrencies = listOf(
-        "AUD", "BRL", "CAD", "CHF", "CNY", "CZK", "DKK", "EUR", "GBP", "HKD", "HUF", "IDR", "ILS", "INR", "ISK",
-        "JPY", "KRW", "MXN", "MYR", "NOK", "NZD", "PHP", "PLN", "RON", "SEK", "SGD", "THB", "TRY", "USD", "ZAR",
-    )
+    @Test
+    fun theTravelFilter_leavesExactlyTheOfferedCurrencies() {
+        assertEquals(OFFERED_CURRENCIES, SERVICE_CURRENCIES.filter { TravelCurrencies.isOffered(it) })
+        assertEquals(165, SERVICE_CURRENCIES.size)
+    }
 
     @Test
     fun countryFlag_isTwoRegionalIndicators() {
@@ -42,7 +41,7 @@ class FlagsTest {
 
     @Test
     fun everyOfferedCurrency_hasAFlag_orIsLeftWithoutOneOnPurpose() {
-        for (code in offeredCurrencies) {
+        for (code in OFFERED_CURRENCIES) {
             assertTrue(
                 "$code needs a flag or an entry in CURRENCIES_WITHOUT_FLAG",
                 currencyFlag(code) != null || code in CURRENCIES_WITHOUT_FLAG,
@@ -53,8 +52,9 @@ class FlagsTest {
 
     @Test
     fun everyTableEntry_isARealCurrencyWithAValidFlag() {
+        // Codes newer than the JVM's currency data (ZWG of 2024, …) are checked against the offered list instead.
         for (code in CURRENCIES_WITH_FLAG) {
-            assertNotNull(code, java.util.Currency.getInstance(code))
+            assertTrue(code, code in OFFERED_CURRENCIES || runCatching { java.util.Currency.getInstance(code) }.isSuccess)
             val flag = checkNotNull(currencyFlag(code)) { code }
             assertEquals(code, 4, flag.length) // two regional indicators, two UTF-16 units each
         }
@@ -64,5 +64,19 @@ class FlagsTest {
     fun anUnknownCurrency_getsNoFlag() {
         for (code in listOf("XAU", "XDR", "BTC", "ABC", "", "eu")) assertNull(code, currencyFlag(code))
         assertNull(currencyFlag(null))
+    }
+
+    @Test
+    fun argentinaAndTinyCurrencies_haveTheirFlags() {
+        assertEquals("🇦🇷", currencyFlag("ARS"))
+        assertEquals("🇻🇳", currencyFlag("VND"))
+        assertEquals("🇮🇷", currencyFlag("IRR"))
+        for (code in listOf("XAF", "XOF", "XCD", "XPF", "XCG", "ANG")) assertNull(code, currencyFlag(code))
+    }
+
+    @Test
+    fun everyFlagCountry_isARealCountryCode_orTheEu() {
+        val countries = java.util.Locale.getISOCountries().toSet() + "EU"
+        for (code in CURRENCIES_WITH_FLAG) assertTrue(code, code.take(2) in countries || code == "EUR")
     }
 }

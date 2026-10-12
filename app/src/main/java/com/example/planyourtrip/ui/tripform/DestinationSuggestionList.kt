@@ -26,13 +26,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.R
 import com.example.planyourtrip.data.place.PlaceSuggestion
+import com.example.planyourtrip.data.place.RegionKind
+import com.example.planyourtrip.ui.common.components.Pill
 import com.example.planyourtrip.ui.common.components.FlagEmoji
 import com.example.planyourtrip.ui.common.countryFlag
 import com.example.planyourtrip.ui.theme.Dimens
 
 /**
  * The places matching the typed destination, under the field (inside the form's scrolling column, so the keyboard
- * never covers it): flag, name, region and country. Ends with the OpenStreetMap attribution its data license asks for.
+ * never covers it): flag, name, region and country. A province, state, region or county gets a small gray label
+ * ("Province"), so it never looks like the city of the same name. Ends with the OpenStreetMap attribution its data
+ * license asks for.
  */
 @Composable
 fun DestinationSuggestionList(suggestions: List<PlaceSuggestion>, onPick: (PlaceSuggestion) -> Unit) {
@@ -83,13 +87,24 @@ private fun SuggestionRow(suggestion: PlaceSuggestion, onPick: (PlaceSuggestion)
         }
         Spacer(Modifier.width(8.dp))
         Column(Modifier.weight(1f)) {
-            Text(
-                text = suggestion.name,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = suggestion.name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                suggestion.regionKind?.let { kind ->
+                    Spacer(Modifier.width(8.dp))
+                    Pill(
+                        text = stringResource(kind.labelRes()),
+                        container = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        content = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
             suggestion.detail?.let {
                 Text(
                     text = it,
@@ -101,4 +116,11 @@ private fun SuggestionRow(suggestion: PlaceSuggestion, onPick: (PlaceSuggestion)
             }
         }
     }
+}
+
+private fun RegionKind.labelRes(): Int = when (this) {
+    RegionKind.PROVINCE -> R.string.place_kind_province
+    RegionKind.STATE -> R.string.place_kind_state
+    RegionKind.REGION -> R.string.place_kind_region
+    RegionKind.COUNTY -> R.string.place_kind_county
 }

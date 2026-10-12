@@ -96,6 +96,11 @@
     <string name="new_trip_pick_date">Pick a date</string>
     <!-- Under the destination suggestions: the OpenStreetMap data license asks for this attribution. -->
     <string name="place_suggestions_attribution">© OpenStreetMap contributors</string>
+    <!-- The small label on a destination suggestion that is a region, not a city. -->
+    <string name="place_kind_province">Province</string>
+    <string name="place_kind_state">State</string>
+    <string name="place_kind_region">Region</string>
+    <string name="place_kind_county">County</string>
     <string name="trip_currency_label">Trip currency (optional)</string>
     <string name="trip_currency_placeholder">Choose a currency</string>
     <string name="trip_currency_value">%1$s · %2$s</string>
@@ -291,6 +296,8 @@
     <!-- Currency -->
     <string name="currency_rate_one">1</string>
     <string name="currency_rate_value">= %1$s</string>
+    <!-- The rate line for a currency worth less than ₪0.10: "₪1 = 495.52" + the code chip ("ARS"). -->
+    <string name="currency_rate_per_shekel">₪1 = %1$s</string>
     <string name="currency_updated">Updated %1$s</string>
     <string name="currency_empty_body">Pick the local currency to see the rate and convert prices to shekels.</string>
     <string name="currency_choose">Choose currency</string>

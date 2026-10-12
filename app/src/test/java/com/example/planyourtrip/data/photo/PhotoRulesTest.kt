@@ -178,4 +178,76 @@ class PhotoRulesTest {
         assertFalse(hasHebrew("Prague"))
         assertFalse(hasHebrew("Αθήνα"))
     }
+
+    // --- Collages glued to other words, and rejection reasons ---------------------------------------------------
+
+    @Test
+    fun collageWordsGluedToOtherWords_areRejected_inFourLanguages() {
+        listOf(
+            "DubaiCollage.jpg", "Buenosairesmontage.jpg", "Montaje de Bogotá.jpg", "Montagem São Paulo.jpg",
+            "Montaggio Milano.jpg", "Collagem Rio.jpg", "MontajeCDMX2019.jpg", "Lima_montajes.jpg",
+        ).forEach { assertFalse(it, PhotoRules.isSuitable(image(it))) }
+        // Words that only start like them still pass.
+        listOf("Montagne Sainte-Victoire.jpg", "College Green Dublin.jpg", "Montana sky.jpg")
+            .forEach { assertTrue(it, PhotoRules.isSuitable(image(it))) }
+    }
+
+    @Test
+    fun rejection_saysWhy() {
+        assertNull(PhotoRules.rejection(image("Harbour.jpg")))
+        assertEquals("type image/png", PhotoRules.rejection(image("Map.png")))
+        assertEquals("312 px wide", PhotoRules.rejection(image("Small.jpg", width = 312, height = 200)))
+        assertEquals("shape 0.42", PhotoRules.rejection(image("Tall.jpg", width = 840, height = 2000)))
+        assertEquals("blocked word 'dubaicollage'", PhotoRules.rejection(image("DubaiCollage.jpg")))
+        assertEquals("blocked word 'flag'", PhotoRules.rejection(image("Flag of Peru.jpg")))
+    }
+
+    @Test
+    fun portrait_isTallerThanWide() {
+        assertTrue(PhotoRules.isPortrait(image("a.jpg", width = 1200, height = 1800)))
+        assertFalse(PhotoRules.isPortrait(image("a.jpg", width = 1800, height = 1200)))
+        assertFalse(PhotoRules.isPortrait(image("a.jpg", width = 1000, height = 1000)))
+    }
+
+    // --- Province fallback --------------------------------------------------------------------------------------
+
+    @Test
+    fun fallbackName_isTheTextBeforeTheComma_withoutTheRegionWord() {
+        assertEquals("Buenos Aires", PhotoRules.fallbackName("Buenos Aires Province, Argentina"))
+        assertEquals("Buenos Aires", PhotoRules.fallbackName("Buenos Aires, Argentina"))
+        assertEquals("California", PhotoRules.fallbackName("California State, United States"))
+        assertEquals("Tuscany", PhotoRules.fallbackName("Tuscany Region, Italy"))
+        assertEquals("Kent", PhotoRules.fallbackName(" Kent County , United States"))
+        assertEquals("Rome", PhotoRules.fallbackName("Rome"))
+        assertNull(PhotoRules.fallbackName("X, Y"))
+        assertNull(PhotoRules.fallbackName(", Argentina"))
+    }
+
+    @Test
+    fun chooseNamedNearby_titleStartsWithTheName_aPlaceType_within400Km() {
+        val province = PhotoQuery("Buenos Aires Province, Argentina", -36.3789925, -60.3855889)
+        val pages = listOf(
+            WikiPage("University of Buenos Aires", 1, -34.6, -58.37, "edu"),
+            WikiPage("Buenos Aires Stock Exchange", 2, -34.6, -58.37, "landmark"),
+            WikiPage("Greater Buenos Aires", 3, -34.6, -58.4),
+            WikiPage("Buenos Aires", 4, -34.60388889, -58.38138889, "city"),
+            WikiPage("Buenos Aires Province", 5, -37.0, -60.0),
+        )
+        // The university and the stock exchange aren't places; "Greater …" doesn't start with the name.
+        assertEquals("Buenos Aires", PhotoRules.chooseNamedNearby(pages, province, "Buenos Aires")?.title)
+        // Free text never uses it.
+        assertNull(PhotoRules.chooseNamedNearby(pages, PhotoQuery("Buenos Aires"), "Buenos Aires"))
+        // More than 400 km away (Córdoba is ~650 km from Buenos Aires): nothing.
+        assertNull(PhotoRules.chooseNamedNearby(pages, PhotoQuery("x", -31.42, -64.18), "Buenos Aires"))
+    }
+
+    @Test
+    fun chooseNamedNearby_londonWithOntariosCoordinates_neverTakesLondonEngland() {
+        val pages = listOf(
+            WikiPage("London", 1, 51.507, -0.128),
+            WikiPage("London Bridge", 2, 51.508, -0.088, "landmark"),
+            WikiPage("Londonderry", 3, 54.99, -7.32, "city"),
+        )
+        assertNull(PhotoRules.chooseNamedNearby(pages, PhotoQuery("London, Canada", 42.9832406, -81.243372), "London"))
+    }
 }

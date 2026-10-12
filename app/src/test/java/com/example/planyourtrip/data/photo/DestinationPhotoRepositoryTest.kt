@@ -207,4 +207,47 @@ class DestinationPhotoRepositoryTest {
 
         assertEquals(setOf(rome.key), photos.keys)
     }
+
+    // --- One-time retry of "nothing found" ----------------------------------------------------------------------
+
+    private class FakeRetryFlags(var version: Int = 0) : PhotoRetryFlags {
+        override fun clearedVersion(): Int = version
+        override fun markCleared(version: Int) {
+            this.version = version
+        }
+    }
+
+    @Test
+    fun afterTheUpdate_storedNotFoundRowsAreClearedOnce_andLookedUpAgainRightAway() = runTest {
+        // Before the update: Rome had no photo (checked a minute ago), London had one.
+        dao.upsert(DestinationPhotoEntity(rome.key, null, null, null, clock.millis - 60_000))
+        dao.upsert(DestinationPhotoEntity(london.key, "https://img.test/l-960.jpg", "https://img.test/l-250.jpg", null, 1))
+        val flags = FakeRetryFlags()
+        source.results = mapOf("Rome, Italy" to FakePhotoSource.found("rome"))
+
+        val repository = RoomDestinationPhotoRepository(dao, source, network, clock, backgroundScope, retryFlags = flags)
+        runCurrent()
+        assertNull(dao.rows.value[rome.key])
+        assertEquals("https://img.test/l-960.jpg", dao.rows.value[london.key]?.cardUrl)
+        assertEquals(PhotoRetryFlags.CURRENT_VERSION, flags.version)
+
+        repository.request(listOf(rome, london))
+        runCurrent()
+        assertEquals(listOf(rome), source.queries)
+        assertEquals("https://img.test/rome-960.jpg", repository.photoOf(rome)?.cardUrl)
+    }
+
+    @Test
+    fun theClearRunsOnlyOnce_aLaterNotFoundWaitsItsWeekAgain() = runTest {
+        val flags = FakeRetryFlags(version = PhotoRetryFlags.CURRENT_VERSION)
+        dao.upsert(DestinationPhotoEntity(rome.key, null, null, null, clock.millis - 60_000))
+
+        val repository = RoomDestinationPhotoRepository(dao, source, network, clock, backgroundScope, retryFlags = flags)
+        runCurrent()
+        repository.request(listOf(rome))
+        runCurrent()
+
+        assertTrue(dao.rows.value.containsKey(rome.key))
+        assertTrue(source.queries.isEmpty())
+    }
 }

@@ -9,16 +9,19 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.time.LocalDate
 
-/** The free Frankfurter API (https://frankfurter.dev, no API key). The only HTTP code in the app. */
+/**
+ * The free Frankfurter API v2 (https://frankfurter.dev, no API key): about 150 travel currencies. The only rates HTTP
+ * code in the app. Rates are asked with base ILS and inverted ([FrankfurterJson.parseRates]).
+ */
 class FrankfurterRatesApi(
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : RatesApi {
 
     override suspend fun latestToIls(code: String): Pair<BigDecimal, LocalDate> =
-        FrankfurterJson.parseLatest(get("/v1/latest?base=$code&symbols=$ILS"), expectedBase = code)
+        FrankfurterJson.parseRates(get("/v2/rates?base=$ILS&quotes=$code"), quote = code)
 
     override suspend fun currencies(): List<Currency> =
-        FrankfurterJson.parseCurrencies(get("/v1/currencies"))
+        FrankfurterJson.parseCurrencies(get("/v2/currencies"))
 
     private suspend fun get(path: String): String = withContext(ioDispatcher) {
         val connection = URL(BASE_URL + path).openConnection() as HttpURLConnection

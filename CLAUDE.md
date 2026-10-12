@@ -85,7 +85,7 @@ app/src/main/java/com/example/planyourtrip/
                                # MAX_DOCUMENT_BYTES = 20 MB, documentKind, extensionFor, defaultDocumentName)
   data/currency/               # Currency, ExchangeRate, ILS, ExchangeRateEntity/Dao (rate cache),
                                # CurrencyRepository (+ isStale, RATE_MAX_AGE) + RoomCurrencyRepository,
-                               # RatesApi + FrankfurterRatesApi (the only rates HTTP code), FrankfurterJson (pure parsers)
+                               # RatesApi + FrankfurterRatesApi (the only rates HTTP code, v2), FrankfurterJson (pure parsers) + TravelCurrencies
   data/assistant/              # AssistantRepository (interface; AssistantRequest, ChatTurn, AssistantResponse,
                                # AssistantError), FirebaseAssistantRepository (the only Firebase AI code + JSON schema),
                                # AssistantPrompt (pure: AssistantModel, assistantInstructions, classifyServerMessage),
@@ -109,7 +109,7 @@ app/src/main/java/com/example/planyourtrip/
                                # InviteRepository (interface) + FirestoreInviteRepository, MemberName (memberName():
                                # display name, never the email)
   data/place/                  # destination suggestions (nothing in Room): PlaceSuggestion (+ label, detail,
-                               # withoutRepeats, toTripPlace), PlaceSearch (interface) + PhotonPlaceSearch (the only
+                               # withoutRepeats, toTripPlace, RegionKind), PlaceSearch (interface) + PhotonPlaceSearch (the only
                                # Photon HTTP code), PhotonJson (pure parser + type allowlist), HebrewPlaces (pure
                                # matching) + HebrewPlaceTable (GENERATED data), DestinationSuggestions (+ countryCurrency)
   data/photo/                  # destination photos (this device only, nothing synced): DestinationPhotos (PhotoQuery,
@@ -117,7 +117,8 @@ app/src/main/java/com/example/planyourtrip/
                                # DestinationPhotoSource = the one provider interface, photoUserAgent), PhotoRules (pure:
                                # filters, distance, choosePage, bestPageImage), WikipediaJson (pure parsers),
                                # WikipediaPhotoSource (+ HttpGet, UrlConnectionHttpGet: the only Wikipedia/Wikidata HTTP
-                               # code), DestinationPhotoEntity/Dao, DestinationPhotoRepository + RoomDestinationPhoto…
+                               # code), DestinationPhotoEntity/Dao, DestinationPhotoRepository + RoomDestinationPhoto…,
+                               # PhotoRetryFlags (+ SharedPreferences…: the one-time "no photo" clear)
   data/reminder/               # trip reminders (this device only, nothing synced): TripReminders (pure: reminderTime,
                                # planReminders, reminderChanges, reminderMessage, shouldShowReminder, reminderDestination),
                                # ReminderSettings (+ SharedPreferences…: switch, permission asked, scheduled map),
@@ -1167,6 +1168,10 @@ Reference: `design/trip_prep.png`, **with these deliberate differences**: the us
   "Try again") / `Rate`.
 - `Rate` shows "1 [EUR ▾] = ₪3.44" and an "Updated 2 Oct" pill with the **service's** date
   (`TripFormatting.dayMonth`), never "today". Rates ≥ ₪1 show 2 decimals, smaller ones 4 significant digits.
+  A currency worth **less than ₪0.10** (`CurrencyConversion.rateLine` / `PER_SHEKEL_BELOW`) is shown the other way
+  round, "₪1 = 495.52 [🇦🇷 ARS ▾]" (`formatUnitsPerShekel`: 1 ÷ rate, half-up, 2 decimals, whole with grouping from
+  1,000: "8,446", "570,097"); display only, the converter, stored rates and expenses keep shekels per unit. The line
+  never wraps: when it doesn't fit, its text shrinks down to `minFitTextScale` (the chip keeps its size).
 - The currency code is a **small outlined chip with a dropdown arrow** (labelLarge, 48dp touch target, a11y
   "Change currency, now EUR") on every state that has a code; tapping it (or "Choose currency") opens the shared
   `CurrencyPickerSheet`, a `ModalBottomSheet` with a search field (matches code or name, codes starting with the
@@ -1175,8 +1180,17 @@ Reference: `design/trip_prep.png`, **with these deliberate differences**: the us
 - **The currency is only ever chosen by the user** (card or trip form) — never guessed from the destination text. The
   one exception is the trip form of a **new** trip: picking a suggested place preselects its country's currency (see
   "Destination suggestions and flags"); an existing trip's currency never changes by itself.
-- **Rate source:** Frankfurter `GET https://api.frankfurter.dev/v1/latest?base=XXX&symbols=ILS` (no API key),
-  `HttpURLConnection` + `kotlinx-serialization-json`; the rate is read from the JSON text into `BigDecimal`. `FrankfurterJson` rejects a response whose `base` isn't the requested code and an empty currency list (both count as failures). The manifest declares `INTERNET`.
+- **Rate source:** Frankfurter **v2** (no API key), `HttpURLConnection` + `kotlinx-serialization-json`:
+  `GET https://api.frankfurter.dev/v2/rates?base=ILS&quotes=XXX` → `[{"date","base":"ILS","quote":"XXX","rate":…}]`.
+  Asked with base ILS (the service rounds to ~5 digits, so tiny currencies stay exact this way) and **inverted**:
+  shekels per unit = 1 ÷ rate, `MathContext(12, HALF_UP)` (`FrankfurterJson.INVERSION_PRECISION`; IRR ≈
+  0.00000175408746231). The rate is read from the JSON text into `BigDecimal` (also "2.0e-06"). `FrankfurterJson.parseRates`
+  rejects anything that isn't a list (the service's `{"status":422,…}`), no entry for base ILS + the asked quote, a
+  rate that isn't a number > 0; `parseCurrencies` (`/v2/currencies`, `[{iso_code, name, …}]`) rejects an empty list
+  (all count as failures). **Travel currencies only** (`TravelCurrencies.isOffered`): metals, XDR, CMD, CNH, GGP, IMP,
+  JEP and every other `X..` code except the multi-country XAF, XOF, XCD, XPF, XCG are left out (155 of 165 on
+  2026-10-12). Rates cached before v2 stay until stale (12 h); expenses keep their stored rate and shekels. The
+  manifest declares `INTERNET`.
 - **Refresh:** `TripDetailsScreen` calls `onOverviewShown()` in a `LaunchedEffect(selectedTab, loaded,
   currencyCode)` once the trip is loaded. The ViewModel remembers the code it last showed: a **different currency**
   (picked on the card or in the trip form) is fetched right away (`force`), even with a fresh cache, while the
@@ -1184,8 +1198,8 @@ Reference: `design/trip_prep.png`, **with these deliberate differences**: the us
   ≥ 12 hours ago). `onCurrencySelected` on the card starts the forced fetch itself. With no internet the cached
   rate and its date stay on screen; failures never throw out of `CurrencyRepository` (it returns false/null).
 - **Converter:** two fields side by side (trip currency, ILS) with a swap button between them; swap only moves the
-  fields (both keep their amounts). Input: digits, one `.`/`,`, ≤ 2 decimals, ≤ 7 integer digits (up to
-  9,999,999.99) — any other keystroke is ignored and the field keeps its value. Math is `BigDecimal`:
+  fields (both keep their amounts). Input: digits, one `.`/`,`, ≤ 2 decimals, ≤ 12 integer digits (up to
+  999,999,999,999.99, for currencies like IRR) — any other keystroke is ignored and the field keeps its value. Math is `BigDecimal`:
   ILS = amount × rate, foreign = amount ÷ rate, both HALF_UP to 2 decimals, shown without trailing zeros or
   grouping ("201", "24.88").
 - **Converter text is Compose state, not ViewModel state.** `CurrencyCard` keeps a `ConverterInput` (last edited
@@ -1533,13 +1547,22 @@ no check mark inside a filled field.
   remembers `TripPlace(countryCode, latitude, longitude)`; **any edit of the text forgets it** until a suggestion is
   picked again (also when the same text is typed back). Free text saves `TripPlace.NONE`. Edit trip keeps the stored
   place while the text is unchanged. Invites still copy the destination text only.
+- **Region rows** (`RegionKind`, `PlaceSuggestion.regionKind`): a province, state, region or county never fills the
+  same text as the city with its name. Photon's `state` → "State" (US, AU, BR, MX, IN, DE, AT, MY, NG, VE, SS, SD),
+  "Province" (AR, CA, NL, CN, … `PROVINCE_COUNTRIES`) or "Region" (anywhere else: Tuscany, Catalonia); `province` →
+  Province; `region` → Region; `county` → County; the UK's England/Scotland/Wales/Northern Ireland get no word. The
+  label adds the word ("Buenos Aires Province, Argentina", once if the name already ends with it); the row shows the
+  plain name + a small gray label ("Province"). Repeats (`sameness`) also compare the kind.
 - **Currency preselection** (new trip only, `preselectCurrency`): after a pick, when no currency is set or the current
-  one was preselected and untouched (`currencyPreselected`), the country's currency (`countryCurrency`, platform data)
+  one was preselected and untouched (`currencyPreselected`), the country's currency (`countryCurrency`: platform data,
+after `CURRENCY_CHANGES` for recent changes the JVM / older Android ICU may lack: BG and HR → EUR, VE → VES, SL → SLE,
+ZW → ZWG, MR → MRU, ST → STN, BY → BYN, CW/SX → XCG; every ISO country resolves to an offered code, tested)
   is set **only if** the rates service offers it (`currencyRepository.currencies()`; unavailable → nothing); a later
   pick replaces or clears a preselected one; choosing or clearing by hand ends it. Edit trip never changes it.
 - **Flags** (display only, nothing stored for currencies): `countryFlag(code)` = regional indicators, null unless two
-  letters; `currencyFlag(code)` from the one fixed table (all 30 Frankfurter currencies; `EUR` → 🇪🇺); a currency not in
-  it gets no flag (`CURRENCIES_WITHOUT_FLAG` for deliberate gaps; `FlagsTest` pins the offered list). Shown as their
+  letters; `currencyFlag(code)` from the one fixed table (149 currencies, every offered one with a single country;
+  `EUR` → 🇪🇺); `CURRENCIES_WITHOUT_FLAG` = XAF, XOF, XCD, XPF, XCG, ANG (several countries each). `FlagsTest` +
+  `test/.../OfferedCurrencies.kt` pin the service's list and the offered list (2026-10-12). Shown as their
   own decorative `Text` (`FlagEmoji`, no TalkBack text): before the destination on the Next trip, Upcoming and Past
   cards and the trip header (`DestinationTitle`, which shows `shortDestination`: with a country code, "Name, Country" →
   "Name", cut at the last ", "; otherwise the full text; display only, TalkBack and everything else keep the full text), and before currency codes in the currency picker, the trip form's
@@ -1574,18 +1597,28 @@ no check mark inside a filled field.
   pageprops); text with Hebrew letters searches he.wikipedia first, then en. **Picked place:** the first result (in
   search order, not disambiguation) whose own coordinates are within 50 km (city, landmark, no type), 400 km (`state`,
   `adm1st/2nd/3rd`, `isle`, `region`) or 4,000 km (`country`, `continent`) of the trip's coordinates ("London" with
-  Ontario's coordinates skips London, Greater London and Chelsea). **Free text:** the first result. Only that page is
-  used (a nearby landmark never stands in).
+  Ontario's coordinates skips London, Greater London and Chelsea). **Fallback** (a picked place only, when no page
+  passes): search again with `fallbackName` (the text before the first comma without a trailing Province/State/
+  Region/County: "Buenos Aires"; the first results are reused when that is the text itself) and take the first page
+  whose **title starts with it**, whose coordinate type is a place or missing (never edu, landmark, …) and which is
+  within 400 km (`chooseNamedNearby`): the province's Wikipedia point is ~75 km from Photon's. London, England is
+  still never taken for London, Ontario. **Free text:** the first result. Only that page is used (a nearby landmark
+  never stands in).
 - **Image** (`PhotoRules`): JPEG or WebP only (SVG, GIF, TIFF and **PNG** never: places' PNG lead images are maps,
   e.g. Santorini's and Mykonos'), ≥ 400 px wide, aspect 0.6–4.0, and no blocked word in the file name (whole words:
   flag, coat, arms, coa, emblem, seal, logo, map(s), locator, location, locmap, orthographic, montage, collage,
-  collection, mosaic, composite, banner, symbol, icon, diagram, wappen, escudo, blason, and Hebrew דגל, סמל, מפה, מפת,
-  מונטאז, קולאז). Order: the page's lead image → its Wikidata item's image (P18, same rules) → the largest landscape
-  JPEG among the page's images → `NotFound`. Sizes are Wikimedia's standard thumbnail widths 960 and 250 (a smaller
+  collection, mosaic, composite, banner, symbol, icon, diagram, wappen, escudo, blason, collagem, montaje, montagem,
+  montaggio, and Hebrew דגל, סמל, מפה, מפת, מונטאז, קולאז); collage, collagem, montage, montaje, montagem and montaggio
+  also **glued** to other words ("DubaiCollage"). Order: the page's **landscape** lead image → its Wikidata item's
+  image (P18, same rules; tried first when the lead is portrait, often a collage) → a portrait lead → the largest
+  landscape JPEG among the page's images → `NotFound`. Every rejected image is logged with its reason
+  (`PhotoRules.rejection`: "type image/png", "312 px wide", "shape 0.42", "blocked word 'dubaicollage'"). Sizes are Wikimedia's standard thumbnail widths 960 and 250 (a smaller
   original is used as is). Which step and file each destination got is logged (`adb logcat -s DestinationPhoto`).
 - **Storage** (`RoomDestinationPhotoRepository`, one consumer coroutine, so a key is never looked up twice at once):
   found → kept for good; `NotFound` or an unreadable answer (`PhotoLookupException`) → stored with null URLs, retried
-  after 7 days; a connection failure (`IOException`) is not stored: offline nothing is tried, and it is retried when the
+  after 7 days (**once per `PhotoRetryFlags.CURRENT_VERSION`**, prefs "photos" `not_found_cleared_version`, every
+  stored "nothing found" is deleted before the first lookup, so trips retry under new rules right away; version 1 =
+  the province fallback and collage rules); a connection failure (`IOException`) is not stored: offline nothing is tried, and it is retried when the
   connection comes back (offline → online only) or a minute later when a screen asks again. Images are cached by Coil
   (`cacheDir/destination_photos`, 50 MB, cache headers ignored), so photos show offline after the first load.
 - **Wiring:** `HomeViewModel` asks for every trip's `photoQuery` whenever the trip list emits and puts

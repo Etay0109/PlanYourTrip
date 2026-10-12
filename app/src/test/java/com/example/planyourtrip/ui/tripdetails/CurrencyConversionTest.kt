@@ -27,11 +27,28 @@ class CurrencyConversionTest {
     }
 
     @Test
-    fun input_acceptsUpTo9999999_99() {
+    fun input_acceptsUpTo999999999999_99() {
         assertTrue(isValidInput("9999999.99"))
         assertTrue(isValidInput("9999999,99"))
-        assertFalse(isValidInput("10000000"))
-        assertFalse(isValidInput("12345678.9"))
+        assertTrue(isValidInput("999999999999.99"))
+        assertFalse(isValidInput("1000000000000"))
+        assertFalse(isValidInput("1234567890123.9"))
+    }
+
+    @Test
+    fun argentinePeso_convertsBothWays() {
+        val ars = BigDecimal("0.00201808201485") // 1 ÷ 495.52, as FrankfurterJson stores it
+        assertEquals("50.45", convert("25000", ars, ConverterSide.FOREIGN))
+        assertEquals("123880", convert("250", ars, ConverterSide.ILS))
+    }
+
+    @Test
+    fun tinyRate_iranianRial_staysExact_withLongAmounts() {
+        val irr = BigDecimal("0.00000175408746231") // 1 ÷ 570097
+        assertEquals("1", convert("570097", irr, ConverterSide.FOREIGN))
+        assertEquals("570097000", convert("1000", irr, ConverterSide.ILS))
+        assertEquals("1754087.46", convert("999999999999.99", irr, ConverterSide.FOREIGN))
+        assertEquals("0.000001754", CurrencyConversion.formatRate(irr, Locale.US))
     }
 
     @Test
@@ -136,8 +153,8 @@ class CurrencyConversionTest {
 
     @Test
     fun typingPastTheLimit_isIgnored_andTheFieldKeepsItsValue() {
-        val full = CurrencyConversion.edit(ConverterInput(), ConverterSide.FOREIGN, "9999999")
-        assertEquals(full, CurrencyConversion.edit(full, ConverterSide.FOREIGN, "99999999")) // 8th digit
+        val full = CurrencyConversion.edit(ConverterInput(), ConverterSide.FOREIGN, "999999999999")
+        assertEquals(full, CurrencyConversion.edit(full, ConverterSide.FOREIGN, "9999999999999")) // 13th digit
         val decimals = CurrencyConversion.edit(ConverterInput(), ConverterSide.ILS, "12.34")
         assertEquals(decimals, CurrencyConversion.edit(decimals, ConverterSide.ILS, "12.345")) // 3rd decimal
         assertEquals(decimals, CurrencyConversion.edit(decimals, ConverterSide.ILS, "12.34a"))
@@ -199,5 +216,54 @@ class CurrencyConversionTest {
     fun currencySymbol_isNullWhenOnlyTheCodeIsKnown() {
         assertEquals("€", CurrencyConversion.currencySymbol("EUR", Locale.US))
         assertNull(CurrencyConversion.currencySymbol("XYZ", Locale.US))
+    }
+
+    // --- The card's rate line: per unit, or per shekel below ₪0.10 ------------------------------------------------
+
+    private fun line(ilsPerUnit: String) = CurrencyConversion.rateLine(BigDecimal(ilsPerUnit), Locale.US)
+
+    @Test
+    fun rateLine_switchesToPerShekel_belowTenAgorot() {
+        assertEquals(RateLine.PerUnit("0.10"), line("0.10"))
+        assertEquals(RateLine.PerUnit("0.10"), line("0.1000"))
+        assertEquals(RateLine.PerShekel("10.01"), line("0.0999"))
+        assertEquals(RateLine.PerUnit("1.00"), line("1"))
+    }
+
+    @Test
+    fun rateLine_euro_staysPerUnit() {
+        assertEquals(RateLine.PerUnit("3.43"), line("3.43347639485"))
+        assertEquals(RateLine.PerUnit("3.44"), line("3.4408"))
+    }
+
+    @Test
+    fun rateLine_argentinePeso_isPerShekel_withTwoDecimals() {
+        // Stored as 1 ÷ 495.52 (FrankfurterJson); shown back as the service's number.
+        assertEquals(RateLine.PerShekel("495.52"), line("0.00201808201485"))
+    }
+
+    @Test
+    fun rateLine_japaneseYen_isPerShekel() {
+        assertEquals(RateLine.PerShekel("51.44"), line("0.01944"))
+        assertEquals(RateLine.PerShekel("39.81"), line("0.02512"))
+    }
+
+    @Test
+    fun rateLine_dongAndRial_areWhole_withGrouping() {
+        assertEquals(RateLine.PerShekel("8,446"), line("0.000118399242245"))
+        assertEquals(RateLine.PerShekel("570,097"), line("0.00000175408746231"))
+    }
+
+    @Test
+    fun unitsPerShekel_roundsHalfUp_andGoesWholeFromAThousand() {
+        fun perShekel(units: String) = CurrencyConversion.formatUnitsPerShekel(
+            BigDecimal.ONE.divide(BigDecimal(units), java.math.MathContext.DECIMAL64), Locale.US,
+        )
+        assertEquals("10.01", perShekel("10.005"))
+        assertEquals("999.99", perShekel("999.994"))
+        // Rounds to 1,000.00: shown whole, never "1,000.00".
+        assertEquals("1,000", perShekel("999.996"))
+        assertEquals("1,235", perShekel("1234.5"))
+        assertEquals("1,234", perShekel("1234.49"))
     }
 }

@@ -69,6 +69,8 @@ class AppLocaleTest(private val deviceLocale: Locale) {
         assertEquals("1,234.50", Money.formatAgorot(123_450))
         assertEquals("57.5%", Money.formatPercent(57.5))
         assertEquals("1,234.57", CurrencyConversion.formatRate(BigDecimal("1234.5678")))
+        assertEquals("8,446", CurrencyConversion.formatUnitsPerShekel(BigDecimal("0.000118399242245")))
+        assertEquals("495.52", CurrencyConversion.formatUnitsPerShekel(BigDecimal("0.00201808201485")))
     }
 
     @Test

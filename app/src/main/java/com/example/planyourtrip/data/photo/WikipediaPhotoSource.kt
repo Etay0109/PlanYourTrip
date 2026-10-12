@@ -19,9 +19,12 @@ fun interface HttpGet {
  * Destination photos from Wikipedia and Wikidata (no API key). The only Wikipedia HTTP code.
  *
  * 1. Search Wikipedia (Hebrew first for text with Hebrew letters, then English) and pick the page
- *    ([PhotoRules.choosePage]: for a picked place only a page whose coordinates are close enough).
- * 2. Its lead image if it is a suitable photo; else the Wikidata item's image (P18) under the same rules; else the
- *    largest landscape JPEG on the page. Nothing suitable → [PhotoResult.NotFound].
+ *    ([PhotoRules.choosePage]: for a picked place only a page whose coordinates are close enough). When none is
+ *    close enough, search again with the short name ([PhotoRules.fallbackName]) and take a page titled with it within
+ *    400 km ([PhotoRules.chooseNamedNearby]): a province's point is often far from its page's point.
+ * 2. Its lead image if it is a suitable landscape photo; a portrait lead (often a collage) only after the Wikidata
+ *    item's image (P18, same rules); else the largest landscape JPEG on the page. Nothing suitable →
+ *    [PhotoResult.NotFound]. Every rejected image is logged with the reason.
  * 3. The chosen file's 250 px thumbnail and description page.
  *
  * Wikimedia serves only standard thumbnail widths, so the sizes are 960 (card, header) and 250 (thumbnail).
@@ -50,7 +53,7 @@ class WikipediaPhotoSource(
 
     private suspend fun findIn(language: String, query: PhotoQuery): PhotoResult.Found? {
         val pages = parse { WikipediaJson.parseSearch(get(searchUrl(language, query.text))) }
-        val page = PhotoRules.choosePage(pages, query) ?: return null
+        val page = PhotoRules.choosePage(pages, query) ?: fallbackPage(language, query, pages) ?: return null
         val (image, origin) = chooseImage(language, page) ?: return null
         val cardUrl = image.url ?: return null
         val small = parse {
@@ -66,8 +69,32 @@ class WikipediaPhotoSource(
         )
     }
 
+    /**
+     * No page close enough: first a page of the [first] results titled with the whole name before the comma ("Buenos
+     * Aires Province") within 400 km; then one more search with the short name (the [first] results again when the
+     * short name is what was searched), for a page titled with it within 400 km.
+     */
+    private suspend fun fallbackPage(language: String, query: PhotoQuery, first: List<WikiPage>): WikiPage? {
+        if (!query.hasCoordinates) return null
+        val fullName = query.text.substringBefore(',').trim()
+        if (fullName.length >= 2) {
+            PhotoRules.chooseNamedNearby(first, query, fullName)?.let { page ->
+                log("\"${query.text}\": no page close enough, took \"${page.title}\" ($language) within 400 km")
+                return page
+            }
+        }
+        val name = PhotoRules.fallbackName(query.text) ?: return null
+        val pages = if (name.equals(query.text.trim(), ignoreCase = true)) first
+        else parse { WikipediaJson.parseSearch(get(searchUrl(language, name))) }
+        val page = PhotoRules.chooseNamedNearby(pages, query, name)
+        log("\"${query.text}\": no page close enough, fallback search \"$name\" ($language) → ${page?.title ?: "none"}")
+        return page
+    }
+
     private suspend fun chooseImage(language: String, page: WikiPage): Pair<WikiImage, PhotoOrigin>? {
-        page.leadImage?.takeIf { it.url != null && PhotoRules.isSuitable(it) }?.let { return it to PhotoOrigin.LEAD }
+        val lead = page.leadImage?.takeIf { it.url != null && accept(it, "lead", page) }
+        if (lead != null && !PhotoRules.isPortrait(lead)) return lead to PhotoOrigin.LEAD
+        if (lead != null) log("Portrait lead ${lead.fileName} (${page.title}): trying the Wikidata image first")
 
         page.wikidataId?.let { item ->
             val fileName = parse { WikipediaJson.parseWikidataImage(get(wikidataImageUrl(item))) }
@@ -75,12 +102,22 @@ class WikipediaPhotoSource(
                 val image = parse {
                     WikipediaJson.parseImageInfo(get(imageInfoUrl(language, fileName, CARD_WIDTH)))
                 }.firstOrNull()
-                if (image?.url != null && PhotoRules.isSuitable(image)) return image to PhotoOrigin.WIKIDATA
+                if (image?.url != null && accept(image, "Wikidata", page)) return image to PhotoOrigin.WIKIDATA
             }
         }
+        if (lead != null) return lead to PhotoOrigin.LEAD
 
         val pageImages = parse { WikipediaJson.parseImageInfo(get(pageImagesUrl(language, page.title))) }
-        return PhotoRules.bestPageImage(pageImages)?.let { it to PhotoOrigin.PAGE_IMAGES }
+        val best = PhotoRules.bestPageImage(pageImages)
+        if (best == null) log("No page image of ${page.title} passed (${pageImages.size} checked)")
+        return best?.let { it to PhotoOrigin.PAGE_IMAGES }
+    }
+
+    /** True for a suitable image; otherwise logs why it was rejected. */
+    private fun accept(image: WikiImage, step: String, page: WikiPage): Boolean {
+        val reason = PhotoRules.rejection(image) ?: return true
+        log("Rejected $step image ${image.fileName} (${page.title}): $reason")
+        return false
     }
 
     private suspend fun get(url: String): String = http.get(url, userAgent)

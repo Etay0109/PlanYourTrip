@@ -48,6 +48,8 @@ object PhotoRules {
     const val COUNTRY_KM = 4_000.0
 
     private val REGION_TYPES = setOf("state", "adm1st", "adm2nd", "adm3rd", "isle", "region")
+    /** Coordinate types of places (a page with another type, "edu" or "landmark", is never the destination). */
+    private val PLACE_TYPES = REGION_TYPES + setOf("city", "country", "continent")
     private val COUNTRY_TYPES = setOf("country", "continent")
 
     private const val JPEG = "image/jpeg"
@@ -64,10 +66,16 @@ object PhotoRules {
     val BLOCKED_WORDS = setOf(
         "flag", "flags", "coat", "arms", "coa", "emblem", "seal", "logo", "map", "maps", "locator", "location",
         "locmap", "orthographic", "montage", "collage", "collection", "mosaic", "composite", "banner", "symbol",
-        "icon", "diagram", "wappen", "escudo", "blason",
+        "icon", "diagram", "wappen", "escudo", "blason", "collagem", "montaje", "montagem", "montaggio",
         // Hebrew: flag, symbol / emblem, map (and "map of"), montage, collage (the geresh is not part of a word).
         "דגל", "סמל", "מפה", "מפת", "מונטאז", "קולאז",
     )
+
+    /**
+     * Collage words also caught when glued to other words ("DubaiCollage", "Buenosairesmontaje"): English, Spanish,
+     * Portuguese and Italian.
+     */
+    val GLUED_BLOCKED_WORDS = listOf("collage", "collagem", "montage", "montaje", "montagem", "montaggio")
 
     private val WORD_SEPARATOR = Regex("[^\\p{L}\\p{N}]+")
 
@@ -81,16 +89,32 @@ object PhotoRules {
         else -> null
     }
 
-    fun hasBlockedName(fileName: String): Boolean =
-        fileName.substringBeforeLast('.').lowercase(Locale.ROOT).split(WORD_SEPARATOR).any { it in BLOCKED_WORDS }
+    /** The word of [fileName] that blocks it (whole word, or a glued collage word), or null. */
+    fun blockedWord(fileName: String): String? =
+        fileName.substringBeforeLast('.').lowercase(Locale.ROOT).split(WORD_SEPARATOR).firstOrNull { word ->
+            word in BLOCKED_WORDS || GLUED_BLOCKED_WORDS.any { it in word }
+        }
 
-    /** A photo of the place: JPEG or WebP, ≥ 400 px wide, a usual shape, and no blocked word in its name. */
-    fun isSuitable(image: WikiImage): Boolean {
+    fun hasBlockedName(fileName: String): Boolean = blockedWord(fileName) != null
+
+    /**
+     * Why [image] isn't a photo of the place (logged), or null when it is: JPEG or WebP, ≥ 400 px wide, a usual
+     * shape, and no blocked word in its name.
+     */
+    fun rejection(image: WikiImage): String? {
         val type = image.mime ?: mimeOf(image.fileName)
-        if (type !in PHOTO_TYPES || image.width < MIN_WIDTH || image.height <= 0) return false
+        if (type !in PHOTO_TYPES) return "type ${type ?: "unknown"}"
+        if (image.width < MIN_WIDTH) return "${image.width} px wide"
+        if (image.height <= 0) return "no height"
         val ratio = image.width.toDouble() / image.height
-        return ratio in MIN_ASPECT..MAX_ASPECT && !hasBlockedName(image.fileName)
+        if (ratio !in MIN_ASPECT..MAX_ASPECT) return String.format(Locale.ROOT, "shape %.2f", ratio)
+        return blockedWord(image.fileName)?.let { "blocked word '$it'" }
     }
+
+    fun isSuitable(image: WikiImage): Boolean = rejection(image) == null
+
+    /** Taller than wide: often a collage of several photos, so the Wikidata image is tried first. */
+    fun isPortrait(image: WikiImage): Boolean = image.height > image.width
 
     /** The last fallback, among all the page's images: only JPEG photos in landscape shape. */
     fun isPageImageCandidate(image: WikiImage): Boolean =
@@ -130,6 +154,35 @@ object PhotoRules {
             val lat = page.latitude ?: return@firstOrNull false
             val lon = page.longitude ?: return@firstOrNull false
             distanceKm(query.latitude!!, query.longitude!!, lat, lon) <= maxDistanceKm(page.coordinateType)
+        }
+    }
+
+    /** Type words the destination suggestions add to a region's name ("Buenos Aires Province"). */
+    private val REGION_WORDS = Regex("\\s+(province|state|region|county)$", RegexOption.IGNORE_CASE)
+
+    /**
+     * The name searched again when no page passes [choosePage]: the text before the first comma, without a region
+     * word ("Buenos Aires Province, Argentina" and "Buenos Aires, Argentina" → "Buenos Aires"); null when too short.
+     */
+    fun fallbackName(text: String): String? =
+        text.substringBefore(',').trim().replace(REGION_WORDS, "").trim().takeIf { it.length >= 2 }
+
+    /**
+     * The fallback for a picked province or region whose point is far from its Wikipedia page's point: in search
+     * order, the first page whose title starts with [name], whose coordinate type is a place (or not given), and
+     * which is within [REGION_KM] (or its type's larger limit). "London" with Ontario's coordinates still never takes
+     * London, England (5,700 km away).
+     */
+    fun chooseNamedNearby(pages: List<WikiPage>, query: PhotoQuery, name: String): WikiPage? {
+        if (!query.hasCoordinates) return null
+        return pages.sortedBy { it.index }.filterNot { it.disambiguation }.firstOrNull { page ->
+            val lat = page.latitude ?: return@firstOrNull false
+            val lon = page.longitude ?: return@firstOrNull false
+            val type = page.coordinateType?.lowercase(Locale.ROOT)
+            page.title.startsWith(name, ignoreCase = true) &&
+                (type == null || type in PLACE_TYPES) &&
+                distanceKm(query.latitude!!, query.longitude!!, lat, lon) <=
+                maxOf(REGION_KM, maxDistanceKm(type))
         }
     }
 }

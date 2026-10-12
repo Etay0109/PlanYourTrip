@@ -50,6 +50,8 @@ class RoomDestinationPhotoRepository(
     private val clock: Clock,
     scope: CoroutineScope,
     private val log: (String, Throwable?) -> Unit = { _, _ -> },
+    /** Clears stored "nothing found" rows once per [PhotoRetryFlags.CURRENT_VERSION], before any lookup. */
+    private val retryFlags: PhotoRetryFlags = PhotoRetryFlags.Done,
 ) : DestinationPhotoRepository {
 
     private sealed interface Message {
@@ -65,6 +67,7 @@ class RoomDestinationPhotoRepository(
 
     init {
         scope.launch {
+            clearNotFoundOnce()
             for (message in messages) {
                 when (message) {
                     is Message.Lookup -> lookUp(message.query)
@@ -99,6 +102,20 @@ class RoomDestinationPhotoRepository(
     override fun request(queries: Collection<PhotoQuery>) {
         queries.filter { it.text.isNotBlank() }.distinctBy { it.key }
             .forEach { messages.trySend(Message.Lookup(it)) }
+    }
+
+    private suspend fun clearNotFoundOnce() {
+        if (retryFlags.clearedVersion() >= PhotoRetryFlags.CURRENT_VERSION) return
+        try {
+            val cleared = dao.deleteNotFound()
+            log("Cleared $cleared stored \"no photo\" results: they are looked up again", null)
+            retryFlags.markCleared(PhotoRetryFlags.CURRENT_VERSION)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // Tried again at the next app start; lookups go on as usual.
+            log("Couldn't clear the stored \"no photo\" results", e)
+        }
     }
 
     private suspend fun lookUp(query: PhotoQuery) {

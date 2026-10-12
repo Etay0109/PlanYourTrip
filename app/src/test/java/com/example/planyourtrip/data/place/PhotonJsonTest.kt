@@ -60,7 +60,8 @@ class PhotonJsonTest {
             feature("London garden", "square"),
             feature("Soho", "neighbourhood"),
         )
-        assertEquals(listOf("Santorini, Greece", "Tuscany, Italy"), list.map { it.label })
+        // Tuscany is an Italian region: it fills "Tuscany Region, Italy" (see the region tests below).
+        assertEquals(listOf("Santorini, Greece", "Tuscany Region, Italy"), list.map { it.label })
         assertEquals("Aegean, Greece", list[0].detail)
         assertEquals("Italy", list[1].detail)
     }
@@ -113,5 +114,45 @@ class PhotonJsonTest {
     @Test(expected = Exception::class)
     fun notJson_throws() {
         PhotonJson.parse("<html>Too many requests</html>")
+    }
+
+    // --- Regions never fill the same text as a city of the same name --------------------------------------------
+
+    @Test
+    fun buenosAires_theCityAndTheProvince_areTwoRows_withDifferentTexts() {
+        val list = parse(
+            feature("Buenos Aires", "city", country = "Argentina", code = "AR", state = "Autonomous City of Buenos Aires"),
+            feature("Buenos Aires", "state", country = "Argentina", code = "AR"),
+        )
+        assertEquals(2, list.size)
+        assertNull(list[0].regionKind)
+        assertEquals(RegionKind.PROVINCE, list[1].regionKind)
+        assertEquals(listOf("Buenos Aires, Argentina", "Buenos Aires Province, Argentina"), list.map { it.label })
+        // The row itself still shows the plain name, with the "Province" label next to it.
+        assertEquals("Buenos Aires", list[1].name)
+        assertEquals("Argentina", list[1].detail)
+    }
+
+    @Test
+    fun theRegionWord_followsTheCountry() {
+        fun labelOf(name: String, value: String, country: String, code: String) =
+            parse(feature(name, value, country = country, code = code)).single().label
+        assertEquals("California State, United States", labelOf("California", "state", "United States", "US"))
+        assertEquals("Bavaria State, Germany", labelOf("Bavaria", "state", "Germany", "DE"))
+        assertEquals("Ontario Province, Canada", labelOf("Ontario", "province", "Canada", "CA"))
+        assertEquals("Catalonia Region, Spain", labelOf("Catalonia", "state", "Spain", "ES"))
+        assertEquals("Kent County, United States", labelOf("Kent", "county", "United States", "US"))
+        // A name that already ends with the word keeps it once.
+        assertEquals("Kent County, United States", labelOf("Kent County", "county", "United States", "US"))
+        // England and Scotland are countries of their own: no word.
+        assertEquals("England, United Kingdom", labelOf("England", "state", "United Kingdom", "GB"))
+        assertNull(parse(feature("England", "state", country = "United Kingdom", code = "GB")).single().regionKind)
+    }
+
+    @Test
+    fun citiesTownsAndIslands_haveNoRegionWord() {
+        for (value in listOf("city", "town", "village", "municipality", "island", "archipelago", "country")) {
+            assertNull(value, parse(feature("Place", value, country = "Argentina", code = "AR")).single().regionKind)
+        }
     }
 }
