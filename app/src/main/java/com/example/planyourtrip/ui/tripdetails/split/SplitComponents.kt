@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -25,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,6 +35,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -40,7 +44,9 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -54,6 +60,7 @@ import com.example.planyourtrip.ui.common.split.MergeSuggestion
 import com.example.planyourtrip.ui.common.split.Person
 import com.example.planyourtrip.ui.common.split.Transfer
 import com.example.planyourtrip.ui.theme.Dimens
+import com.example.planyourtrip.ui.theme.ExtendedTheme
 import com.example.planyourtrip.ui.tripdetails.components.TravelerAvatar
 import com.example.planyourtrip.ui.tripdetails.components.personName
 
@@ -299,6 +306,10 @@ fun WhoOwesWhomCard(
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.semantics { heading() },
             )
+            owesSummary(state.transfers, state.me)?.let {
+                Spacer(Modifier.height(4.dp))
+                OwesSummaryLine(it)
+            }
             Spacer(Modifier.height(4.dp))
             Text(
                 text = pluralStringResource(
@@ -349,7 +360,33 @@ private fun SettledUp() {
     }
 }
 
-/** "Noa → You  Noa owes you  ₪320". Amounts owed to me are teal. */
+/** "You're owed ₪820.49" (teal), "You owe ₪150.00" (warning orange) or "You're all square". */
+@Composable
+private fun OwesSummaryLine(summary: OwesSummary) {
+    val (text, color) = when (summary) {
+        is OwesSummary.Owed ->
+            stringResource(R.string.owes_summary_owed, shekels(summary.amountAgorot)) to
+                MaterialTheme.colorScheme.primary
+        is OwesSummary.Owe ->
+            stringResource(R.string.owes_summary_owe, shekels(summary.amountAgorot)) to
+                ExtendedTheme.colors.budgetWarning
+        OwesSummary.AllSquare ->
+            stringResource(R.string.owes_summary_square) to MaterialTheme.colorScheme.onSurface
+    }
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+        color = color,
+    )
+}
+
+/**
+ * "Noa → You  Noa owes you  ₪320". Amounts owed to me are teal. The amount keeps its natural width on the right and
+ * the sentence gets the rest. When the sentence wouldn't fit on one line there, it moves under the avatars and the
+ * amount and gets the row's full width; when even the avatars and the amount don't fit side by side (narrow phone,
+ * large font), the amount goes under the sentence. Only a long name wraps: the fixed words are joined by no-break
+ * spaces.
+ */
 @Composable
 fun TransferRow(transfer: Transfer, state: SplitUiState.Loaded, modifier: Modifier = Modifier) {
     val from = state.person(transfer.fromKey)
@@ -357,30 +394,78 @@ fun TransferRow(transfer: Transfer, state: SplitUiState.Loaded, modifier: Modifi
     val sentence = transferSentence(from, to)
     val amount = shekels(transfer.amountAgorot)
     val description = stringResource(R.string.owes_row_description, sentence, amount)
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
+    val sentenceStyle = MaterialTheme.typography.bodyLarge
+    val amountStyle = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+    val amountColor =
+        if (to is Person.You) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.shapes.large)
             .clearAndSetSemantics { contentDescription = description }
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 12.dp, vertical = 12.dp),
     ) {
-        TransferAvatars(from, to)
-        Spacer(Modifier.width(12.dp))
-        Text(
-            text = sentence,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f),
-        )
-        Spacer(Modifier.width(8.dp))
-        Text(
-            text = amount,
-            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-            color = if (to is Person.You) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-        )
+        val maxWidthPx = constraints.maxWidth
+        val layout = remember(sentence, amount, sentenceStyle, amountStyle, maxWidthPx, density) {
+            fun width(text: String, style: TextStyle) =
+                measurer.measure(text, style, maxLines = 1, softWrap = false).size.width
+            with(density) {
+                val avatars = TransferAvatarsWidth.roundToPx()
+                val amountWidth = width(amount, amountStyle)
+                val free = maxWidthPx - avatars - TransferGap.roundToPx() * 2 - amountWidth
+                when {
+                    width(sentence, sentenceStyle) <= free -> TransferLayout.ONE_LINE
+                    avatars + TransferGap.roundToPx() + amountWidth <= maxWidthPx -> TransferLayout.SENTENCE_BELOW
+                    else -> TransferLayout.STACKED
+                }
+            }
+        }
+        val sentenceText = @Composable { textModifier: Modifier ->
+            Text(
+                text = sentence,
+                style = sentenceStyle,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = textModifier,
+            )
+        }
+        val amountText = @Composable {
+            Text(text = amount, style = amountStyle, color = amountColor, maxLines = 1, softWrap = false)
+        }
+        when (layout) {
+            TransferLayout.ONE_LINE -> Row(verticalAlignment = Alignment.CenterVertically) {
+                TransferAvatars(from, to)
+                Spacer(Modifier.width(TransferGap))
+                sentenceText(Modifier.weight(1f))
+                Spacer(Modifier.width(TransferGap))
+                amountText()
+            }
+            TransferLayout.SENTENCE_BELOW -> Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TransferAvatars(from, to)
+                    Spacer(Modifier.weight(1f).widthIn(min = TransferGap))
+                    amountText()
+                }
+                Spacer(Modifier.height(8.dp))
+                sentenceText(Modifier.fillMaxWidth())
+            }
+            TransferLayout.STACKED -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                TransferAvatars(from, to)
+                sentenceText(Modifier.fillMaxWidth())
+                amountText()
+            }
+        }
     }
 }
+
+private enum class TransferLayout { ONE_LINE, SENTENCE_BELOW, STACKED }
+
+/** Between the avatars, the sentence and the amount. */
+private val TransferGap = 8.dp
+
+/** [TransferAvatars]: two small avatars and the 16dp arrow with 4dp on each side. */
+private val TransferAvatarsWidth = Dimens.TravelerAvatarSmallSize * 2 + 24.dp
 
 /** The payer's avatar, an arrow, the receiver's avatar. */
 @Composable

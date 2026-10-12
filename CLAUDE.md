@@ -1014,9 +1014,15 @@ the By category legend uses round dots, ₪0 rows (expenses I'm not part of) com
   zero-sum groups as possible (bitmask DP over subsets, ≤ 16 people with a balance; above that one greedy group), each
   group of k settles with k − 1 transfers (largest debtor pays largest creditor). Sorted: rows with "You" first, then
   the larger amount, then list order.
-- **Who owes whom** (`WhoOwesWhomCard`): "Based on N shared expenses" (`sharedExpenseCount`: split ≠ `[payer]`);
+- **Who owes whom** (`WhoOwesWhomCard`): under the title my net balance (`owesSummary`, pure, `OwesSummaryTest`; display
+  only, received − paid over the open transfers): "You're owed ₪820.49" (`primary`), "You owe ₪150" (`budgetWarning`),
+  "You're all square" (others still owe each other), no line when all is settled; then "Based on N shared expenses"
+  (`sharedExpenseCount`: split ≠ `[payer]`);
   rows on `surfaceContainerHighest`: 32dp avatar → arrow → avatar, "Noa owes you" / "You owe Amit" / "Amit owes Noa",
-  the amount (teal when owed to me); tonal full-width "Settle up" (`primaryContainer`). No open debt → check icon +
+  the amount (teal when owed to me, natural width, never wrapped). The sentence sits between them when it fits on one
+  line there (measured), else under the avatars + amount on the row's full width, and when even avatars + amount don't
+  fit side by side (320dp / font 1.5) the amount goes under the sentence; "owes\u00A0you" / "You\u00A0owe" keep the fixed
+  words together, so only a long name wraps (`LayoutPolishTest.owesCard_*`); tonal full-width "Settle up" (`primaryContainer`). No open debt → check icon +
   "All settled up", plus a "History" link when payments exist. Hidden when the trip has only me.
 - **Settle up** (`SettleUpSheet`, `ModalBottomSheet`, state `SettleSheetState`): radio rows of the open transfers (a
   single one is picked already); the amount field starts at the full amount (`Money.toInput`) and may be lowered for a

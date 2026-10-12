@@ -19,6 +19,7 @@ import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.Density
@@ -26,6 +27,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.example.planyourtrip.data.trip.Traveler
 import com.example.planyourtrip.data.trip.TravelerColor
 import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.data.trip.TripColor
@@ -34,6 +36,7 @@ import com.example.planyourtrip.ui.common.components.DestinationTitleLayout
 import com.example.planyourtrip.ui.common.components.DestinationTitleLayoutKey
 import com.example.planyourtrip.ui.common.components.TripDatesRow
 import com.example.planyourtrip.ui.common.split.Person
+import com.example.planyourtrip.ui.common.split.Transfer
 import com.example.planyourtrip.ui.home.ActiveTrip
 import com.example.planyourtrip.ui.home.components.NextTripCard
 import com.example.planyourtrip.ui.home.components.PastTripCard
@@ -47,6 +50,9 @@ import com.example.planyourtrip.ui.tripdetails.members.MemberEntry
 import com.example.planyourtrip.ui.tripdetails.members.MembersCard
 import com.example.planyourtrip.ui.tripdetails.members.MembersSheetMode
 import com.example.planyourtrip.ui.tripdetails.members.MembersState
+import com.example.planyourtrip.ui.tripdetails.split.SplitActions
+import com.example.planyourtrip.ui.tripdetails.split.SplitUiState
+import com.example.planyourtrip.ui.tripdetails.split.WhoOwesWhomCard
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -248,6 +254,49 @@ class LayoutPolishTest {
         assertEquals(1, rule.onAllNodesWithText("Members").fetchSemanticsNodes().size)
         assertEquals(0, rule.onAllNodesWithText("Members of", substring = true).fetchSemanticsNodes().size)
         save("members_sheet_$size")
+    }
+
+    // "Who owes whom": the summary line, and each row's sentence on one line when it fits (only a long name wraps).
+
+    private val owes = SplitUiState.Loaded(
+        me = "me",
+        travelers = listOf(
+            Traveler(1, 1, "daniel", "Daniel", TravelerColor.INDIGO),
+            Traveler(2, 1, "noa", "Noa Levinson-Abramovitz Cohen", TravelerColor.ROSE),
+        ),
+        transfers = listOf(
+            Transfer("daniel", "me", 82_049),
+            Transfer("me", "noa", 15_000),
+            Transfer("daniel", "noa", 123_456),
+        ),
+        sharedExpenseCount = 4,
+        settlements = emptyList(),
+    )
+
+    @Test
+    fun owesCard_smallPhoneLargeFont() = owesCard(sizes[0])
+
+    @Test
+    fun owesCard_smallPhone() = owesCard(sizes[4])
+
+    @Test
+    fun owesCard_largePhone() = owesCard(sizes[3])
+
+    private fun owesCard(size: Size) {
+        show(size) { WhoOwesWhomCard(owes, SplitActions.None) }
+        save("owes_card_$size")
+        // Net: +820.49 − 150.00 (the line may wrap only before the amount at 320dp with a large font).
+        val summary = rule.onNodeWithText("You're\u00A0owed ₪670.49", useUnmergedTree = true).assertExists()
+        if (size.width >= 360.dp) summary.assertOneLine(size, lineHeightSp = 24f)
+        // On the emulator's 448dp, "Daniel owes you" shares one line with the avatars and the amount (28sp); on
+        // smaller phones it moves under them (checked in the pictures).
+        if (size.width >= 448.dp) {
+            val row = rule.onNodeWithContentDescription("Daniel owes\u00A0you ₪820.49")
+            val height = row.fetchSemanticsNode().boundsInRoot.height
+            val density = InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.density
+            val oneLine = (24f + maxOf(32f, 28f * size.fontScale)) * density
+            assertTrue("row $height px is taller than one line ($oneLine px) at $size", height <= oneLine + 2)
+        }
     }
 
     // Destination titles at 360dp: never broken inside a word (shrink a little, then a narrower countdown box, then

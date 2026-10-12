@@ -253,8 +253,11 @@
         <item quantity="other">Based on %1$d shared expenses</item>
     </plurals>
     <string name="owes_settled">All settled up</string>
-    <string name="owes_they_owe_you">%1$s owes you</string>
-    <string name="owes_you_owe">You owe %1$s</string>
+    <string name="owes_summary_owed">You\'re\u00A0owed %1$s</string>
+    <string name="owes_summary_owe">You\u00A0owe %1$s</string>
+    <string name="owes_summary_square">You\'re all square</string>
+    <string name="owes_they_owe_you">%1$s owes\u00A0you</string>
+    <string name="owes_you_owe">You\u00A0owe %1$s</string>
     <string name="owes_they_owe">%1$s owes %2$s</string>
     <string name="owes_row_description">%1$s %2$s</string>
     <string name="settle_up">Settle up</string>
