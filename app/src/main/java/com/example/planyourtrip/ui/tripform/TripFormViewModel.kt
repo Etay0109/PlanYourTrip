@@ -15,6 +15,7 @@ import com.example.planyourtrip.data.currency.CurrencyRepository
 import com.example.planyourtrip.data.place.DestinationSuggestions
 import com.example.planyourtrip.data.place.PlaceSuggestion
 import com.example.planyourtrip.data.place.countryCurrency
+import com.example.planyourtrip.data.reminder.ReminderPrompt
 import com.example.planyourtrip.data.trip.TripPlace
 import com.example.planyourtrip.data.trip.TripRepository
 import com.example.planyourtrip.data.trip.place
@@ -40,6 +41,8 @@ class TripFormViewModel(
     private val currencyRepository: CurrencyRepository,
     /** Places for the destination field (Photon + the Hebrew table). */
     private val destinations: DestinationSuggestions,
+    /** Told about a new trip: may ask for the notification permission (trip reminders). */
+    private val reminderPrompt: ReminderPrompt = ReminderPrompt.None,
 ) : ViewModel() {
 
     /** The running destination lookup; a new keystroke cancels it (and its request). */
@@ -217,8 +220,12 @@ class TripFormViewModel(
         _uiState.update { it.copy(isSaving = true, suggestions = emptyList()) }
         viewModelScope.launch {
             val currency = validated.currencyCode
-            if (tripId == null) repository.addTrip(ownerId, destination, start, end, currency, place)
-            else repository.updateTrip(tripId, ownerId, destination, start, end, currency, place)
+            if (tripId == null) {
+                repository.addTrip(ownerId, destination, start, end, currency, place)
+                reminderPrompt.onTripAdded(start)
+            } else {
+                repository.updateTrip(tripId, ownerId, destination, start, end, currency, place)
+            }
             _uiState.update { it.copy(isSaving = false, saved = true) }
         }
     }
@@ -237,6 +244,7 @@ class TripFormViewModel(
                     authRepository = container.authRepository,
                     currencyRepository = container.currencyRepository,
                     destinations = container.destinationSuggestions,
+                    reminderPrompt = container.reminderPermissionPrompt,
                 )
             }
         }

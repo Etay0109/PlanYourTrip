@@ -20,6 +20,8 @@ class PlanYourTripApplication : Application(), SingletonImageLoader.Factory {
         container = AppContainer(this)
         // Downloads and merges the signed-in account's data now and after every sign in; uploads local changes.
         container.syncManager.start()
+        // Keeps a "trip starts tomorrow" reminder for every future trip of the signed-in account.
+        container.tripReminderScheduler.start()
         container.cleanUpDocumentFiles()
     }
 

@@ -15,6 +15,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -27,13 +28,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.R
 import com.example.planyourtrip.data.sync.SyncStatus
 import com.example.planyourtrip.ui.common.TripFormatting
+import com.example.planyourtrip.ui.common.rememberNotificationPermissionRequest
 import com.example.planyourtrip.ui.common.account.AccountState
 import com.example.planyourtrip.ui.common.account.SignOutWarning
 import java.time.ZoneId
@@ -45,6 +51,8 @@ class AccountActions(
     val onDismissSignOutWarning: () -> Unit,
     /** "Sync problem – tap to retry". */
     val onRetrySync: () -> Unit = {},
+    /** The "Trip reminders" switch. */
+    val onRemindersChanged: (Boolean) -> Unit = {},
 )
 
 /**
@@ -99,6 +107,7 @@ fun AccountButton(
                 SyncProblemItem(state.lastSyncedAt, isRetrying = state.isRetrying, onRetry = actions.onRetrySync)
             }
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+            RemindersItem(enabled = state.remindersEnabled, onChange = actions.onRemindersChanged)
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.home_sign_out)) },
                 leadingIcon = { Icon(painterResource(R.drawable.ic_logout), contentDescription = null) },
@@ -109,6 +118,30 @@ fun AccountButton(
             )
         }
     }
+}
+
+/**
+ * "Trip reminders" with a switch; the whole row toggles. Turning it on also asks for the notification permission
+ * when Android 13+ still needs it (a direct choice, so it is asked even if it was asked before).
+ */
+@Composable
+private fun RemindersItem(enabled: Boolean, onChange: (Boolean) -> Unit) {
+    val requestPermission = rememberNotificationPermissionRequest()
+    val toggle = {
+        val on = !enabled
+        onChange(on)
+        if (on) requestPermission()
+    }
+    DropdownMenuItem(
+        text = { Text(stringResource(R.string.home_trip_reminders)) },
+        leadingIcon = { Icon(painterResource(R.drawable.ic_notifications), contentDescription = null) },
+        trailingIcon = { Switch(checked = enabled, onCheckedChange = null) },
+        onClick = { toggle() },
+        modifier = Modifier.semantics {
+            role = Role.Switch
+            toggleableState = ToggleableState(enabled)
+        },
+    )
 }
 
 /** "All changes saved" / "Syncing…" / "Offline – changes will sync later" with a small cloud icon. */

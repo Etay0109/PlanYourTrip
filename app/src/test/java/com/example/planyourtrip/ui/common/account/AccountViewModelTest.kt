@@ -1,6 +1,7 @@
 package com.example.planyourtrip.ui.common.account
 
 import com.example.planyourtrip.FakeAuthRepository
+import com.example.planyourtrip.FakeReminderSettings
 import com.example.planyourtrip.FakeSyncController
 import com.example.planyourtrip.data.auth.AuthUser
 import com.example.planyourtrip.data.sync.SyncStatus
@@ -38,7 +39,7 @@ class AccountViewModelTest {
     @Test
     fun showsNameEmailAndInitials() = runTest(dispatcher) {
         val auth = FakeAuthRepository(yael)
-        val state = AccountViewModel(auth, FakeSyncController(auth)).current()
+        val state = AccountViewModel(auth, FakeReminderSettings(), FakeSyncController(auth)).current()
 
         assertEquals(AccountState("Yael Shamir", "yael@example.com", "YS"), state)
     }
@@ -46,7 +47,7 @@ class AccountViewModelTest {
     @Test
     fun noDisplayName_usesEmailPrefix() = runTest(dispatcher) {
         val auth = FakeAuthRepository(AuthUser(uid = "u2", displayName = null, email = "dana.levi@example.com"))
-        val state = AccountViewModel(auth, FakeSyncController(auth)).current()
+        val state = AccountViewModel(auth, FakeReminderSettings(), FakeSyncController(auth)).current()
 
         assertEquals("dana.levi", state.userName)
         assertEquals("D", state.initials)
@@ -56,7 +57,7 @@ class AccountViewModelTest {
     fun syncStatus_isShown() = runTest(dispatcher) {
         val auth = FakeAuthRepository(yael)
         val sync = FakeSyncController(auth)
-        val vm = AccountViewModel(auth, sync)
+        val vm = AccountViewModel(auth, FakeReminderSettings(), sync)
         assertEquals(SyncStatus.SAVED, vm.current().syncStatus)
 
         sync.status.value = SyncStatus.OFFLINE
@@ -68,7 +69,7 @@ class AccountViewModelTest {
     fun signOut_goesThroughTheSync() = runTest(dispatcher) {
         val auth = FakeAuthRepository(yael)
         val sync = FakeSyncController(auth)
-        val vm = AccountViewModel(auth, sync)
+        val vm = AccountViewModel(auth, FakeReminderSettings(), sync)
 
         vm.onSignOut()
 
@@ -81,7 +82,7 @@ class AccountViewModelTest {
     fun signOut_withPendingChangesOffline_showsTheWarning_andCancelKeepsTheUserSignedIn() = runTest(dispatcher) {
         val auth = FakeAuthRepository(yael)
         val sync = FakeSyncController(auth).apply { pendingOffline = true }
-        val vm = AccountViewModel(auth, sync)
+        val vm = AccountViewModel(auth, FakeReminderSettings(), sync)
 
         vm.onSignOut()
         assertTrue(vm.current().showSignOutWarning)
@@ -96,7 +97,7 @@ class AccountViewModelTest {
     fun signOutAnyway_forcesTheSignOut() = runTest(dispatcher) {
         val auth = FakeAuthRepository(yael)
         val sync = FakeSyncController(auth).apply { pendingOffline = true }
-        val vm = AccountViewModel(auth, sync)
+        val vm = AccountViewModel(auth, FakeReminderSettings(), sync)
         vm.onSignOut()
 
         vm.onConfirmSignOut()
@@ -109,7 +110,7 @@ class AccountViewModelTest {
     fun signOut_notConfirmedInTheCloud_showsThatWarning_andSignOutAnywayKeepsTheData() = runTest(dispatcher) {
         val auth = FakeAuthRepository(yael)
         val sync = FakeSyncController(auth).apply { notConfirmed = true }
-        val vm = AccountViewModel(auth, sync)
+        val vm = AccountViewModel(auth, FakeReminderSettings(), sync)
 
         vm.onSignOut()
         assertEquals(SignOutWarning.NOT_CONFIRMED, vm.current().signOutWarning)
@@ -123,7 +124,7 @@ class AccountViewModelTest {
     @Test
     fun signOut_withPendingChanges_showsThePendingWarning() = runTest(dispatcher) {
         val auth = FakeAuthRepository(yael)
-        val vm = AccountViewModel(auth, FakeSyncController(auth).apply { pendingOffline = true })
+        val vm = AccountViewModel(auth, FakeReminderSettings(), FakeSyncController(auth).apply { pendingOffline = true })
 
         vm.onSignOut()
 
@@ -134,7 +135,7 @@ class AccountViewModelTest {
     fun syncProblem_isShown_withTheTimeOfTheLastSuccessfulSync() = runTest(dispatcher) {
         val auth = FakeAuthRepository(yael)
         val sync = FakeSyncController(auth)
-        val vm = AccountViewModel(auth, sync)
+        val vm = AccountViewModel(auth, FakeReminderSettings(), sync)
 
         sync.status.value = SyncStatus.PROBLEM
         sync.lastSyncedAt.value = 1_791_000_000_000
@@ -147,7 +148,7 @@ class AccountViewModelTest {
     fun tapToRetry_runsOneFullSync_evenWhenTappedTwice() = runTest(dispatcher) {
         val auth = FakeAuthRepository(yael)
         val sync = FakeSyncController(auth).apply { refreshGate = CompletableDeferred() }
-        val vm = AccountViewModel(auth, sync)
+        val vm = AccountViewModel(auth, FakeReminderSettings(), sync)
         sync.status.value = SyncStatus.PROBLEM
 
         vm.onRetrySync()
@@ -157,5 +158,20 @@ class AccountViewModelTest {
         sync.refreshGate!!.complete(Unit)
         assertEquals(1, sync.refreshCalls)
         assertFalse(vm.current().isRetrying)
+    }
+
+    @Test
+    fun remindersSwitch_isOnByDefault_andStoredOnChange() = runTest(dispatcher) {
+        val auth = FakeAuthRepository(yael)
+        val settings = FakeReminderSettings()
+        val vm = AccountViewModel(auth, settings, FakeSyncController(auth))
+        assertTrue(vm.current().remindersEnabled)
+
+        vm.onRemindersChanged(false)
+        assertFalse(settings.enabled.value)
+        assertFalse(vm.current().remindersEnabled)
+
+        vm.onRemindersChanged(true)
+        assertTrue(vm.current().remindersEnabled)
     }
 }

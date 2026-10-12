@@ -6,14 +6,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.flow.StateFlow
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import com.example.planyourtrip.data.reminder.ReminderLink
 import com.example.planyourtrip.ui.auth.AuthScreen
+import com.example.planyourtrip.ui.common.NotificationPermissionHost
 import com.example.planyourtrip.ui.home.HomeScreen
 import com.example.planyourtrip.ui.tripdetails.TripDetailsScreen
+import com.example.planyourtrip.ui.tripdetails.TripTab
 import com.example.planyourtrip.ui.tripdetails.activity.ActivityFormScreen
 import com.example.planyourtrip.ui.tripdetails.assistant.AssistantScreen
 import com.example.planyourtrip.ui.tripdetails.assistant.AssistantViewModel
@@ -28,11 +32,20 @@ import com.example.planyourtrip.ui.tripform.TripFormScreen
  *   ActivityForm(tripId, activityId?, dateEpochDay?) / TripAssistant(tripId) — each pops back
  * TripDetails → "Delete trip" confirmed → back to Home, which deletes it ([PENDING_DELETE_TRIP])
  * Signed out (from the avatar menu or by the backend) → Login, with the whole back stack cleared.
+ * A tapped trip reminder ([reminderLink]) → Home → TripDetails(tripId, Prep), when the trip is still the signed-in
+ *   account's; otherwise the app opens as usual.
  */
 @Composable
-fun AppNavHost(session: SessionViewModel = viewModel(factory = SessionViewModel.Factory)) {
+fun AppNavHost(
+    reminderLink: StateFlow<ReminderLink?>,
+    onReminderLinkHandled: () -> Unit,
+    session: SessionViewModel = viewModel(factory = SessionViewModel.Factory),
+) {
     val navController = rememberNavController()
     val startDestination: Any = remember { if (session.startsSignedIn) Home else Login }
+
+    // Above the NavHost: the trip form that triggers it has already popped when the question is shown.
+    NotificationPermissionHost(requests = session.permissionRequests, onAsked = session::onPermissionAsked)
 
     LaunchedEffect(navController) {
         session.currentUser.collect { user ->
@@ -103,6 +116,9 @@ fun AppNavHost(session: SessionViewModel = viewModel(factory = SessionViewModel.
                     navController.getBackStackEntry<Home>().savedStateHandle[PENDING_DELETE_TRIP] = id
                     navController.popBackStack<Home>(inclusive = false)
                 },
+                initialTab = entry.toRoute<TripDetails>().initialTab
+                    ?.let { name -> TripTab.entries.firstOrNull { it.name == name } }
+                    ?: TripTab.OVERVIEW,
                 onTripLeft = { id ->
                     // Back to Home first; Home leaves the trip, animates its card out and says "You left the trip".
                     navController.getBackStackEntry<Home>().savedStateHandle[PENDING_LEAVE_TRIP] = id
@@ -131,6 +147,16 @@ fun AppNavHost(session: SessionViewModel = viewModel(factory = SessionViewModel.
                 onDone = { navController.popBackStack() },
             )
         }
+    }
+
+    val link by reminderLink.collectAsStateWithLifecycle()
+    LaunchedEffect(link) {
+        val tapped = link ?: return@LaunchedEffect
+        val tripId = session.tripIdFor(tapped)
+        // Home stays below the trip, so Back returns to it.
+        if (tripId != null) navController.navigate(TripDetails(tripId, initialTab = TripTab.PREP.name)) { popUpTo<Home>() }
+        // Last: clearing the link restarts this effect.
+        onReminderLinkHandled()
     }
 }
 

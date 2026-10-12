@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.planyourtrip.appContainer
 import com.example.planyourtrip.data.auth.AuthRepository
+import com.example.planyourtrip.data.reminder.ReminderSettings
 import com.example.planyourtrip.data.sync.SignOutResult
 import com.example.planyourtrip.data.sync.SyncController
 import com.example.planyourtrip.data.sync.SyncStatus
@@ -33,6 +34,8 @@ data class AccountState(
     val signOutWarning: SignOutWarning? = null,
     /** A retry ("tap to retry") is running. */
     val isRetrying: Boolean = false,
+    /** The "Trip reminders" switch (on by default; stored on this device). */
+    val remindersEnabled: Boolean = true,
 ) {
     val showSignOutWarning: Boolean get() = signOutWarning != null
 }
@@ -52,6 +55,7 @@ enum class SignOutWarning {
  */
 class AccountViewModel(
     authRepository: AuthRepository,
+    private val reminderSettings: ReminderSettings,
     private val syncController: SyncController,
 ) : ViewModel() {
 
@@ -75,7 +79,16 @@ class AccountViewModel(
                     isRetrying = isRetrying,
                 )
             }
-        }.stateIn(viewModelScope, WhileUiSubscribed, null)
+        }.combine(reminderSettings.enabled) { state, remindersOn -> state?.copy(remindersEnabled = remindersOn) }
+            .stateIn(viewModelScope, WhileUiSubscribed, null)
+
+    /**
+     * The "Trip reminders" switch: off cancels every reminder, on schedules them again (TripReminderScheduler
+     * follows the setting). The menu asks for the notification permission itself when turned on.
+     */
+    fun onRemindersChanged(on: Boolean) {
+        reminderSettings.setEnabled(on)
+    }
 
     /** Set synchronously, so a double tap starts one sign out. */
     private var signingOut = false
@@ -129,7 +142,7 @@ class AccountViewModel(
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val container = appContainer()
-                AccountViewModel(container.authRepository, container.syncController)
+                AccountViewModel(container.authRepository, container.reminderSettings, container.syncController)
             }
         }
     }
@@ -141,4 +154,5 @@ fun AccountViewModel.actions() = AccountActions(
     onConfirmSignOut = ::onConfirmSignOut,
     onDismissSignOutWarning = ::onDismissSignOutWarning,
     onRetrySync = ::onRetrySync,
+    onRemindersChanged = ::onRemindersChanged,
 )

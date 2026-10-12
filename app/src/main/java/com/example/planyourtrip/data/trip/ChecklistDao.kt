@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import com.example.planyourtrip.data.reminder.BeforeTripCount
 import com.example.planyourtrip.data.sync.ChildRef
 import com.example.planyourtrip.data.sync.DeletionEntity
 import com.example.planyourtrip.data.sync.SyncKind
@@ -35,6 +36,14 @@ interface ChecklistDao {
 
     @Insert
     suspend fun insertAll(items: List<ChecklistItemEntity>): List<Long>
+
+    /** Open and total "Before the trip" items of one of the owner's trips, by the trip's uuid (trip reminders). */
+    @Query(
+        "SELECT COALESCE(SUM(CASE WHEN c.checked = 0 THEN 1 ELSE 0 END), 0) AS open, COUNT(c.id) AS total " +
+            "FROM checklist_items c JOIN trips t ON t.id = c.trip_id " +
+            "WHERE t.uuid = :tripUuid AND t.owner_id = :ownerId AND c.list = 'BEFORE_TRIP'"
+    )
+    suspend fun countBeforeTrip(tripUuid: String, ownerId: String): BeforeTripCount
 
     @Query("SELECT MAX(created_at) FROM checklist_items WHERE trip_id = :tripId")
     suspend fun maxCreatedAt(tripId: Long): Long?

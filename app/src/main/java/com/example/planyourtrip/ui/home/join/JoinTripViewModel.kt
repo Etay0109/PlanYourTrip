@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.planyourtrip.appContainer
 import com.example.planyourtrip.data.auth.AuthRepository
+import com.example.planyourtrip.data.reminder.ReminderPrompt
 import com.example.planyourtrip.data.sharing.InviteCode
 import com.example.planyourtrip.data.sharing.InviteRepository
 import com.example.planyourtrip.data.sharing.InviteUnavailableException
@@ -33,6 +34,8 @@ class JoinTripViewModel(
     private val inviteRepository: InviteRepository,
     private val tripRepository: TripRepository,
     private val syncController: SyncController,
+    /** Told about a joined trip: may ask for the notification permission (trip reminders). */
+    private val reminderPrompt: ReminderPrompt = ReminderPrompt.None,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(JoinUiState())
@@ -102,6 +105,7 @@ class JoinTripViewModel(
             when (result) {
                 JoinResult.JOINED -> {
                     _uiState.value = JoinUiState(joinedDestination = preview.destination)
+                    reminderPrompt.onTripAdded(preview.startDate)
                     // The trip, its items and members come down with a full sync.
                     syncController.refresh()
                 }
@@ -126,6 +130,7 @@ class JoinTripViewModel(
                     inviteRepository = container.inviteRepository,
                     tripRepository = container.tripRepository,
                     syncController = container.syncController,
+                    reminderPrompt = container.reminderPermissionPrompt,
                 )
             }
         }

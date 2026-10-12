@@ -20,6 +20,8 @@ as you type (Photon, plus a built-in Hebrew table); a picked place gives the tri
 as a flag next to the destination (see "Destination suggestions and flags"). Currencies show their flag everywhere.
 Trips show a **destination photo** from Wikipedia (Next trip card and trip header backgrounds, thumbnails on the other
 Home cards), remembered on this device only (see "Destination photos").
+A local **"trip starts tomorrow" notification** at 18:00 the day before each future trip (WorkManager, no server; see
+"Trip reminders").
 Package: `com.example.planyourtrip`. minSdk 26, targetSdk 36.
 
 ## Commands
@@ -30,6 +32,9 @@ Package: `com.example.planyourtrip`. minSdk 26, targetSdk 36.
   token). Instead: airplane mode on, `assembleDebug assembleDebugAndroidTest`, `adb install -r` both APKs,
   `adb shell am instrument -w com.example.planyourtrip.test/androidx.test.runner.AndroidJUnitRunner`, then uninstall
   only `com.example.planyourtrip.test`.
+- Fire the trip reminders now (debug builds only, emulator): `adb shell am broadcast -a
+  com.example.planyourtrip.DEBUG_TRIP_REMINDER -p com.example.planyourtrip` (every trip of the signed-in account that
+  starts tomorrow; `src/debug/.../DebugReminderReceiver.kt`, guarded by the `DUMP` permission so only adb can send it)
 - Release build: `./gradlew assembleRelease` (unsigned APK; must compile too, see the Compose BoM note in Conventions)
 - Firestore security rules: `firestore.rules` (repo root). Not deployed by the build: paste the file into Firebase
   console → Firestore Database → Rules → Publish after every change.
@@ -113,6 +118,12 @@ app/src/main/java/com/example/planyourtrip/
                                # filters, distance, choosePage, bestPageImage), WikipediaJson (pure parsers),
                                # WikipediaPhotoSource (+ HttpGet, UrlConnectionHttpGet: the only Wikipedia/Wikidata HTTP
                                # code), DestinationPhotoEntity/Dao, DestinationPhotoRepository + RoomDestinationPhoto…
+  data/reminder/               # trip reminders (this device only, nothing synced): TripReminders (pure: reminderTime,
+                               # planReminders, reminderChanges, reminderMessage, shouldShowReminder, reminderDestination),
+                               # ReminderSettings (+ SharedPreferences…: switch, permission asked, scheduled map),
+                               # ReminderWork (interface) + WorkManagerReminderWork (the only WorkManager code),
+                               # TripReminderScheduler, TripReminderWorker, TripReminderNotifier (+ ReminderLink),
+                               # ReminderTrips + RoomReminderTrips, ReminderPrompt + ReminderPermissionPrompt
   data/user/                   # CurrentUser (AuthUser.greetingName()), UserNames (firstName()/initials())
   ui/navigation/               # Routes.kt (type-safe routes), AppNavHost.kt, SessionViewModel
   ui/auth/                     # AuthScreen (hero, sheet, fields, strength bar), AuthViewModel, AuthUiState,
@@ -173,7 +184,8 @@ app/src/main/java/com/example/planyourtrip/
                                #   TripDays (pure: tripDays, daysInclusive, dayNumber, isWithinTrip, sortActivities,
                                #   activitiesOn),
                                #   CategoryTotals (pure: categoryTotals(amountOf, includeZeroCategories) + CategoryTotal),
-                               #   ExpenseCategoryUi / ActivityTypeUi (iconRes()/labelRes())
+                               #   ExpenseCategoryUi / ActivityTypeUi (iconRes()/labelRes()),
+                               #   NotificationPermissionHost (+ rememberNotificationPermissionRequest)
   ui/common/split/             # expense splitting, pure: Split (travelerOrder, inListOrder, shares, myShare, myTotal,
                                #   isShared, sharedExpenseCount, balances, simplifyTransfers + Transfer,
                                #   isTravelerUsed), TravelerMerging (isSameName, membersNamed, mergeSuggestions +
@@ -205,9 +217,11 @@ ui/common/share/             # "Share trip" PDF: TripPdfContent (pure: model, bu
                                #   Coil composables)
   ui/theme/                    # Color, ExtendedColors, Shape, Type (Inter + named styles), Dimens, Theme,
                                # HeroPhotoScrim (the photo scrim's alpha levels),
-                               # PdfColors (ARGB ints for the shared PDF, built from Color/ExtendedColors)
+                               # PdfColors (ARGB ints for the shared PDF, built from Color/ExtendedColors),
+                               # NotificationColors (the reminder's brand teal as an ARGB int)
 app/src/debug/.../AppCheckSetup.kt    # installAppCheck(): App Check debug provider
 app/src/release/.../AppCheckSetup.kt  # installAppCheck(): Play Integrity provider
+app/src/debug/AndroidManifest.xml + .../DebugReminderReceiver.kt  # debug-only "fire the reminders now" (see Commands)
 app/schemas/                   # exported Room schemas — commit them
 design/home_screen.png         # visual reference for the home screen and the app theme
 design/trip_overview.png       # visual reference for the trip screen (Overview tab)
@@ -843,6 +857,8 @@ TripDetails ──(tap an activity)────▶ ActivityForm(tripId, activity
 TripDetails ──(sparkle FAB)────────▶ TripAssistant(tripId)       back arrow → pop (conversation is kept)
 TripDetails ──("Delete trip" confirmed)──▶ pop to Home with Home's savedStateHandle["pendingDeleteTripId"] = tripId;
                                    Home deletes it (DeleteTripViewModel.deleteConfirmed) and clears the key
+(trip reminder tapped) ──▶ Home → TripDetails(tripId, initialTab = "PREP") when the trip is still the signed-in
+                                   account's (SessionViewModel.tripIdFor); otherwise the app opens as usual
 TripDetails ──("Leave trip" confirmed)──▶ the same with "pendingLeaveTripId"; Home leaves it (leaveConfirmed)
 (session becomes null) ──▶ Login                   popUpTo(graph) inclusive → whole back stack cleared
 ```
@@ -1582,6 +1598,38 @@ no check mark inside a filled field.
   use `runCurrent()`, the consumer runs in `backgroundScope`), `HeroPhotoTest`, `HomeViewModelTest` /
   `TripDetailsViewModelTest` (`FakeDestinationPhotoRepository`), androidTest `DestinationPhotoRoomTest`. **Never test
   against the real Wikipedia** in automated tests.
+
+## Trip reminders (`data/reminder`)
+- **What:** for every trip of the signed-in account that starts after today, a notification at **18:00 device time the
+  day before** (`reminderTime`: `atZone` keeps 18:00 across a daylight-saving change). Title "Tomorrow: 🇬🇧 London"
+  (`reminderDestination` = `countryFlag` + `shortDestination`); text from the "Before the trip" list **counted when it
+  fires** (`ChecklistDao.countBeforeTrip`): "N things left on your Before the trip list" (plurals), "Everything is
+  ready…" when all are checked, "Your trip starts tomorrow." without items. Channel `trip_reminders` "Trip reminders"
+  (default importance), small icon `ic_notification` (the launcher's monochrome pin), color `NotificationColors.brand`.
+- **No reminder** for a trip starting today or already started, or when 18:00 the day before has passed (created that
+  evening). Nothing is synced: each member's phone schedules its own.
+- **Scheduling** (`TripReminderScheduler`, started in `PlanYourTripApplication`): follows `currentUser` →
+  `observeTrips(uid)` + the switch, `planReminders` → `reminderChanges` against the saved map (prefs `"reminders"`,
+  uuid → uid + time), so Room emissions don't re-enqueue. Created, edited and synced trips are (re)scheduled; deleted,
+  left and removed trips (gone from Room) cancelled; sign-out (`uid == null`) cancels everything. **The first pass after
+  each app start checks the real WorkManager state** (`ReminderWork.pendingUuids`, by tag): a reminder the map lists but
+  WorkManager lost is scheduled again; a pending one nothing wants is cancelled.
+- **WorkManager** (2.10.5, Kotlin 1.8 metadata; 2.11+ needs Kotlin 2.1): one unique `OneTimeWorkRequest` per trip
+  (`trip-reminder-<uuid>`, `REPLACE`, tags `trip-reminder` + `trip-reminder:<uuid>`) with an initial delay; survives
+  restarts and updates, may be a few minutes late (no exact-alarm permission). `TripReminderWorker` →
+  `TripReminderNotifier.showIfDue`: posts only when `shouldShowReminder` (same uid signed in, the trip exists and starts
+  tomorrow, switch on, notifications allowed). Its strings come from a `withAppLocale()` context (English).
+- **Tap:** an immutable `PendingIntent` to `MainActivity` (`launchMode="singleTop"`, `onNewIntent`) with the trip uuid +
+  uid (`ReminderLink`); `AppNavHost` opens the trip on the Prep tab (`TripDetails.initialTab`).
+- **Permission** (`POST_NOTIFICATIONS`, Android 13+): asked **once**, right after creating (`TripFormViewModel`) or
+  joining (`JoinTripViewModel`) a trip that starts after today (`ReminderPermissionPrompt`, `permissionAsked`), shown by
+  `NotificationPermissionHost` above the `NavHost`; never at app start. Refused → reminders aren't posted.
+- **Switch:** "Trip reminders" in the profile menu (`AccountState.remindersEnabled`, on by default, this device). Off
+  cancels all; on schedules again and asks for the permission if Android still needs it.
+- Tests: `TripRemindersTest` (time incl. both DST changes, today/started/past, 17:59 vs 18:30 the evening before,
+  edited dates, deleted trips, switch, messages, shouldShow), `TripReminderSchedulerTest` (`FakeReminderWork`,
+  `FakeReminderSettings`: once per trip, rescheduling, sign-out, account switch, switch, the start-up check),
+  `ReminderPermissionPromptTest`, `AccountViewModelTest`, `TripFormTest`, `JoinTripViewModelTest`.
 
 ## Conventions
 - **Never log passwords** (only their length) or other secrets.

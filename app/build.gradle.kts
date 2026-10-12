@@ -86,6 +86,9 @@ dependencies {
     implementation(libs.coil.network.okhttp)
     // The OkHttp client Coil uses, with the Wikimedia User-Agent (same version as coil-network-okhttp 3.0.4).
     implementation(libs.okhttp)
+    // "Trip starts tomorrow" reminders, scheduled on the device (data/reminder/WorkManagerReminderWork).
+    // 2.10.x is built with Kotlin 1.8 (2.11+ needs Kotlin 2.1).
+    implementation(libs.androidx.work.runtime.ktx)
     ksp(libs.androidx.room.compiler)
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

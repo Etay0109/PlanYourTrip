@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug builds only (merged into the main manifest): a way to fire the trip reminders right away for testing. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!-- Only the shell (adb) can send it: DUMP is a permission apps can't get. See DebugReminderReceiver. -->
+        <receiver
+            android:name=".DebugReminderReceiver"
+            android:exported="true"
+            android:permission="android.permission.DUMP">
+            <intent-filter>
+                <action android:name="com.example.planyourtrip.DEBUG_TRIP_REMINDER" />
+            </intent-filter>
+        </receiver>
+    </application>
+
+</manifest>

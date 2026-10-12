@@ -103,6 +103,8 @@ fun TripDetailsScreen(
     onTripDeleted: (Long) -> Unit,
     /** "Leave trip" was confirmed (a shared trip someone else owns): go back to Home, which leaves it there. */
     onTripLeft: (Long) -> Unit = {},
+    /** The tab to open on (a tapped trip reminder opens Prep). */
+    initialTab: TripTab = TripTab.OVERVIEW,
     viewModel: TripDetailsViewModel = viewModel(factory = TripDetailsViewModel.Factory),
     shareViewModel: ShareTripViewModel = viewModel(factory = ShareTripViewModel.Factory),
     deleteViewModel: DeleteTripViewModel = viewModel(factory = DeleteTripViewModel.Factory),
@@ -138,7 +140,7 @@ fun TripDetailsScreen(
         refreshViewModel.onMessageShown()
         snackbarHostState.showSnackbar(refreshFailedText)
     }
-    var selectedTab by rememberSaveable { mutableStateOf(TripTab.OVERVIEW) }
+    var selectedTab by rememberSaveable { mutableStateOf(initialTab) }
 
     // Opening the Overview refreshes a rate older than 12 hours; a changed currency is fetched right away.
     val loaded = state is TripDetailsUiState.Loaded

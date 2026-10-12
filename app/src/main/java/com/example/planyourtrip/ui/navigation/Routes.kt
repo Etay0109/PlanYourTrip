@@ -14,9 +14,12 @@ data object Home
 @Serializable
 data class TripForm(val tripId: Long? = null)
 
-/** The trip area: header + Overview / Budget / Prep / Plan tabs. */
+/**
+ * The trip area: header + Overview / Budget / Prep / Plan tabs. [initialTab] is a `TripTab` name to open on (a
+ * tapped trip reminder opens Prep); null = Overview.
+ */
 @Serializable
-data class TripDetails(val tripId: Long)
+data class TripDetails(val tripId: Long, val initialTab: String? = null)
 
 /** New expense of [tripId] when [expenseId] is null; otherwise edits that expense. */
 @Serializable

@@ -2,6 +2,7 @@ package com.example.planyourtrip.ui.home.join
 
 import com.example.planyourtrip.FakeAuthRepository
 import com.example.planyourtrip.FakeInviteRepository
+import com.example.planyourtrip.FakeReminderPrompt
 import com.example.planyourtrip.FakeSyncController
 import com.example.planyourtrip.FakeTripRepository
 import com.example.planyourtrip.data.auth.AuthUser
@@ -178,5 +179,20 @@ class JoinTripViewModelTest {
         viewModel.onJoin()
         assertEquals(JoinError.FAILED, state.error)
         assertTrue(state.canJoin)
+    }
+
+    @Test
+    fun joining_tellsTheReminderPrompt_aFailedJoinDoesNot() {
+        val prompt = FakeReminderPrompt()
+        val vm = JoinTripViewModel(auth, invites, trips, sync, prompt)
+        vm.onOpen()
+        invites.joinResult = JoinResult.FAILED
+        vm.onCodeChange(code)
+        vm.onJoin()
+        assertTrue(prompt.added.isEmpty())
+
+        invites.joinResult = JoinResult.JOINED
+        vm.onJoin()
+        assertEquals(listOf(preview.startDate), prompt.added)
     }
 }

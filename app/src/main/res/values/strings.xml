@@ -546,4 +546,14 @@
     <string name="action_ok">OK</string>
     <string name="action_cancel">Cancel</string>
     <string name="action_undo">Undo</string>
+    <!-- Trip reminders ("trip starts tomorrow" notification, profile menu switch) -->
+    <string name="reminder_channel_name">Trip reminders</string>
+    <string name="reminder_title">Tomorrow: %1$s</string>
+    <string name="reminder_no_list">Your trip starts tomorrow.</string>
+    <string name="reminder_all_done">Everything is ready. Have a great trip!</string>
+    <plurals name="reminder_items_left">
+        <item quantity="one">Your trip starts tomorrow. %d thing left on your Before the trip list.</item>
+        <item quantity="other">Your trip starts tomorrow. %d things left on your Before the trip list.</item>
+    </plurals>
+    <string name="home_trip_reminders">Trip reminders</string>
 </resources>

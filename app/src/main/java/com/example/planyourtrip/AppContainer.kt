@@ -19,6 +19,14 @@ import com.example.planyourtrip.data.photo.DestinationPhotoRepository
 import com.example.planyourtrip.data.photo.RoomDestinationPhotoRepository
 import com.example.planyourtrip.data.photo.WikipediaPhotoSource
 import com.example.planyourtrip.data.photo.photoUserAgent
+import com.example.planyourtrip.data.reminder.ReminderPermissionPrompt
+import com.example.planyourtrip.data.reminder.ReminderSettings
+import com.example.planyourtrip.data.reminder.ReminderTrips
+import com.example.planyourtrip.data.reminder.RoomReminderTrips
+import com.example.planyourtrip.data.reminder.SharedPreferencesReminderSettings
+import com.example.planyourtrip.data.reminder.TripReminderNotifier
+import com.example.planyourtrip.data.reminder.TripReminderScheduler
+import com.example.planyourtrip.data.reminder.WorkManagerReminderWork
 import com.example.planyourtrip.data.sharing.FirestoreInviteRepository
 import com.example.planyourtrip.data.sharing.InviteRepository
 import com.example.planyourtrip.data.sync.AndroidNetworkMonitor
@@ -183,6 +191,34 @@ class AppContainer(context: Context) {
     /** Gemini Developer API through Firebase AI Logic (App Check is installed in PlanYourTripApplication). */
     val assistantRepository: AssistantRepository by lazy {
         FirebaseAssistantRepository(Firebase.ai(backend = GenerativeBackend.googleAI()))
+    }
+
+    /** "Trip reminders": the switch, the permission question and what is scheduled (this device only). */
+    val reminderSettings: ReminderSettings by lazy {
+        SharedPreferencesReminderSettings(context.getSharedPreferences("reminders", Context.MODE_PRIVATE))
+    }
+
+    /** A trip by uuid and its "Before the trip" count, for a reminder that fires or is tapped. */
+    val reminderTrips: ReminderTrips by lazy { RoomReminderTrips(database.tripDao(), database.checklistDao()) }
+
+    /** Asks for the notification permission once, after creating or joining a future trip. */
+    val reminderPermissionPrompt: ReminderPermissionPrompt by lazy { ReminderPermissionPrompt(reminderSettings, clock) }
+
+    /** Schedules a reminder at 18:00 the day before each future trip (WorkManager). Started in the Application. */
+    val tripReminderScheduler: TripReminderScheduler by lazy {
+        TripReminderScheduler(
+            authRepository = authRepository,
+            tripRepository = tripRepository,
+            settings = reminderSettings,
+            work = WorkManagerReminderWork(context, clock),
+            clock = clock,
+            scope = appScope,
+        )
+    }
+
+    /** Posts a reminder when it fires (TripReminderWorker). */
+    val tripReminderNotifier: TripReminderNotifier by lazy {
+        TripReminderNotifier(context, authRepository, reminderTrips, reminderSettings, clock)
     }
 
     /** Draws the shared trip PDF (PdfDocument) and hands it out through the FileProvider. */

@@ -29,6 +29,10 @@ interface TripDao {
     @Query("SELECT uuid FROM trips WHERE id = :id AND owner_id = :ownerId")
     suspend fun uuidOf(id: Long, ownerId: String): String?
 
+    /** One of the owner's trips by its uuid (trip reminders), or null. */
+    @Query("SELECT * FROM trips WHERE uuid = :uuid AND owner_id = :ownerId")
+    suspend fun byUuid(uuid: String, ownerId: String): TripEntity?
+
     @Insert
     suspend fun insert(trip: TripEntity): Long
 

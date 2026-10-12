@@ -1,6 +1,7 @@
 package com.example.planyourtrip.ui.tripform
 
 import com.example.planyourtrip.FakeAuthRepository
+import com.example.planyourtrip.FakeReminderPrompt
 import com.example.planyourtrip.FakeCurrencyRepository
 import com.example.planyourtrip.FakePlaceSearch
 import com.example.planyourtrip.FakeTripRepository
@@ -246,5 +247,24 @@ class TripFormTest {
         vm.onDismissCurrencyPicker()
         assertNull(vm.uiState.value.currencyPicker)
         assertNull(vm.uiState.value.currencyCode)
+    }
+
+    @Test
+    fun aNewTrip_tellsTheReminderPrompt_anEditDoesNot() = runTest(dispatcher) {
+        val prompt = FakeReminderPrompt()
+        val create = TripFormViewModel(tripId = null, repo, user, currencies, destinations, prompt)
+        create.onDestinationChange("Rome")
+        create.onStartDateChange(nov12)
+        create.onEndDateChange(nov17)
+        create.onSave()
+        advanceUntilIdle()
+        assertEquals(listOf(nov12), prompt.added)
+
+        val edit = TripFormViewModel(tripId = repo.tripsOf("u1").single().id, repo, user, currencies, destinations, prompt)
+        advanceUntilIdle()
+        edit.onEndDateChange(nov17.plusDays(1))
+        edit.onSave()
+        advanceUntilIdle()
+        assertEquals(listOf(nov12), prompt.added)
     }
 }
