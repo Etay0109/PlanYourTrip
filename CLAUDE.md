@@ -110,8 +110,9 @@ app/src/main/java/com/example/planyourtrip/
                                # display name, never the email)
   data/place/                  # destination suggestions (nothing in Room): PlaceSuggestion (+ label, detail,
                                # withoutRepeats, toTripPlace, RegionKind), PlaceSearch (interface) + PhotonPlaceSearch (the only
-                               # Photon HTTP code), PhotonJson (pure parser + type allowlist), HebrewPlaces (pure
-                               # matching) + HebrewPlaceTable (GENERATED data), DestinationSuggestions (+ countryCurrency)
+                               # Photon HTTP code), PhotonJson (pure parser + type allowlist), HebrewPlaces + EnglishPlaces
+                               # (pure matching) + HebrewPlaceTable (GENERATED data), DestinationSuggestions (instant,
+                               # remote, merge; + countryCurrency)
   data/photo/                  # destination photos (this device only, nothing synced): DestinationPhotos (PhotoQuery,
                                # photoKey, Trip.photoQuery, DestinationPhoto, PhotoResult, PhotoOrigin,
                                # DestinationPhotoSource = the one provider interface, photoUserAgent), PhotoRules (pure:
@@ -1529,12 +1530,21 @@ no check mark inside a filled field.
   place)` / `updateTrip(..., currencyCode, place)`. The field shows the currency's flag (leading icon).
 
 ## Destination suggestions and flags (`data/place`, `ui/tripform`, `ui/common/Flags.kt`)
-- **Suggestions** (Add trip and Edit trip): from 2 characters (trimmed), 300 ms after the last keystroke
-  (`TripFormViewModel.LOOKUP_DELAY_MILLIS`), `DestinationSuggestions.suggest`; a new keystroke cancels the running lookup
-  **and disconnects its request** (`PhotonPlaceSearch`), and an answer for older text is never shown. The list
-  (`DestinationSuggestionList`) is a card under the field inside the scrolling column (no popup): flag (or a pin), name,
-  "England, United Kingdom", at most 6 rows, then "© OpenStreetMap contributors" (the data license asks for it). It
-  closes when the field loses focus. No network, a failed or bad answer → no list, **never an error**.
+- **Suggestions** (Add trip and Edit trip), from 2 characters (trimmed), in two steps (`DestinationSuggestions`):
+  **instant** rows from the built-in table on every keystroke, no debounce, offline too (`instant`: Hebrew text →
+  `HebrewPlaces`, anything else → `EnglishPlaces`: the English name or the label "Paris, France", start of the name or of
+  a later word, accents/case/dashes ignored, exact first, then table order, ≤ 5); then, 300 ms after the last keystroke
+  (`TripFormViewModel.LOOKUP_DELAY_MILLIS`), Photon (`remote`, null on failure). `merge` keeps the instant rows where
+  they are and adds Photon's below, minus repeats (`isSamePlaceAs`: same name, country and kind within 50 km, or a
+  country), ≤ 6 rows. A new keystroke cancels the running lookup **and disconnects its request**
+  (`PhotonPlaceSearch`), and an answer for older text is never shown. While Photon runs, `TripFormUiState.isSearching`
+  shows a 3dp `primary` `LinearProgressIndicator` in the gap under the field (a live region: TalkBack says "Searching");
+  it ends on the answer, a failure, text below 2 characters, a pick or focus loss (a keystroke during a search keeps
+  it). The list (`DestinationSuggestionList`): flag (or a pin), name, "England, United Kingdom", then "© OpenStreetMap
+  contributors". `DestinationFieldWithSuggestions` draws the bar and the list **over** the fields below (a `Layout`
+  that reports only the field's height, `zIndex`), so typing never moves them; a trailing spacer after Save gives room
+  to scroll the list's last rows into view. It closes when the field loses focus. No network, a failed or bad answer
+  → only the instant rows, **never an error**.
 - **Photon** (`https://photon.komoot.io/api/?q=…&lang=en&limit=10&osm_tag=place`, no key, `User-Agent:
   PlanYourTrip/<versionName> (Android; com.example.planyourtrip)`, 10 s timeouts). `PhotonJson` keeps `osm_key` place
   with `osm_value` country, state, region, province, county, city, town, village, municipality, island, archipelago
@@ -1740,8 +1750,8 @@ text, due dates, delete + Undo, another account's trip, too large / unsupported 
 double tap, edit, delete with confirmation, view a missing file), `ActivityTypeTest`, `GoogleMapsTest` (spaces, comma, Hebrew, special
 characters, trimming, decodes back; the activity URL with/without the destination), destination suggestions and flags (`PhotonJsonTest`:
 types kept/dropped, labels, repeats only when name+region+country match; `HebrewPlacesTest`: matching rules and every
-table entry, no Hebrew name in two entries; `DestinationSuggestionsTest`; `TripFormPlaceTest` with `FakePlaceSearch`:
-pick, free text, edit after pick, offline, failing service, Hebrew, debounce, cancelled lookup, edit trip, currency
+table entry, no Hebrew name in two entries; `DestinationSuggestionsTest`; `EnglishPlacesTest`; `TripFormPlaceTest` with `FakePlaceSearch`:
+instant rows, merging, the loading bar, pick, free text, edit after pick, offline, failing service, Hebrew, debounce, cancelled lookup, edit trip, currency
 preselection; `FlagsTest`: every offered currency has a flag or is left out on purpose; `TripPlaceSyncTest` +
 `SyncPathsTest`: the place round-trips; androidTest `TripPlaceRoomTest`), `AccountViewModelTest` (menu state, sign out, warning, sign out anyway), deleting a trip (`DeleteTripViewModelTest`:
 confirm, cancel, double tap, the trip's document files removed and other trips' kept, another account's trip, no

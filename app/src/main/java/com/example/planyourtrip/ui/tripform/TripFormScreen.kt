@@ -24,11 +24,17 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -99,6 +105,11 @@ fun TripFormContent(
     onSuggestionsDismissed: () -> Unit = {},
 ) {
     val focusManager = LocalFocusManager.current
+    // Where the destination field and the Save button end in the form, and how far the suggestions reach below the
+    // field (px): the room the list needs past the button.
+    var fieldBottom by remember { mutableFloatStateOf(0f) }
+    var buttonBottom by remember { mutableFloatStateOf(0f) }
+    var overlayHeight by remember { mutableIntStateOf(0) }
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
@@ -117,32 +128,33 @@ fun TripFormContent(
                 .padding(horizontal = Dimens.ScreenPadding, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            OutlinedTextField(
-                value = state.destination,
-                onValueChange = onDestinationChange,
-                label = { Text(stringResource(R.string.new_trip_destination)) },
-                placeholder = { Text(stringResource(R.string.new_trip_destination_placeholder)) },
-                singleLine = true,
-                isError = state.destinationError != null,
-                supportingText = errorSupportingText(state.destinationError?.messageRes()),
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Words,
-                    imeAction = ImeAction.Done,
-                ),
-                shape = MaterialTheme.shapes.small,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onFocusChanged { if (!it.isFocused) onSuggestionsDismissed() },
-            )
-
-            if (state.suggestions.isNotEmpty()) {
-                DestinationSuggestionList(
-                    suggestions = state.suggestions,
-                    onPick = { suggestion ->
-                        onSuggestionPicked(suggestion)
-                        // Closes the keyboard; the field shows the whole picked name.
-                        focusManager.clearFocus()
-                    },
+            DestinationFieldWithSuggestions(
+                isSearching = state.isSearching,
+                suggestions = state.suggestions,
+                onPick = { suggestion ->
+                    onSuggestionPicked(suggestion)
+                    // Closes the keyboard; the field shows the whole picked name.
+                    focusManager.clearFocus()
+                },
+                onOverlayHeight = { overlayHeight = it },
+                modifier = Modifier.onPlaced { fieldBottom = it.positionInParent().y + it.size.height },
+            ) {
+                OutlinedTextField(
+                    value = state.destination,
+                    onValueChange = onDestinationChange,
+                    label = { Text(stringResource(R.string.new_trip_destination)) },
+                    placeholder = { Text(stringResource(R.string.new_trip_destination_placeholder)) },
+                    singleLine = true,
+                    isError = state.destinationError != null,
+                    supportingText = errorSupportingText(state.destinationError?.messageRes()),
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Words,
+                        imeAction = ImeAction.Done,
+                    ),
+                    shape = MaterialTheme.shapes.small,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onFocusChanged { if (!it.isFocused) onSuggestionsDismissed() },
                 )
             }
 
@@ -177,8 +189,17 @@ fun TripFormContent(
                 text = stringResource(if (state.isEditing) R.string.edit_trip_save else R.string.new_trip_save),
                 onClick = onSave,
                 loading = state.isSaving,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onPlaced { buttonBottom = it.positionInParent().y + it.size.height },
             )
+
+            // The list is drawn over the fields below the destination; when it reaches past the Save button, this
+            // room (after everything, so nothing moves) lets the form scroll its last rows into view.
+            val listOverhang = (fieldBottom + overlayHeight - buttonBottom).coerceAtLeast(0f)
+            if (listOverhang > 0f) {
+                Spacer(Modifier.height(with(LocalDensity.current) { listOverhang.toDp() }))
+            }
         }
     }
 }

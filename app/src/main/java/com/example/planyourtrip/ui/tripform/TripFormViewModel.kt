@@ -39,7 +39,7 @@ class TripFormViewModel(
     private val authRepository: AuthRepository,
     /** For the list of currencies in the picker (and which currency a picked place may preselect). */
     private val currencyRepository: CurrencyRepository,
-    /** Places for the destination field (Photon + the Hebrew table). */
+    /** Places for the destination field (the built-in table at once, then Photon). */
     private val destinations: DestinationSuggestions,
     /** Told about a new trip: may ask for the notification permission (trip reminders). */
     private val reminderPrompt: ReminderPrompt = ReminderPrompt.None,
@@ -81,8 +81,9 @@ class TripFormViewModel(
     }
 
     /**
-     * Typing: any change of the text forgets the picked place (until a suggestion is picked again) and looks the text
-     * up after a short pause, from [DestinationSuggestions.MIN_QUERY_LENGTH] characters.
+     * Typing: any change of the text forgets the picked place (until a suggestion is picked again). From
+     * [DestinationSuggestions.MIN_QUERY_LENGTH] characters the built-in table's places show at once; after a short
+     * pause Photon is asked ([TripFormUiState.isSearching] meanwhile) and its places are added under them.
      */
     fun onDestinationChange(value: String) {
         val changed = value != _uiState.value.destination
@@ -92,14 +93,24 @@ class TripFormViewModel(
         if (!changed) return
         lookup?.cancel()
         if (value.trim().length < DestinationSuggestions.MIN_QUERY_LENGTH) {
-            _uiState.update { it.copy(suggestions = emptyList()) }
+            _uiState.update { it.copy(suggestions = emptyList(), isSearching = false) }
             return
         }
+        // A search already showing keeps its bar through the pause (no flicker); it ends with the new answer.
+        val instant = destinations.instant(value)
+        _uiState.update { it.copy(suggestions = instant) }
         lookup = viewModelScope.launch {
             delay(LOOKUP_DELAY_MILLIS)
-            val found = destinations.suggest(value)
-            // A slow answer for older text is never shown.
-            _uiState.update { if (it.destination == value) it.copy(suggestions = found) else it }
+            _uiState.update { if (it.destination == value) it.copy(isSearching = true) else it }
+            val remote = destinations.remote(value)
+            // A slow answer for older text is never shown; a failed one leaves the instant rows (no message).
+            _uiState.update {
+                if (it.destination != value) it
+                else it.copy(
+                    suggestions = DestinationSuggestions.merge(instant, remote.orEmpty()),
+                    isSearching = false,
+                )
+            }
         }
     }
 
@@ -111,16 +122,17 @@ class TripFormViewModel(
                 destination = suggestion.label,
                 destinationError = null,
                 suggestions = emptyList(),
+                isSearching = false,
                 place = suggestion.toTripPlace(),
             )
         }
         preselectCurrency(suggestion.countryCode)
     }
 
-    /** The field lost focus: the list closes (the text and a picked place stay). */
+    /** The field lost focus: the list and the bar close (the text and a picked place stay). */
     fun onSuggestionsDismissed() {
         lookup?.cancel()
-        _uiState.update { it.copy(suggestions = emptyList()) }
+        _uiState.update { it.copy(suggestions = emptyList(), isSearching = false) }
     }
 
     /**
@@ -217,7 +229,7 @@ class TripFormViewModel(
         // Free text (nothing picked, or edited since) is saved without a country or coordinates.
         val place = validated.place ?: TripPlace.NONE
         lookup?.cancel()
-        _uiState.update { it.copy(isSaving = true, suggestions = emptyList()) }
+        _uiState.update { it.copy(isSaving = true, suggestions = emptyList(), isSearching = false) }
         viewModelScope.launch {
             val currency = validated.currencyCode
             if (tripId == null) {

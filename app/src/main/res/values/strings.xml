@@ -94,6 +94,8 @@
     <string name="new_trip_start_date">Start date</string>
     <string name="new_trip_end_date">End date</string>
     <string name="new_trip_pick_date">Pick a date</string>
+    <!-- TalkBack, once, when the destination lookup starts (the thin bar under the field). -->
+    <string name="place_search_in_progress">Searching</string>
     <!-- Under the destination suggestions: the OpenStreetMap data license asks for this attribution. -->
     <string name="place_suggestions_attribution">© OpenStreetMap contributors</string>
     <!-- The small label on a destination suggestion that is a region, not a city. -->

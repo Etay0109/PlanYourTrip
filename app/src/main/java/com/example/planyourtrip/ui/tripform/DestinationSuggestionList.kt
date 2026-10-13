@@ -7,30 +7,104 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.example.planyourtrip.R
 import com.example.planyourtrip.data.place.PlaceSuggestion
 import com.example.planyourtrip.data.place.RegionKind
-import com.example.planyourtrip.ui.common.components.Pill
 import com.example.planyourtrip.ui.common.components.FlagEmoji
+import com.example.planyourtrip.ui.common.components.Pill
 import com.example.planyourtrip.ui.common.countryFlag
 import com.example.planyourtrip.ui.theme.Dimens
+
+/**
+ * The destination [field] with the search bar and the suggestion list drawn **under** it, over the fields that
+ * follow: the layout reports the field's height only, so typing never moves the dates, currency or Save button.
+ * The thin bar sits in the gap to the next field while [isSearching]; TalkBack hears "Searching" once when it starts
+ * (a live region). [onOverlayHeight] gets the height drawn below the field (bar gap + list, in px), so the form can
+ * keep room to scroll the whole list into view.
+ */
+@Composable
+fun DestinationFieldWithSuggestions(
+    isSearching: Boolean,
+    suggestions: List<PlaceSuggestion>,
+    onPick: (PlaceSuggestion) -> Unit,
+    onOverlayHeight: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    field: @Composable () -> Unit,
+) {
+    val searching = stringResource(R.string.place_search_in_progress)
+    Layout(
+        contents = listOf(field) + {
+            Column(Modifier.onSizeChanged { onOverlayHeight(it.height) }) {
+                Spacer(Modifier.height(SearchBarGap))
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(Dimens.SearchBarHeight)
+                        .semantics {
+                            liveRegion = LiveRegionMode.Polite
+                            if (isSearching) contentDescription = searching
+                        },
+                ) {
+                    if (isSearching) {
+                        LinearProgressIndicator(
+                            color = MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(Dimens.SearchBarHeight),
+                        )
+                    }
+                }
+                if (suggestions.isNotEmpty()) {
+                    // The list starts where the next field's gap ends, as it did inside the column.
+                    Spacer(Modifier.height(SearchBarGap))
+                    DestinationSuggestionList(suggestions, onPick)
+                }
+            }
+        },
+        // Drawn (and touched) above the fields that follow it in the column.
+        modifier = modifier.zIndex(1f),
+    ) { (fieldMeasurables, overlayMeasurables), constraints ->
+        val fieldPlaceable = fieldMeasurables.single().measure(constraints)
+        val width = fieldPlaceable.width
+        val overlay = overlayMeasurables.single()
+            .measure(Constraints(minWidth = width, maxWidth = width))
+        layout(width, fieldPlaceable.height) {
+            fieldPlaceable.place(0, 0)
+            overlay.place(0, fieldPlaceable.height)
+        }
+    }
+}
+
+/** Space above and below the search bar: together with the bar, the form's 8dp gap between fields. */
+private val SearchBarGap = 2.5.dp
 
 /**
  * The places matching the typed destination, under the field (inside the form's scrolling column, so the keyboard

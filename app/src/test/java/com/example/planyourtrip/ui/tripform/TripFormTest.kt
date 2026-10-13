@@ -33,7 +33,7 @@ class TripFormTest {
     private val user = FakeAuthRepository(AuthUser("u1", "Yael", "yael@example.com"))
     private lateinit var repo: FakeTripRepository
     private val currencies = FakeCurrencyRepository(now = { Instant.EPOCH })
-    private val destinations = DestinationSuggestions(FakePlaceSearch(), hebrewTable = emptyList())
+    private val destinations = DestinationSuggestions(FakePlaceSearch(), table = emptyList())
     private lateinit var vm: TripFormViewModel
 
     private val nov12 = LocalDate.of(2026, 11, 12)

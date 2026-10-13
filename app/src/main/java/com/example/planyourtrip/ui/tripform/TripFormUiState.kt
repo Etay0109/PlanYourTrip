@@ -11,8 +11,10 @@ data class TripFormUiState(
     /** While editing, true until the trip's current values are loaded into the fields. */
     val isLoading: Boolean = false,
     val destination: String = "",
-    /** Places matching the typed destination (empty = no list shown). */
+    /** Places matching the typed destination (empty = no list shown): the built-in table's first, then Photon's. */
     val suggestions: List<PlaceSuggestion> = emptyList(),
+    /** True while Photon is being asked (after the typing pause, until it answers or fails): the thin bar shows. */
+    val isSearching: Boolean = false,
     /**
      * The picked suggestion's country and coordinates (or the edited trip's stored ones); null once the text is
      * edited, until a suggestion is picked again. Free text is saved without them.

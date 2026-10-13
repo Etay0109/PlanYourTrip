@@ -4,33 +4,56 @@ import kotlinx.coroutines.CancellationException
 import java.util.Locale
 
 /**
- * The suggestions for what was typed in the destination field. Latin text → Photon. Text with Hebrew letters → the
- * built-in Hebrew table first (works offline), then Photon's results for the text itself (places in Israel have
- * Hebrew names there). Never throws for a failed lookup: it just returns fewer (or no) suggestions.
+ * The suggestions for what was typed in the destination field, in two steps:
+ * - [instant]: the built-in table (popular places abroad), matched on its Hebrew names for text with Hebrew letters and
+ *   on its English names otherwise. No network, so the screen shows it on every keystroke.
+ * - [remote]: Photon (places anywhere; for Hebrew text the places in Israel, which have Hebrew names there).
+ * [merge] puts Photon's places under the instant ones. A failed lookup never throws: it just adds nothing.
  */
 class DestinationSuggestions(
     private val search: PlaceSearch,
-    private val hebrewTable: List<HebrewPlace> = HEBREW_PLACE_TABLE,
+    private val table: List<HebrewPlace> = HEBREW_PLACE_TABLE,
 ) {
-    suspend fun suggest(text: String): List<PlaceSuggestion> {
+    /** The table's places for [text] (empty below [MIN_QUERY_LENGTH] characters). */
+    fun instant(text: String): List<PlaceSuggestion> {
         val query = text.trim()
         if (query.length < MIN_QUERY_LENGTH) return emptyList()
-        val local = if (HebrewPlaces.containsHebrew(query)) HebrewPlaces.search(query, hebrewTable) else emptyList()
-        val remote = try {
+        val found = if (HebrewPlaces.containsHebrew(query)) HebrewPlaces.search(query, table)
+        else EnglishPlaces.search(query, table)
+        return found.take(MAX_SUGGESTIONS)
+    }
+
+    /** Photon's places for [text]; null when the lookup failed (no network, timeout, server error, bad answer). */
+    suspend fun remote(text: String): List<PlaceSuggestion>? {
+        val query = text.trim()
+        if (query.length < MIN_QUERY_LENGTH) return emptyList()
+        return try {
             search.search(query)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            // No network, timeout, server error or a bad answer: no list from Photon, never an error message.
-            emptyList()
+            null
         }
-        return (local + remote).withoutRepeats().take(MAX_SUGGESTIONS)
     }
+
+    /** Both steps at once: [instant], then [remote] merged under it. */
+    suspend fun suggest(text: String): List<PlaceSuggestion> = merge(instant(text), remote(text).orEmpty())
 
     companion object {
         /** Lookups start at 2 characters. */
         const val MIN_QUERY_LENGTH = 2
         const val MAX_SUGGESTIONS = 6
+
+        /**
+         * [instant] rows first, exactly where they were (so the list doesn't jump when Photon answers), then the
+         * [remote] places that aren't one of them (the same place in the same country: [isSamePlaceAs]) or a repeat
+         * of each other. At most [MAX_SUGGESTIONS].
+         */
+        fun merge(instant: List<PlaceSuggestion>, remote: List<PlaceSuggestion>): List<PlaceSuggestion> {
+            val first = instant.take(MAX_SUGGESTIONS)
+            val added = remote.filter { place -> first.none { it.isSamePlaceAs(place) } }
+            return (first + added).withoutRepeats().take(MAX_SUGGESTIONS)
+        }
     }
 }
 

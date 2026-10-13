@@ -157,12 +157,13 @@ class TripFormPlaceTest {
     @Test
     fun offline_noListAndNoError_andTheTextIsSaved() = runTest(dispatcher) {
         search.offline = true
-        type("lond")
+        // Not in the built-in table, so offline nothing is found.
+        type("toky")
         val state = vm.uiState.value
         assertTrue(state.suggestions.isEmpty())
         assertNull(state.destinationError)
         saveWithDates()
-        assertEquals("lond", saved().destination)
+        assertEquals("toky", saved().destination)
         assertNull(saved().countryCode)
     }
 
@@ -226,6 +227,121 @@ class TripFormPlaceTest {
         advanceUntilIdle()
         assertEquals(listOf("rome"), search.completed) // "lond" was cancelled
         assertEquals(listOf("Rome, Italy"), vm.uiState.value.suggestions.map { it.label })
+    }
+
+    // ---------- Instant rows and the loading bar ----------
+
+    private val paris = com.example.planyourtrip.data.place.PlaceSuggestion(
+        "Paris", "Île-de-France", "France", "FR", 48.8535, 2.34839,
+    )
+    private val parisTexas = com.example.planyourtrip.data.place.PlaceSuggestion(
+        "Paris", "Texas", "United States", "US", 33.66, -95.55,
+    )
+
+    /** A form whose table has Paris and London, and whose Photon waits for [gate] when set. */
+    private fun instantForm() = TripFormViewModel(
+        null, repo, user, currencies,
+        DestinationSuggestions(search, listOf(HebrewPlace("פריז", emptyList(), paris), hebrew.single())),
+    )
+
+    @Test
+    fun englishText_showsTheTablesPlaces_atOnce_beforeThePauseOrPhoton() = runTest(dispatcher) {
+        val form = instantForm()
+        form.onDestinationChange("par")
+        assertEquals(listOf("Paris, France"), form.uiState.value.suggestions.map { it.label })
+        assertFalse(form.uiState.value.isSearching)
+        assertTrue(search.queries.isEmpty())
+    }
+
+    @Test
+    fun photonsPlaces_areAddedUnderTheInstantOnes_withoutRepeats_orReordering() = runTest(dispatcher) {
+        // Photon answers its own Paris (another region line) after Paris, Texas.
+        search.results = mapOf("par" to listOf(parisTexas, paris.copy(region = "Ile-de-France", latitude = 48.86)))
+        val form = instantForm()
+        form.onDestinationChange("par")
+        val instant = form.uiState.value.suggestions
+        advanceUntilIdle()
+        val merged = form.uiState.value.suggestions
+        assertEquals(instant, merged.take(instant.size))
+        assertEquals(listOf("Paris, France", "Paris, United States"), merged.map { it.label })
+    }
+
+    @Test
+    fun theBar_startsAfterThePause_andEndsWithTheResults() = runTest(dispatcher) {
+        val gate = CompletableDeferred<Unit>()
+        search.gate = gate
+        vm.onDestinationChange("lond")
+        advanceTimeBy(TripFormViewModel.LOOKUP_DELAY_MILLIS - 1)
+        runCurrent()
+        assertFalse(vm.uiState.value.isSearching)
+        advanceTimeBy(2)
+        runCurrent()
+        assertTrue(vm.uiState.value.isSearching)
+
+        gate.complete(Unit)
+        advanceUntilIdle()
+        assertFalse(vm.uiState.value.isSearching)
+        assertEquals(listOf("London, United Kingdom", "London, Canada"), vm.uiState.value.suggestions.map { it.label })
+    }
+
+    @Test
+    fun theBar_endsWhenTheLookupFails_andTheInstantRowsStay() = runTest(dispatcher) {
+        search.offline = true
+        vm.onDestinationChange("lond")
+        advanceUntilIdle()
+        assertFalse(vm.uiState.value.isSearching)
+        assertEquals(listOf("London, United Kingdom"), vm.uiState.value.suggestions.map { it.label })
+        assertNull(vm.uiState.value.destinationError)
+    }
+
+    /** Starts a lookup that waits, with the bar showing. */
+    private fun TestScope.searching(text: String = "lond") {
+        search.gate = CompletableDeferred()
+        vm.onDestinationChange(text)
+        advanceTimeBy(TripFormViewModel.LOOKUP_DELAY_MILLIS + 1)
+        runCurrent()
+        assertTrue(vm.uiState.value.isSearching)
+    }
+
+    @Test
+    fun theBar_endsWhenTheTextDropsBelowTwoCharacters() = runTest(dispatcher) {
+        searching()
+        vm.onDestinationChange("l")
+        assertFalse(vm.uiState.value.isSearching)
+        assertTrue(vm.uiState.value.suggestions.isEmpty())
+    }
+
+    @Test
+    fun theBar_endsWhenASuggestionIsPicked() = runTest(dispatcher) {
+        searching()
+        vm.onSuggestionPicked(LONDON)
+        assertFalse(vm.uiState.value.isSearching)
+        search.gate?.complete(Unit)
+        advanceUntilIdle()
+        assertFalse(vm.uiState.value.isSearching)
+        assertTrue(vm.uiState.value.suggestions.isEmpty())
+    }
+
+    @Test
+    fun theBar_endsWhenTheFieldLosesFocus() = runTest(dispatcher) {
+        searching()
+        vm.onSuggestionsDismissed()
+        assertFalse(vm.uiState.value.isSearching)
+        search.gate?.complete(Unit)
+        advanceUntilIdle()
+        assertFalse(vm.uiState.value.isSearching)
+        assertTrue(vm.uiState.value.suggestions.isEmpty())
+    }
+
+    @Test
+    fun aKeystrokeWhileSearching_keepsTheBar_untilTheNewTextsAnswer() = runTest(dispatcher) {
+        searching("lon")
+        search.gate = null
+        vm.onDestinationChange("lond")
+        assertTrue(vm.uiState.value.isSearching)
+        advanceUntilIdle()
+        assertFalse(vm.uiState.value.isSearching)
+        assertEquals(listOf("lon", "lond"), search.queries)
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.example.planyourtrip.data.place
 
+import com.example.planyourtrip.data.photo.PhotoRules
 import com.example.planyourtrip.data.trip.TripPlace
 
 /**
@@ -94,6 +95,30 @@ data class PlaceSuggestion(
     /** The values the trip stores (normalized: a bad code or coordinate becomes null). */
     fun toTripPlace(): TripPlace = TripPlace(countryCode, latitude, longitude).normalized()
 }
+
+/**
+ * The same place as [other], for merging the table with Photon: [sameness] matches, or the same name (any case) in
+ * the same country (code, else name), of the same kind and within [SAME_PLACE_KM] (when both have coordinates; a country always). The
+ * table's region line can differ from Photon's for the same city (Photon's data changes), so the region alone never
+ * makes two rows, while two towns of one name in one country stay two.
+ */
+fun PlaceSuggestion.isSamePlaceAs(other: PlaceSuggestion): Boolean {
+    if (sameness == other.sameness) return true
+    val country = countryCode?.uppercase() ?: countryName?.lowercase()
+    val otherCountry = other.countryCode?.uppercase() ?: other.countryName?.lowercase()
+    if (country == null || country != otherCountry || regionKind != other.regionKind) return false
+    if (!name.equals(other.name, ignoreCase = true)) return false
+    // A country is one place whatever point each source gives it.
+    if (name.equals(countryName, ignoreCase = true)) return true
+    val lat = latitude ?: return true
+    val lon = longitude ?: return true
+    val otherLat = other.latitude ?: return true
+    val otherLon = other.longitude ?: return true
+    return PhotoRules.distanceKm(lat, lon, otherLat, otherLon) <= SAME_PLACE_KM
+}
+
+/** How far apart the table's and Photon's points of one place may be (a city's point moves between data versions). */
+private const val SAME_PLACE_KM = 50.0
 
 /** Removes repeats of the same place (name, region and country all equal), keeping the first. */
 fun List<PlaceSuggestion>.withoutRepeats(): List<PlaceSuggestion> = distinctBy { it.sameness }

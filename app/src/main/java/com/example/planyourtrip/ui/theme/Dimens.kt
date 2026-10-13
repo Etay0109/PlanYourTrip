@@ -45,6 +45,9 @@ object Dimens {
     /** The flag (or pin) slot at the start of a destination suggestion row. */
     val SuggestionFlagWidth = 32.dp
 
+    /** The thin bar under the destination field while places are looked up (fits the gap to the next field). */
+    val SearchBarHeight = 3.dp
+
     /** Width of the Prep tab's document cards (and the dashed "Add document" card). */
     val DocumentCardWidth = 200.dp
 
