@@ -7,6 +7,8 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Trip reminders (Android 13+ asks the user; see NotificationPermissionHost). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Trip reminders: arm the alarms again after a restart (ReminderRestoreReceiver). -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:name=".PlanYourTripApplication"
@@ -31,6 +33,21 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- A trip reminder's alarm (AndroidReminderWork). Only our own PendingIntent sends it. -->
+        <receiver
+            android:name=".data.reminder.TripReminderAlarmReceiver"
+            android:exported="false" />
+
+        <!-- After a restart or an app update: arms the reminder alarms again, shows a missed one (this evening only). -->
+        <receiver
+            android:name=".data.reminder.ReminderRestoreReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <!-- Shares trip PDFs from the cache with a temporary read permission (see res/xml/file_paths.xml). -->
         <provider

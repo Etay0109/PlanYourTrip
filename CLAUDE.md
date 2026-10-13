@@ -20,8 +20,8 @@ as you type (Photon, plus a built-in Hebrew table); a picked place gives the tri
 as a flag next to the destination (see "Destination suggestions and flags"). Currencies show their flag everywhere.
 Trips show a **destination photo** from Wikipedia (Next trip card and trip header backgrounds, thumbnails on the other
 Home cards), remembered on this device only (see "Destination photos").
-A local **"trip starts tomorrow" notification** at 18:00 the day before each future trip (WorkManager, no server; see
-"Trip reminders").
+A local **"trip starts tomorrow" notification** at 18:00 the day before each future trip (an alarm + a WorkManager
+backup, no server; late until 23:59 when delayed, at most once; see "Trip reminders").
 Package: `com.example.planyourtrip`. minSdk 26, targetSdk 36.
 
 ## Commands
@@ -34,7 +34,12 @@ Package: `com.example.planyourtrip`. minSdk 26, targetSdk 36.
   only `com.example.planyourtrip.test`.
 - Fire the trip reminders now (debug builds only, emulator): `adb shell am broadcast -a
   com.example.planyourtrip.DEBUG_TRIP_REMINDER -p com.example.planyourtrip` (every trip of the signed-in account that
-  starts tomorrow; `src/debug/.../DebugReminderReceiver.kt`, guarded by the `DUMP` permission so only adb can send it)
+  starts tomorrow, through `ReminderDelivery`, so it then counts as shown; add `--ez force true` to show it again;
+  `src/debug/.../DebugReminderReceiver.kt`, guarded by the `DUMP` permission so only adb can send it)
+- See the scheduled reminders (debug builds only): `adb shell am broadcast -a
+  com.example.planyourtrip.DEBUG_NEXT_REMINDER -p com.example.planyourtrip`, then `adb logcat -s TripReminder` (each
+  trip uuid, local time, waiting / due / shown, WorkManager state, alarm armed); also `adb shell dumpsys alarm | grep
+  TRIP_REMINDER_ALARM`
 - Release build: `./gradlew assembleRelease` (unsigned APK; must compile too, see the Compose BoM note in Conventions)
 - Firestore security rules: `firestore.rules` (repo root). Not deployed by the build: paste the file into Firebase
   console → Firestore Database → Rules → Publish after every change.
@@ -121,11 +126,16 @@ app/src/main/java/com/example/planyourtrip/
                                # code), DestinationPhotoEntity/Dao, DestinationPhotoRepository + RoomDestinationPhoto…,
                                # PhotoRetryFlags (+ SharedPreferences…: the one-time "no photo" clear)
   data/reminder/               # trip reminders (this device only, nothing synced): TripReminders (pure: reminderTime,
-                               # planReminders, reminderChanges, reminderMessage, shouldShowReminder, reminderDestination),
-                               # ReminderSettings (+ SharedPreferences…: switch, permission asked, scheduled map),
-                               # ReminderWork (interface) + WorkManagerReminderWork (the only WorkManager code),
-                               # TripReminderScheduler, TripReminderWorker, TripReminderNotifier (+ ReminderLink),
-                               # ReminderTrips + RoomReminderTrips, ReminderPrompt + ReminderPermissionPrompt
+                               # reminderDeadline, planReminders, isDue, shownKey, reminderChanges, reminderMessage,
+                               # shouldShowReminder, reminderDestination), ReminderSettings (+ SharedPreferences…:
+                               # switch, permission asked, scheduled map, shown keys, battery tip shown),
+                               # ReminderDelivery (+ ReminderPoster, DeliveryResult, REMINDER_LOG_TAG: shows each
+                               # reminder at most once), ReminderWork (interface) + AndroidReminderWork (the only
+                               # AlarmManager/WorkManager code), TripReminderAlarmReceiver, ReminderRestoreReceiver
+                               # (restart/update), TripReminderScheduler, TripReminderWorker (the backup),
+                               # TripReminderNotifier (the Android ReminderPoster, + ReminderLink), ReminderTrips +
+                               # RoomReminderTrips, ReminderPrompt + ReminderPermissionPrompt (+ ReminderSetupRequest),
+                               # BatteryTip (pure: LIMITING_BRANDS, shouldOfferBatteryTip, isSamsung)
   data/user/                   # CurrentUser (AuthUser.greetingName()), UserNames (firstName()/initials())
   ui/navigation/               # Routes.kt (type-safe routes), AppNavHost.kt, SessionViewModel
   ui/auth/                     # AuthScreen (hero, sheet, fields, strength bar), AuthViewModel, AuthUiState,
@@ -1655,30 +1665,64 @@ ZW → ZWG, MR → MRU, ST → STN, BY → BYN, CW/SX → XCG; every ISO country
   fires** (`ChecklistDao.countBeforeTrip`): "N things left on your Before the trip list" (plurals), "Everything is
   ready…" when all are checked, "Your trip starts tomorrow." without items. Channel `trip_reminders` "Trip reminders"
   (default importance), small icon `ic_notification` (the launcher's monochrome pin), color `NotificationColors.brand`.
-- **No reminder** for a trip starting today or already started, or when 18:00 the day before has passed (created that
-  evening). Nothing is synced: each member's phone schedules its own.
+- **Only the evening before, at most once:** from 18:00 (or late, when it was delayed) **until 23:59**, never after
+  midnight (`reminderDeadline`), no morning-of reminder. Shown reminders are remembered (`shownKey` = uuid|uid|start
+  epoch day in prefs `"reminders"` key `shown`, written with `commit()`; pruned once the trip has started), so edited
+  dates get a new one. **No reminder** for a trip starting today or already started, or one first seen after 18:00 the
+  day before (created or synced that evening). Nothing is synced: each member's phone schedules its own.
+- **Owed until midnight** (`planReminders(…, scheduled, shown)`): a reminder stays wanted after its 18:00 while the
+  saved map has it for that exact time, so nothing owed is cancelled. Until 2026-10-13 it was dropped at 18:00, and the
+  app start that WorkManager caused to run it (or any start after 18:00) cancelled the running reminder (the Samsung
+  phone case: an Android Studio force-stop at 10:47 removed the job, the app opened at 18:01 and cancelled the
+  recovered one).
 - **Scheduling** (`TripReminderScheduler`, started in `PlanYourTripApplication`): follows `currentUser` →
   `observeTrips(uid)` + the switch, `planReminders` → `reminderChanges` against the saved map (prefs `"reminders"`,
   uuid → uid + time), so Room emissions don't re-enqueue. Created, edited and synced trips are (re)scheduled; deleted,
-  left and removed trips (gone from Room) cancelled; sign-out (`uid == null`) cancels everything. **The first pass after
-  each app start checks the real WorkManager state** (`ReminderWork.pendingUuids`, by tag): a reminder the map lists but
-  WorkManager lost is scheduled again; a pending one nothing wants is cancelled.
-- **WorkManager** (2.10.5, Kotlin 1.8 metadata; 2.11+ needs Kotlin 2.1): one unique `OneTimeWorkRequest` per trip
-  (`trip-reminder-<uuid>`, `REPLACE`, tags `trip-reminder` + `trip-reminder:<uuid>`) with an initial delay; survives
-  restarts and updates, may be a few minutes late (no exact-alarm permission). `TripReminderWorker` →
-  `TripReminderNotifier.showIfDue`: posts only when `shouldShowReminder` (same uid signed in, the trip exists and starts
-  tomorrow, switch on, notifications allowed). Its strings come from a `withAppLocale()` context (English).
+  left and removed trips (gone from Room) cancelled; sign-out (`uid == null`) cancels everything. Owed reminders whose
+  time has come (`isDue`) are delivered **right away** (the catch-up: every app start, a cold start at 18:00, after a
+  force-stop). **The first pass after each app start schedules every future reminder again** (alarms don't survive a
+  restart or a force-stop; `REPLACE` is cheap) and cancels WorkManager requests nothing remembers.
+  `awaitFirstPass()` lets `ReminderRestoreReceiver` (`BOOT_COMPLETED`, `MY_PACKAGE_REPLACED`, not exported) keep the
+  process alive until that is done.
+- **Two triggers, one notification** (`AndroidReminderWork`): an `AlarmManager.setAndAllowWhileIdle(RTC_WAKEUP)` alarm
+  (`TripReminderAlarmReceiver`, data uri `planyourtrip://trip-reminder/<uuid>`, immutable; fires within minutes while
+  the phone sleeps; **no exact-alarm permission**) and the WorkManager backup (2.10.5, Kotlin 1.8 metadata; 2.11+ needs
+  Kotlin 2.1: one unique `OneTimeWorkRequest` per trip, `trip-reminder-<uuid>`, `REPLACE`, tags `trip-reminder` +
+  `trip-reminder:<uuid>`, initial delay; survives restarts and updates). Both, and the scheduler's catch-up, call
+  `ReminderDelivery.deliver` (one `Mutex`): posts only when `shouldShowReminder` (same uid signed in, the trip exists
+  and starts tomorrow, switch on, notifications allowed) and not shown yet; whoever comes second gets `ALREADY_SHOWN`.
+  A reminder not wanted at that moment (e.g. notifications refused) isn't remembered, so it can still show that
+  evening. `TripReminderNotifier` only builds and posts (strings from a `withAppLocale()` context, English). Logs:
+  `adb logcat -s TripReminder` (POSTED with minutes late, ALREADY_SHOWN, TOO_LATE, NOT_WANTED; trip uuids only).
+- **Known limit:** a force-stopped app (or one in Samsung's "Deep sleeping apps") can't be woken by anything; the
+  reminder comes when the app is next opened, if that is before midnight. The zone is the one the `Clock` had at app
+  start (a time-zone change takes effect at the next app start).
 - **Tap:** an immutable `PendingIntent` to `MainActivity` (`launchMode="singleTop"`, `onNewIntent`) with the trip uuid +
   uid (`ReminderLink`); `AppNavHost` opens the trip on the Prep tab (`TripDetails.initialTab`).
 - **Permission** (`POST_NOTIFICATIONS`, Android 13+): asked **once**, right after creating (`TripFormViewModel`) or
   joining (`JoinTripViewModel`) a trip that starts after today (`ReminderPermissionPrompt`, `permissionAsked`), shown by
   `NotificationPermissionHost` above the `NavHost`; never at app start. Refused → reminders aren't posted.
+- **Battery screen** (`BatteryTipDialog`, `ui/common/BatteryTipHost.kt`): "Get trip reminders on time", shown **once
+  ever** (`batteryTipShown`) after that permission step (or right away when the permission isn't needed) and when the
+  switch is turned on, only on `LIMITING_BRANDS` (Samsung, Xiaomi/Redmi/POCO, Huawei, Honor, OnePlus, Oppo, Realme,
+  Vivo) while the app isn't exempt from battery optimization (`isIgnoringBatteryOptimizations`). Samsung gets its steps
+  ("Never sleeping apps"); "Open settings" → `ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS` (fallback: the app's
+  details). Never `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` (Play policy).
 - **Switch:** "Trip reminders" in the profile menu (`AccountState.remindersEnabled`, on by default, this device). Off
-  cancels all; on schedules again and asks for the permission if Android still needs it.
+  cancels all; on schedules again, asks for the permission if Android still needs it and offers the battery screen.
 - Tests: `TripRemindersTest` (time incl. both DST changes, today/started/past, 17:59 vs 18:30 the evening before,
-  edited dates, deleted trips, switch, messages, shouldShow), `TripReminderSchedulerTest` (`FakeReminderWork`,
-  `FakeReminderSettings`: once per trip, rescheduling, sign-out, account switch, switch, the start-up check),
-  `ReminderPermissionPromptTest`, `AccountViewModelTest`, `TripFormTest`, `JoinTripViewModelTest`.
+  owed until 23:59:59 and not at 00:00, shown keys, edited dates, deleted trips, switch, messages, shouldShow),
+  `TripReminderSchedulerTest` (`FakeReminderWork`, `FakeReminderSettings`, `FakeReminderTrips`, `FakeReminderPoster`,
+  `MutableClock`: once per trip, rescheduling, sign-out, account switch, switch, the start-up pass, a cold start at
+  18:00, a start at 18:01 after a force-stop, late at 23:30, nothing after midnight, first seen at 20:00, notifications
+  refused then allowed), `ReminderDeliveryTest` (at most once with three calls at the same time, until 23:59:59,
+  not wanted isn't remembered, deleted/moved trip, message, force), `BatteryTipTest`, `ReminderPermissionPromptTest`,
+  `AccountViewModelTest`, `TripFormTest`, `JoinTripViewModelTest`. Checked on the emulator 2026-10-13: cold start by
+  the job (posted 2 min late, then the worker and the alarm `ALREADY_SHOWN`, one notification), a trip created at
+  18:06 (none), alarms re-armed after a reboot, force-stop then opened at 18:01 (one late notification, the recovered
+  job `ALREADY_SHOWN`), force-stop then opened at 00:00:30 (`TOO_LATE`, nothing). The emulator's clock can be moved for
+  such checks with `settings put global auto_time 0` + `cmd alarm set-time <epoch millis>` (and `set-timezone`); put
+  `auto_time` / `auto_time_zone` back to 1 afterwards. Emulator only, never the phone.
 
 ## Conventions
 - **Never log passwords** (only their length) or other secrets.

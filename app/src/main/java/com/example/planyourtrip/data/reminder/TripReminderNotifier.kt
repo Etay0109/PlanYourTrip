@@ -13,57 +13,42 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.example.planyourtrip.MainActivity
 import com.example.planyourtrip.R
-import com.example.planyourtrip.data.auth.AuthRepository
+import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.ui.theme.NotificationColors
 import com.example.planyourtrip.withAppLocale
-import java.time.Clock
-import java.time.LocalDate
 
 /**
- * Posts a trip's "trip starts tomorrow" notification (channel "Trip reminders") when it fires and is still wanted
- * ([shouldShowReminder]); the "Before the trip" list is counted now, not when it was scheduled. Tapping it opens
- * [MainActivity] with the trip's uuid and the account's uid ([ReminderLink]).
+ * The Android side of a reminder: posts the "trip starts tomorrow" notification (channel "Trip reminders") that
+ * [ReminderDelivery] decided to show. Tapping it opens [MainActivity] with the trip's uuid and the account's uid
+ * ([ReminderLink]).
  */
-class TripReminderNotifier(
-    context: Context,
-    private val authRepository: AuthRepository,
-    private val trips: ReminderTrips,
-    private val settings: ReminderSettings,
-    private val clock: Clock,
-) {
+class TripReminderNotifier(context: Context) : ReminderPoster {
     /** English strings whatever the phone's language (see AppLocaleSetup). */
     private val context: Context = context.applicationContext.withAppLocale()
 
-    suspend fun showIfDue(tripUuid: String, uid: String) {
-        val trip = trips.trip(tripUuid, uid)
-        val show = shouldShowReminder(
-            reminderUid = uid,
-            signedInUid = authRepository.currentUser.value?.uid,
-            tripStart = trip?.startDate,
-            today = LocalDate.now(clock),
-            enabled = settings.enabled.value,
-            notificationsAllowed = notificationsAllowed(),
-        )
-        if (!show || trip == null) return
-        val message = when (val m = reminderMessage(trips.beforeTripCount(tripUuid, uid))) {
+    override fun canPost(): Boolean = notificationsAllowed()
+
+    override fun post(trip: Trip, uid: String, message: ReminderMessage) {
+        val text = when (message) {
             ReminderMessage.NoList -> context.getString(R.string.reminder_no_list)
             ReminderMessage.AllDone -> context.getString(R.string.reminder_all_done)
-            is ReminderMessage.ItemsLeft -> context.resources.getQuantityString(R.plurals.reminder_items_left, m.count, m.count)
+            is ReminderMessage.ItemsLeft ->
+                context.resources.getQuantityString(R.plurals.reminder_items_left, message.count, message.count)
         }
         createChannel()
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setColor(NotificationColors.brand)
             .setContentTitle(context.getString(R.string.reminder_title, reminderDestination(trip.destination, trip.countryCode)))
-            .setContentText(message)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setContentIntent(openTrip(tripUuid, uid))
+            .setContentIntent(openTrip(trip.uuid, uid))
             .setAutoCancel(true)
             .build()
-        @Suppress("MissingPermission") // notificationsAllowed() is part of shouldShowReminder above
-        NotificationManagerCompat.from(context).notify(tripUuid.hashCode(), notification)
+        @Suppress("MissingPermission") // ReminderDelivery posts only when canPost()
+        NotificationManagerCompat.from(context).notify(trip.uuid.hashCode(), notification)
     }
 
     private fun notificationsAllowed(): Boolean {

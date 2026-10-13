@@ -9,6 +9,7 @@ import com.example.planyourtrip.data.auth.AuthRepository
 import com.example.planyourtrip.data.auth.AuthUser
 import com.example.planyourtrip.data.reminder.ReminderLink
 import com.example.planyourtrip.data.reminder.ReminderPermissionPrompt
+import com.example.planyourtrip.data.reminder.ReminderSetupRequest
 import com.example.planyourtrip.data.reminder.ReminderTrips
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,11 +26,21 @@ class SessionViewModel(
     /** Read once: the auth backend restores a saved session synchronously, so no splash screen is needed. */
     val startsSignedIn: Boolean = repository.currentUser.value != null
 
-    /** Ask for the notification permission now (after creating or joining a future trip; once). */
-    val permissionRequests: Flow<Unit> = permissionPrompt.requests
+    /**
+     * Ask for the notification permission (after creating or joining a future trip; once), then offer the one-time
+     * battery screen.
+     */
+    val permissionRequests: Flow<ReminderSetupRequest> = permissionPrompt.requests
 
     fun onPermissionAsked() {
         permissionPrompt.onAsked()
+    }
+
+    fun wantsBatteryTip(manufacturer: String, exempt: Boolean): Boolean =
+        permissionPrompt.wantsBatteryTip(manufacturer, exempt)
+
+    fun onBatteryTipShown() {
+        permissionPrompt.onBatteryTipShown()
     }
 
     /**

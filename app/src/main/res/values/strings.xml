@@ -568,4 +568,9 @@
         <item quantity="other">Your trip starts tomorrow. %d things left on your Before the trip list.</item>
     </plurals>
     <string name="home_trip_reminders">Trip reminders</string>
+    <string name="battery_tip_title">Get trip reminders on time</string>
+    <string name="battery_tip_body">To save battery, this phone may pause apps you aren\'t using, which can delay or block your trip reminders. You can let Plan Your Trip run in the background in the battery settings.</string>
+    <string name="battery_tip_samsung_steps">On Samsung: Settings → Battery and device care → Battery → Background usage limits → Never sleeping apps → add Plan Your Trip.</string>
+    <string name="battery_tip_open_settings">Open settings</string>
+    <string name="battery_tip_not_now">Not now</string>
 </resources>

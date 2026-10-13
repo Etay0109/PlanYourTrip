@@ -7,13 +7,16 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.example.planyourtrip.PlanYourTripApplication
 
-/** Fires a trip's reminder: [TripReminderNotifier] checks it is still wanted and posts it. Never retried. */
+/**
+ * The backup of a trip's reminder alarm ([AndroidReminderWork]): [ReminderDelivery] shows it if it is still wanted and
+ * wasn't shown yet. Never retried.
+ */
 class TripReminderWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val tripUuid = inputData.getString(KEY_TRIP_UUID) ?: return Result.success()
         val uid = inputData.getString(KEY_UID) ?: return Result.success()
         val container = (applicationContext as PlanYourTripApplication).container
-        container.tripReminderNotifier.showIfDue(tripUuid, uid)
+        container.reminderDelivery.deliver(tripUuid, uid)
         return Result.success()
     }
 

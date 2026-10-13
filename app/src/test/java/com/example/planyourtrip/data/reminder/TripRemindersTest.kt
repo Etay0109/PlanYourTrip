@@ -84,15 +84,51 @@ class TripRemindersTest {
     }
 
     @Test
-    fun startingTomorrow_beforeSix_getsOne_afterSix_getsNone() {
+    fun startingTomorrow_beforeSix_getsOne_firstSeenAfterSix_getsNone() {
         val tomorrow = listOf(trip("a", LocalDate.of(2026, 10, 13)))
         assertEquals(
             setOf("a"),
             planReminders("u1", tomorrow, at("2026-10-12T17:59", jerusalem), jerusalem, enabled = true).keys,
         )
-        // Created the evening before, after 18:00: no reminder.
+        // Created (or synced to this phone) the evening before, after 18:00: no reminder.
         assertTrue(planReminders("u1", tomorrow, at("2026-10-12T18:30", jerusalem), jerusalem, true).isEmpty())
         assertTrue(planReminders("u1", tomorrow, at("2026-10-12T18:00", jerusalem), jerusalem, true).isEmpty())
+    }
+
+    @Test
+    fun aDelayedReminder_staysOwedUntilMidnight_neverAfter() {
+        val start = LocalDate.of(2026, 10, 14)
+        val trips = listOf(trip("a", start))
+        val scheduled = mapOf("a" to Reminder("u1", reminderTime(start, jerusalem)))
+        fun owed(time: String) =
+            planReminders("u1", trips, at(time, jerusalem), jerusalem, true, scheduled).keys == setOf("a")
+        assertTrue(owed("2026-10-13T18:00"))
+        assertTrue(owed("2026-10-13T18:01"))
+        assertTrue(owed("2026-10-13T23:30"))
+        assertTrue(owed("2026-10-13T23:59:59"))
+        assertFalse(owed("2026-10-14T00:00"))
+        assertFalse(owed("2026-10-14T07:00"))
+        // Scheduled for another account or another time: not owed after 18:00.
+        val other = mapOf("a" to Reminder("u2", reminderTime(start, jerusalem)))
+        assertTrue(planReminders("u1", trips, at("2026-10-13T19:00", jerusalem), jerusalem, true, other).isEmpty())
+    }
+
+    @Test
+    fun aShownReminder_isNotOwed_butMovedDatesGetANewOne() {
+        val shown = setOf(shownKey("a", "u1", LocalDate.of(2026, 10, 14)))
+        val now = at("2026-10-12T10:00", jerusalem)
+        fun plan(start: LocalDate) = planReminders("u1", listOf(trip("a", start)), now, jerusalem, true, shown = shown)
+        assertTrue(plan(LocalDate.of(2026, 10, 14)).isEmpty())
+        assertEquals(setOf("a"), plan(LocalDate.of(2026, 10, 20)).keys)
+    }
+
+    @Test
+    fun deadlineIsMidnightOnTheStartDay_andShownKeysKeepTheirDate() {
+        assertEquals(at("2026-10-14T00:00", jerusalem), reminderDeadline(LocalDate.of(2026, 10, 14), jerusalem))
+        assertEquals(LocalDate.of(2026, 10, 14), shownKeyStart(shownKey("a", "u1", LocalDate.of(2026, 10, 14))))
+        assertEquals(null, shownKeyStart("garbage"))
+        assertTrue(Reminder("u1", at("2026-10-13T18:00", jerusalem)).isDue(at("2026-10-13T18:00", jerusalem)))
+        assertFalse(Reminder("u1", at("2026-10-13T18:00", jerusalem)).isDue(at("2026-10-13T17:59", jerusalem)))
     }
 
     @Test

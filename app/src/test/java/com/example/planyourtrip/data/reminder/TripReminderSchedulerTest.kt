@@ -1,8 +1,11 @@
 package com.example.planyourtrip.data.reminder
 
 import com.example.planyourtrip.FakeAuthRepository
+import com.example.planyourtrip.FakeReminderPoster
 import com.example.planyourtrip.FakeReminderSettings
+import com.example.planyourtrip.FakeReminderTrips
 import com.example.planyourtrip.FakeReminderWork
+import com.example.planyourtrip.MutableClock
 import com.example.planyourtrip.FakeTripRepository
 import com.example.planyourtrip.data.auth.AuthUser
 import com.example.planyourtrip.data.trip.Trip
@@ -14,7 +17,6 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -23,13 +25,15 @@ import java.time.ZoneId
 @OptIn(ExperimentalCoroutinesApi::class)
 class TripReminderSchedulerTest {
     private val zone = ZoneId.of("Asia/Jerusalem")
-    private val clock = Clock.fixed(LocalDateTime.of(2026, 10, 12, 10, 0).atZone(zone).toInstant(), zone)
+    private val clock = MutableClock(LocalDateTime.of(2026, 10, 12, 10, 0).atZone(zone).toInstant(), zone)
     private val user = AuthUser("u1", "Yael", "yael@example.com")
 
     private val auth = FakeAuthRepository(user)
     private val trips = FakeTripRepository()
     private val settings = FakeReminderSettings()
     private val work = FakeReminderWork()
+    private val poster = FakeReminderPoster()
+    private val delivery = ReminderDelivery(auth, FakeReminderTrips { trips.trips.value }, settings, poster, clock)
 
     private fun trip(uuid: String, start: LocalDate) =
         Trip(id = uuid.hashCode().toLong(), destination = "Rome", startDate = start, endDate = start.plusDays(3),
@@ -45,7 +49,7 @@ class TripReminderSchedulerTest {
         runCurrent()
     }
 
-    private fun TestScope.newScheduler() = TripReminderScheduler(auth, trips, settings, work, clock, backgroundScope)
+    private fun TestScope.newScheduler() = TripReminderScheduler(auth, trips, settings, work, delivery, clock, backgroundScope)
 
     private fun TestScope.setTrips(vararg list: Trip, owner: String = "u1") {
         trips.trips.value = list.map { owner to it }
@@ -125,13 +129,13 @@ class TripReminderSchedulerTest {
     // The start-up check against the real WorkManager state.
 
     @Test
-    fun atStart_aReminderTheSavedListHasButWorkManagerLost_isScheduledAgain() = runTest {
+    fun atStart_everyFutureReminderIsArmedAgain_alarmsDontSurviveARestartOrAForceStop() = runTest {
         setTrips(trip("a", nov1), trip("b", nov8))
         settings.saved = mapOf("a" to reminderOn(nov1), "b" to reminderOn(nov8))
-        work.pending["b"] = reminderOn(nov8) // only "b" is really pending
+        work.pending["b"] = reminderOn(nov8) // WorkManager kept "b" only; neither alarm survived
         start()
         assertEquals(mapOf("a" to reminderOn(nov1), "b" to reminderOn(nov8)), work.pending)
-        assertEquals(listOf("schedule:a"), work.calls)
+        assertEquals(listOf("schedule:a", "schedule:b"), work.calls)
     }
 
     @Test
@@ -142,20 +146,109 @@ class TripReminderSchedulerTest {
         settings.saved = mapOf("a" to reminderOn(nov1))
         start()
         assertEquals(mapOf("a" to reminderOn(nov1)), work.pending)
-        assertEquals(listOf("cancel:gone"), work.calls)
+        assertEquals(listOf("cancel:gone", "schedule:a"), work.calls)
     }
 
     @Test
-    fun afterTheStartUpCheck_theSavedListIsUsed() = runTest {
+    fun afterTheStartUpPass_onlyChangesAreScheduled_untilTheNextStart() = runTest {
         setTrips(trip("a", nov1))
         start()
-        // WorkManager loses it later in the same process: not re-read on every change (only at the next start).
+        // WorkManager loses it later in the same process: not re-checked on every change (only at the next start).
         work.drop("a")
         setTrips(trip("a", nov1), trip("c", nov8))
         assertEquals(listOf("schedule:a", "schedule:c"), work.calls)
-        // The next app start finds it missing and schedules it again.
+        // The next app start arms everything again.
         work.calls.clear()
         start(newScheduler())
-        assertEquals(listOf("schedule:a"), work.calls)
+        assertEquals(listOf("schedule:a", "schedule:c"), work.calls)
+    }
+
+    // A late reminder: shown the evening before only, at most once (the 2026-10-13 bug: an app start after 18:00
+    // cancelled the reminder WorkManager was just running).
+
+    private val oct14 = LocalDate.of(2026, 10, 14)
+    private val tomorrowTrip = trip("t", oct14)
+
+    /** The reminder of [tomorrowTrip] was scheduled during the day, then the app process ended. */
+    private fun TestScope.scheduledDuringTheDay(pendingInWorkManager: Boolean = true) {
+        clock.set(LocalDateTime.of(2026, 10, 13, 10, 0))
+        setTrips(tomorrowTrip)
+        settings.saved = mapOf("t" to reminderOn(oct14))
+        if (pendingInWorkManager) work.pending["t"] = reminderOn(oct14)
+    }
+
+    @Test
+    fun coldStartAt1800_causedByTheReminder_showsItOnce_andNeverCancelsIt() = runTest {
+        scheduledDuringTheDay()
+        // The alarm or the job starts the app at 18:00:00.2; the scheduler's first pass runs before the worker.
+        clock.now = reminderOn(oct14).at.plusMillis(200)
+        start()
+        assertEquals(listOf("t:${ReminderMessage.NoList}"), poster.posted)
+        assertTrue("cancel:t" !in work.calls)
+        // Then the WorkManager backup and the alarm run too: still one notification.
+        assertEquals(DeliveryResult.ALREADY_SHOWN, delivery.deliver("t", "u1"))
+        assertEquals(DeliveryResult.ALREADY_SHOWN, delivery.deliver("t", "u1"))
+        assertEquals(1, poster.posted.size)
+    }
+
+    @Test
+    fun startAt1801_afterAForceStopLostEverything_showsTheReminderLate_once() = runTest {
+        scheduledDuringTheDay(pendingInWorkManager = false) // a force-stop removed the job and the alarm
+        clock.set(LocalDateTime.of(2026, 10, 13, 18, 1))
+        start()
+        assertEquals(listOf("t:${ReminderMessage.NoList}"), poster.posted)
+        assertTrue("cancel:t" !in work.calls)
+        // Room emits again (a sync): not shown again; the shown reminder is forgotten from the schedule.
+        setTrips(tomorrowTrip, trip("other", nov8))
+        assertEquals(1, poster.posted.size)
+        assertEquals(setOf("other"), settings.saved.keys)
+    }
+
+    @Test
+    fun lateReminderAt2330_isShown() = runTest {
+        scheduledDuringTheDay()
+        clock.set(LocalDateTime.of(2026, 10, 13, 23, 30))
+        start()
+        assertEquals(1, poster.posted.size)
+    }
+
+    @Test
+    fun afterMidnight_nothingIsShown_andTheReminderIsDropped() = runTest {
+        scheduledDuringTheDay()
+        clock.set(LocalDateTime.of(2026, 10, 14, 0, 0, 5))
+        start()
+        assertTrue(poster.posted.isEmpty())
+        assertTrue(work.pending.isEmpty())
+        assertTrue(settings.saved.isEmpty())
+    }
+
+    @Test
+    fun aTripFirstSeenAfterSixTheEveningBefore_getsNoReminder() = runTest {
+        clock.set(LocalDateTime.of(2026, 10, 13, 20, 0))
+        start()
+        setTrips(tomorrowTrip) // created or synced to this phone at 20:00
+        assertTrue(poster.posted.isEmpty())
+        assertTrue(work.pending.isEmpty())
+    }
+
+    @Test
+    fun notificationsRefusedAt1800_theReminderStaysOwed_andShowsWhenAllowedLaterThatEvening() = runTest {
+        scheduledDuringTheDay()
+        poster.allowed = false
+        clock.set(LocalDateTime.of(2026, 10, 13, 18, 0))
+        start()
+        assertTrue(poster.posted.isEmpty())
+        assertEquals(setOf("t"), settings.saved.keys)
+        poster.allowed = true
+        clock.set(LocalDateTime.of(2026, 10, 13, 21, 0))
+        start(newScheduler()) // the next app start
+        assertEquals(1, poster.posted.size)
+    }
+
+    @Test
+    fun shownRemindersOfPastTrips_areForgotten() = runTest {
+        settings.shownKeys = setOf(shownKey("old", "u1", LocalDate.of(2026, 10, 1)), shownKey("t", "u1", oct14))
+        start()
+        assertEquals(setOf(shownKey("t", "u1", oct14)), settings.shownKeys)
     }
 }

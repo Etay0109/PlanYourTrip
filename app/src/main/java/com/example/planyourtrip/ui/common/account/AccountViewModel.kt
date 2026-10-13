@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.planyourtrip.appContainer
 import com.example.planyourtrip.data.auth.AuthRepository
+import com.example.planyourtrip.data.reminder.ReminderPrompt
 import com.example.planyourtrip.data.reminder.ReminderSettings
 import com.example.planyourtrip.data.sync.SignOutResult
 import com.example.planyourtrip.data.sync.SyncController
@@ -57,6 +58,7 @@ class AccountViewModel(
     authRepository: AuthRepository,
     private val reminderSettings: ReminderSettings,
     private val syncController: SyncController,
+    private val reminderPrompt: ReminderPrompt = ReminderPrompt.None,
 ) : ViewModel() {
 
     private val signOutWarning = MutableStateFlow<SignOutWarning?>(null)
@@ -84,10 +86,12 @@ class AccountViewModel(
 
     /**
      * The "Trip reminders" switch: off cancels every reminder, on schedules them again (TripReminderScheduler
-     * follows the setting). The menu asks for the notification permission itself when turned on.
+     * follows the setting). The menu asks for the notification permission itself when turned on; turning it on
+     * also offers the one-time battery screen.
      */
     fun onRemindersChanged(on: Boolean) {
         reminderSettings.setEnabled(on)
+        if (on) reminderPrompt.onRemindersTurnedOn()
     }
 
     /** Set synchronously, so a double tap starts one sign out. */
@@ -142,7 +146,10 @@ class AccountViewModel(
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val container = appContainer()
-                AccountViewModel(container.authRepository, container.reminderSettings, container.syncController)
+                AccountViewModel(
+                    container.authRepository, container.reminderSettings, container.syncController,
+                    container.reminderPermissionPrompt,
+                )
             }
         }
     }

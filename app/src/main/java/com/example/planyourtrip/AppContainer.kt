@@ -20,6 +20,9 @@ import com.example.planyourtrip.data.photo.RoomDestinationPhotoRepository
 import com.example.planyourtrip.data.photo.SharedPreferencesPhotoRetryFlags
 import com.example.planyourtrip.data.photo.WikipediaPhotoSource
 import com.example.planyourtrip.data.photo.photoUserAgent
+import com.example.planyourtrip.data.reminder.AndroidReminderWork
+import com.example.planyourtrip.data.reminder.REMINDER_LOG_TAG
+import com.example.planyourtrip.data.reminder.ReminderDelivery
 import com.example.planyourtrip.data.reminder.ReminderPermissionPrompt
 import com.example.planyourtrip.data.reminder.ReminderSettings
 import com.example.planyourtrip.data.reminder.ReminderTrips
@@ -27,7 +30,6 @@ import com.example.planyourtrip.data.reminder.RoomReminderTrips
 import com.example.planyourtrip.data.reminder.SharedPreferencesReminderSettings
 import com.example.planyourtrip.data.reminder.TripReminderNotifier
 import com.example.planyourtrip.data.reminder.TripReminderScheduler
-import com.example.planyourtrip.data.reminder.WorkManagerReminderWork
 import com.example.planyourtrip.data.sharing.FirestoreInviteRepository
 import com.example.planyourtrip.data.sharing.InviteRepository
 import com.example.planyourtrip.data.sync.AndroidNetworkMonitor
@@ -206,21 +208,32 @@ class AppContainer(context: Context) {
     /** Asks for the notification permission once, after creating or joining a future trip. */
     val reminderPermissionPrompt: ReminderPermissionPrompt by lazy { ReminderPermissionPrompt(reminderSettings, clock) }
 
-    /** Schedules a reminder at 18:00 the day before each future trip (WorkManager). Started in the Application. */
+    /** Shows each trip's reminder at most once, only the evening before (alarm, WorkManager backup, app start). */
+    val reminderDelivery: ReminderDelivery by lazy {
+        ReminderDelivery(
+            authRepository = authRepository,
+            trips = reminderTrips,
+            settings = reminderSettings,
+            poster = TripReminderNotifier(context),
+            clock = clock,
+            log = { Log.i(REMINDER_LOG_TAG, it) },
+        )
+    }
+
+    /**
+     * Schedules a reminder at 18:00 the day before each future trip (an alarm + a WorkManager backup) and shows a
+     * missed one at app start. Started in the Application.
+     */
     val tripReminderScheduler: TripReminderScheduler by lazy {
         TripReminderScheduler(
             authRepository = authRepository,
             tripRepository = tripRepository,
             settings = reminderSettings,
-            work = WorkManagerReminderWork(context, clock),
+            work = AndroidReminderWork(context, clock),
+            delivery = reminderDelivery,
             clock = clock,
             scope = appScope,
         )
-    }
-
-    /** Posts a reminder when it fires (TripReminderWorker). */
-    val tripReminderNotifier: TripReminderNotifier by lazy {
-        TripReminderNotifier(context, authRepository, reminderTrips, reminderSettings, clock)
     }
 
     /** Draws the shared trip PDF (PdfDocument) and hands it out through the FileProvider. */

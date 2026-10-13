@@ -22,7 +22,8 @@ class ReminderPermissionPromptTest {
 
     @Test
     fun onlyAFutureTrip_asks_andOnlyUntilAsked() = runTest {
-        val requests = mutableListOf<Unit>()
+        settings.batteryTipShown = true // only the permission here
+        val requests = mutableListOf<ReminderSetupRequest>()
         backgroundScope.launch { prompt.requests.toList(requests) }
         runCurrent()
 
@@ -39,5 +40,33 @@ class ReminderPermissionPromptTest {
         prompt.onTripAdded(LocalDate.of(2026, 12, 1))
         runCurrent()
         assertEquals(1, requests.size)
+    }
+
+    @Test
+    fun afterThePermission_theBatteryScreenIsOfferedUntilShown_alsoWhenRemindersAreTurnedOn() = runTest {
+        val requests = mutableListOf<ReminderSetupRequest>()
+        backgroundScope.launch { prompt.requests.toList(requests) }
+        settings.permissionAsked = true
+        prompt.onTripAdded(LocalDate.of(2026, 10, 13))
+        runCurrent()
+        assertEquals(listOf(ReminderSetupRequest(askPermission = false)), requests)
+
+        assertEquals(true, prompt.wantsBatteryTip("samsung", exempt = false))
+        assertEquals(false, prompt.wantsBatteryTip("Google", exempt = false))
+        prompt.onBatteryTipShown()
+        assertEquals(false, prompt.wantsBatteryTip("samsung", exempt = false))
+        prompt.onTripAdded(LocalDate.of(2026, 12, 1))
+        prompt.onRemindersTurnedOn()
+        runCurrent()
+        assertEquals(1, requests.size)
+    }
+
+    @Test
+    fun turningRemindersOn_offersTheBatteryScreen() = runTest {
+        val requests = mutableListOf<ReminderSetupRequest>()
+        backgroundScope.launch { prompt.requests.toList(requests) }
+        prompt.onRemindersTurnedOn()
+        runCurrent()
+        assertEquals(listOf(ReminderSetupRequest(askPermission = false)), requests)
     }
 }

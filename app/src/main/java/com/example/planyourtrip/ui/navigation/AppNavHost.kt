@@ -45,7 +45,12 @@ fun AppNavHost(
     val startDestination: Any = remember { if (session.startsSignedIn) Home else Login }
 
     // Above the NavHost: the trip form that triggers it has already popped when the question is shown.
-    NotificationPermissionHost(requests = session.permissionRequests, onAsked = session::onPermissionAsked)
+    NotificationPermissionHost(
+        requests = session.permissionRequests,
+        onAsked = session::onPermissionAsked,
+        wantsBatteryTip = session::wantsBatteryTip,
+        onBatteryTipShown = session::onBatteryTipShown,
+    )
 
     LaunchedEffect(navController) {
         session.currentUser.collect { user ->
