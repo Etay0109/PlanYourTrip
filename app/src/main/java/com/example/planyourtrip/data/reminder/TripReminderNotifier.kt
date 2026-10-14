@@ -46,6 +46,8 @@ class TripReminderNotifier(context: Context) : ReminderPoster {
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(openTrip(trip.uuid, uid))
             .setAutoCancel(true)
+            // One notification id per trip: posting it again replaces it, and this keeps a replacement silent.
+            .setOnlyAlertOnce(true)
             .build()
         @Suppress("MissingPermission") // ReminderDelivery posts only when canPost()
         NotificationManagerCompat.from(context).notify(trip.uuid.hashCode(), notification)

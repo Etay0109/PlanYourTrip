@@ -6,7 +6,10 @@ import com.example.planyourtrip.data.trip.TripRepository
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -23,7 +26,8 @@ import java.time.LocalDate
  * never cancelled (until 2026-10-13 a reminder that ran even a moment late, or the app start it caused, cancelled
  * it). An owed reminder whose time has come is shown right away through [delivery] (at most once): this is the check
  * at every app start, after a restart or an update ([ReminderRestoreReceiver]) and after a force-stop. The first pass
- * after each app start schedules every future reminder again, because alarms don't survive a restart or a force-stop.
+ * after each app start schedules every future reminder again, because alarms don't survive a restart or a force-stop;
+ * [armAgain] does the same later (exact alarms were just allowed, so the inexact ones are replaced).
  */
 class TripReminderScheduler(
     private val authRepository: AuthRepository,
@@ -37,6 +41,10 @@ class TripReminderScheduler(
     private var firstPassDone = false
     private val firstPass = CompletableDeferred<Unit>()
 
+    /** Number of [armAgain] requests, and the last one a pass has handled. */
+    private val armRequests = MutableStateFlow(0)
+    private val armHandled = MutableStateFlow(0)
+
     @OptIn(ExperimentalCoroutinesApi::class)
     fun start() {
         scope.launch {
@@ -44,18 +52,31 @@ class TripReminderScheduler(
                 if (user == null) flowOf(null to emptyList())
                 else tripRepository.observeTrips(user.uid).map { user.uid to it }
             }
-            combine(accountTrips, settings.enabled) { (uid, trips), enabled -> Triple(uid, trips, enabled) }
-                .collect { (uid, trips, enabled) ->
-                    reconcile(uid, trips, enabled)
-                    firstPass.complete(Unit)
-                }
+            combine(accountTrips, settings.enabled, armRequests) { (uid, trips), enabled, request ->
+                Pass(uid, trips, enabled, request)
+            }.collect { pass ->
+                reconcile(pass.uid, pass.trips, pass.enabled, scheduleAll = pass.armRequest != armHandled.value)
+                armHandled.value = pass.armRequest
+                firstPass.complete(Unit)
+            }
         }
     }
 
     /** Waits until the first pass after the app start is done (alarms armed again, a missed reminder shown). */
     suspend fun awaitFirstPass() = firstPass.await()
 
-    private suspend fun reconcile(uid: String?, trips: List<Trip>, enabled: Boolean) {
+    /**
+     * Schedules every future reminder again (as on the first pass) and waits until that is done: called when exact
+     * alarms were just allowed ([ReminderRestoreReceiver]), so the alarms already armed become exact ones.
+     */
+    suspend fun armAgain() {
+        val request = armRequests.updateAndGet { it + 1 }
+        armHandled.first { it >= request }
+    }
+
+    private data class Pass(val uid: String?, val trips: List<Trip>, val enabled: Boolean, val armRequest: Int)
+
+    private suspend fun reconcile(uid: String?, trips: List<Trip>, enabled: Boolean, scheduleAll: Boolean) {
         val now = clock.instant()
         settings.pruneShown(LocalDate.now(clock))
         val scheduled = settings.scheduled()
@@ -73,7 +94,7 @@ class TripReminderScheduler(
         val desired = planReminders(uid, trips, now, clock.zone, enabled, scheduled, settings.shown())
         val changes = reminderChanges(desired, scheduled)
         changes.toCancel.forEach(work::cancel)
-        (if (isFirstPass) desired else changes.toSchedule)
+        (if (isFirstPass || scheduleAll) desired else changes.toSchedule)
             .filterValues { !it.isDue(now) }
             .forEach { (uuid, reminder) -> work.schedule(uuid, reminder.uid, reminder.at) }
         settings.setScheduled(desired)

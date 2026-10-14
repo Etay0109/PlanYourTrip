@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
@@ -14,12 +15,18 @@ import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 
+/** Exact alarms may be set: no permission needed before Android 12, from then on "Alarms & reminders" is on. */
+fun AlarmManager.canUseExactAlarms(): Boolean =
+    Build.VERSION.SDK_INT < Build.VERSION_CODES.S || canScheduleExactAlarms()
+
 /**
  * The only AlarmManager and WorkManager code. Each trip's reminder is scheduled twice, for the same time:
- * - an alarm (`setAndAllowWhileIdle`, [TripReminderAlarmReceiver]): fires within minutes even while the phone sleeps
- *   (a job waits for the next maintenance window, which can be hours on Samsung). No exact-alarm permission: on time
- *   to the minute isn't needed. Lost on a restart or a force-stop: [TripReminderScheduler] arms it again at every app
- *   start ([ReminderRestoreReceiver] starts the app after a restart or an update).
+ * - an alarm ([TripReminderAlarmReceiver]): `setExactAndAllowWhileIdle` when exact alarms are allowed ([canUseExactAlarms]:
+ *   always before Android 12, granted by default on 12 and 13, off by default for new installs from 14), on time even
+ *   while the phone sleeps; otherwise `setAndAllowWhileIdle`, which Android may deliver up to an hour late (seen as
+ *   `window=+1h` on a Samsung, Android 12). A job waits for the next maintenance window, which can be hours on Samsung.
+ *   Lost on a restart or a force-stop: [TripReminderScheduler] arms it again at every app start
+ *   ([ReminderRestoreReceiver] starts the app after a restart, an update or when exact alarms get allowed).
  * - a unique `OneTimeWorkRequest` ("trip-reminder-<uuid>", replaced on every change), the backup: WorkManager keeps it
  *   across restarts and updates and runs it late rather than never.
  * Whichever fires second finds the reminder shown already ([ReminderDelivery]).
@@ -29,7 +36,7 @@ class AndroidReminderWork(private val context: Context, private val clock: Clock
     private val alarmManager = context.getSystemService(AlarmManager::class.java)
 
     override fun schedule(tripUuid: String, uid: String, at: Instant) {
-        alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at.toEpochMilli(), alarmIntent(context, tripUuid, uid))
+        setAlarm(at.toEpochMilli(), alarmIntent(context, tripUuid, uid))
         val delay = Duration.between(clock.instant(), at).coerceAtLeast(Duration.ZERO)
         val request = OneTimeWorkRequestBuilder<TripReminderWorker>()
             .setInitialDelay(delay)
@@ -38,6 +45,18 @@ class AndroidReminderWork(private val context: Context, private val clock: Clock
             .addTag(TRIP_TAG_PREFIX + tripUuid)
             .build()
         workManager.enqueueUniqueWork(uniqueName(tripUuid), ExistingWorkPolicy.REPLACE, request)
+    }
+
+    private fun setAlarm(atMillis: Long, operation: PendingIntent) {
+        if (alarmManager.canUseExactAlarms()) {
+            try {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMillis, operation)
+                return
+            } catch (_: SecurityException) {
+                // Exact alarms were turned off between the check and the call: the inexact alarm below.
+            }
+        }
+        alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMillis, operation)
     }
 
     override fun cancel(tripUuid: String) {

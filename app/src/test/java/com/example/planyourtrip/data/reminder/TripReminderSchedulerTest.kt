@@ -163,6 +163,33 @@ class TripReminderSchedulerTest {
         assertEquals(listOf("schedule:a", "schedule:c"), work.calls)
     }
 
+    @Test
+    fun armAgain_exactAlarmsJustAllowed_schedulesEveryFutureReminderAgain_inTheRunningProcess() = runTest {
+        val scheduler = newScheduler()
+        start(scheduler)
+        setTrips(trip("a", nov1), trip("c", nov8))
+        work.calls.clear()
+        scheduler.armAgain()
+        assertEquals(listOf("schedule:a", "schedule:c"), work.calls)
+        // Afterwards only changes again.
+        work.calls.clear()
+        setTrips(trip("a", nov1), trip("c", nov8), trip("d", nov8))
+        assertEquals(listOf("schedule:d"), work.calls)
+    }
+
+    @Test
+    fun armAgain_afterTheReminderWasShown_neverShowsItTwice() = runTest {
+        scheduledDuringTheDay()
+        clock.set(LocalDateTime.of(2026, 10, 13, 18, 0, 1))
+        val scheduler = newScheduler()
+        start(scheduler)
+        assertEquals(1, poster.posted.size)
+        clock.set(LocalDateTime.of(2026, 10, 13, 18, 30))
+        scheduler.armAgain()
+        assertEquals(1, poster.posted.size)
+        assertTrue(work.calls.none { it == "schedule:t" })
+    }
+
     // A late reminder: shown the evening before only, at most once (the 2026-10-13 bug: an app start after 18:00
     // cancelled the reminder WorkManager was just running).
 

@@ -572,5 +572,7 @@
     <string name="battery_tip_body">To save battery, this phone may pause apps you aren\'t using, which can delay or block your trip reminders. You can let Plan Your Trip run in the background in the battery settings.</string>
     <string name="battery_tip_samsung_steps">On Samsung: Settings → Battery and device care → Battery → Background usage limits → Never sleeping apps → add Plan Your Trip.</string>
     <string name="battery_tip_open_settings">Open settings</string>
+    <string name="battery_tip_exact_alarms">To get the reminder at 18:00 exactly, also allow alarms and reminders for Plan Your Trip. Without it, a reminder can come up to an hour late.</string>
+    <string name="battery_tip_open_alarms">Allow alarms &amp; reminders</string>
     <string name="battery_tip_not_now">Not now</string>
 </resources>

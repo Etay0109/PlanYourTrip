@@ -9,6 +9,10 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Trip reminders: arm the alarms again after a restart (ReminderRestoreReceiver). -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Trip reminders at 18:00 exactly (AndroidReminderWork). Granted by default on Android 12 and 13, the user turns
+         it on from 14 ("Alarms & reminders"); without it the alarm may come up to an hour late. Never USE_EXACT_ALARM
+         (Play allows it only for alarm and calendar apps). -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
     <application
         android:name=".PlanYourTripApplication"
@@ -39,13 +43,15 @@
             android:name=".data.reminder.TripReminderAlarmReceiver"
             android:exported="false" />
 
-        <!-- After a restart or an app update: arms the reminder alarms again, shows a missed one (this evening only). -->
+        <!-- After a restart, an app update or exact alarms being allowed: arms the reminder alarms again, shows a missed
+             one (this evening only). -->
         <receiver
             android:name=".data.reminder.ReminderRestoreReceiver"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
             </intent-filter>
         </receiver>
 

@@ -30,6 +30,8 @@ import com.example.planyourtrip.data.reminder.RoomReminderTrips
 import com.example.planyourtrip.data.reminder.SharedPreferencesReminderSettings
 import com.example.planyourtrip.data.reminder.TripReminderNotifier
 import com.example.planyourtrip.data.reminder.TripReminderScheduler
+import com.example.planyourtrip.data.reminder.lastExitLine
+import com.example.planyourtrip.data.reminder.readLastExit
 import com.example.planyourtrip.data.sharing.FirestoreInviteRepository
 import com.example.planyourtrip.data.sharing.InviteRepository
 import com.example.planyourtrip.data.sync.AndroidNetworkMonitor
@@ -158,6 +160,11 @@ class AppContainer(context: Context) {
     /** Deletes document files that no document uses any more (a copy interrupted by the app being killed). */
     fun cleanUpDocumentFiles() {
         appScope.launch { roomDocumentRepository.sweepFiles() }
+    }
+
+    /** Logs how the previous process ended (`adb logcat -s TripReminder`): a force-stop clears the reminder alarms. */
+    fun logLastExit(context: Context) {
+        appScope.launch { Log.i(REMINDER_LOG_TAG, lastExitLine(readLastExit(context), clock.zone)) }
     }
 
     /** The last deleted activity, from the activity form to the trip screen's "Undo". */

@@ -22,6 +22,7 @@ class PlanYourTripApplication : Application(), SingletonImageLoader.Factory {
         container.syncManager.start()
         // Keeps a "trip starts tomorrow" reminder for every future trip of the signed-in account.
         container.tripReminderScheduler.start()
+        container.logLastExit(this)
         container.cleanUpDocumentFiles()
     }
 
