@@ -77,6 +77,12 @@ object Dimens {
     /** Sign In / Sign Up: how far below the status bar its fixed scrim fades out. */
     val AuthStatusBarFade = 16.dp
 
+    /**
+     * Trip screen: how far below the status bar its shade fades out, and how far the list scrolls while the shade
+     * fades in.
+     */
+    val TripStatusBarFade = 16.dp
+
     /** Sign In / Sign Up: the app icon on the hero. */
     val AuthAppIconSize = 64.dp
 

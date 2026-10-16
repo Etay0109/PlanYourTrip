@@ -7,6 +7,14 @@ import android.net.Uri
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -347,13 +355,15 @@ fun TripDetailsContent(
             ) {
                 // A fresh list per tab, so a newly selected tab opens at the top.
                 key(selectedTab) {
+                    val listState = rememberLazyListState()
                     LazyColumn(
+                        state = listState,
                         modifier = Modifier.fillMaxSize(),
                         // The buttons float over the list; this end padding lets the last card scroll fully above them.
                         contentPadding = PaddingValues(bottom = innerPadding.calculateBottomPadding() + FabClearance),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
-                        item(key = "header") {
+                        item(key = HEADER_KEY) {
                             TripHeader(
                                 state.trip,
                                 state.status,
@@ -377,6 +387,7 @@ fun TripDetailsContent(
                             TripTab.PLAN -> planTab(state, itineraryActions)
                         }
                     }
+                    StatusBarShade(listState)
                 }
             }
         }
@@ -390,6 +401,45 @@ fun TripDetailsContent(
             onDismiss = budgetActions.onDismissBudget,
         )
     }
+}
+
+/** The lazy key of the header, the first item on every tab (the status bar shade follows it). */
+private const val HEADER_KEY = "header"
+
+/**
+ * Fixed behind the status bar (it doesn't scroll): the screen's background color, fading out just below the bar.
+ * Invisible while the list is at the top (the header's photo or gradient shows as before); it fades in over the first
+ * [Dimens.TripStatusBarFade] of scrolling, so neither the header's buttons and title nor the cards run into the clock
+ * and icons. The icons follow the system theme (dark in light mode, light in dark mode), so they are readable on the
+ * background in both.
+ */
+@Composable
+private fun BoxScope.StatusBarShade(listState: LazyListState) {
+    val density = LocalDensity.current
+    val statusBarPx = WindowInsets.statusBars.getTop(density)
+    if (statusBarPx == 0) return
+    val fadePx = with(density) { Dimens.TripStatusBarFade.toPx() }
+    val visibility by remember(listState, fadePx) {
+        derivedStateOf {
+            val header = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == HEADER_KEY }
+            if (header == null) {
+                1f
+            } else {
+                (-header.offset / fadePx).coerceIn(0f, 1f)
+            }
+        }
+    }
+    val color = MaterialTheme.colorScheme.background
+    val statusBar = with(density) { statusBarPx.toDp() }
+    val height = statusBar + Dimens.TripStatusBarFade
+    Box(
+        Modifier
+            .align(Alignment.TopCenter)
+            .fillMaxWidth()
+            .height(height)
+            .graphicsLayer { alpha = visibility }
+            .background(Brush.verticalGradient(0f to color, statusBar / height to color, 1f to Color.Transparent)),
+    )
 }
 
 /** Side padding of the trip screen's cards. */

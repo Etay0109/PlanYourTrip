@@ -61,6 +61,12 @@ data class ExtendedColors(
     val onPastCard: Color,
     val onPastCardMuted: Color,
     val chevron: Color,
+    /**
+     * The red area behind a Home trip card swiped to the left, and its icon and "Delete" / "Leave" text. The same
+     * clear red in both modes (the dark scheme's `error` is a pale pink).
+     */
+    val swipeDelete: Color,
+    val onSwipeDelete: Color,
     val pastels: Map<TripColor, PastelColor>,
     /** Budget progress bar once more than 80% is spent, and the "over budget" text. */
     val budgetWarning: Color,
@@ -117,6 +123,8 @@ val LightExtendedColors = ExtendedColors(
     onPastCard = Gray600,
     onPastCardMuted = Gray500,
     chevron = Gray400,
+    swipeDelete = ErrorRed,
+    onSwipeDelete = Color.White,
     pastels = mapOf(
         TripColor.SKY to PastelColor(Color(0xFFE1F1FD), Color(0xFF1565A8)),
         TripColor.PEACH to PastelColor(Color(0xFFFFEDD8), Color(0xFFC2410C)),
@@ -181,6 +189,8 @@ val DarkExtendedColors = ExtendedColors(
     onPastCard = NightTextMuted,
     onPastCardMuted = Color(0xFF7D878E),
     chevron = Color(0xFF6E7880),
+    swipeDelete = ErrorRed,
+    onSwipeDelete = Color.White,
     pastels = mapOf(
         TripColor.SKY to PastelColor(Color(0xFF16344A), Color(0xFFA6D4F7)),
         TripColor.PEACH to PastelColor(Color(0xFF452A16), Color(0xFFFFC08F)),

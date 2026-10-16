@@ -961,6 +961,11 @@ splitting").
   circle (→ `TripForm(tripId)`), three-dots circle (`TripMoreMenu` → "Share trip", "Delete trip"), destination (`headlineLarge`,
   ≤ 3 lines, the country's flag before it when the trip has a `countryCode`: `DestinationTitle`), dates with length. Below 300dp content width or
   above font scale 1.2 the status pill moves to its own line under the buttons.
+- **Status bar shade** (`StatusBarShade` in `TripDetailsScreen`, every tab): fixed behind the status bar, the
+  `background` color fading out `Dimens.TripStatusBarFade` (16dp) below it. Invisible while the list is at the top (the
+  header looks as before); it fades in over the first 16dp of scrolling (the header item's offset), so the header's
+  buttons and title and the cards never run into the clock. The status bar icons follow the system theme, so they read
+  on it in both modes.
 - **Overview:** `BudgetCard` (tap → Budget tab; "Set budget" button opens the budget dialog), then `CurrencyCard`,
   then the **Map card** and Daily plan (→ Plan tab) side by side (equal height: `IntrinsicSize.Min` row), then the day
   section (`DayPreviewCard`, see "Plan tab").
@@ -1356,8 +1361,8 @@ distances, weather, plan photo, microphone or like/dislike buttons; **no orange*
   (default owner) and renders `DeleteTripHost`.
 - **Swipe** (`SwipeToDeleteBox`, foundation `AnchoredDraggableState`, end-to-start only): anchors `Closed` 0,
   `Revealed` −`Dimens.SwipeRevealWidth` (96dp), `Dismissed` −card width; 50% positional threshold. A short swipe
-  springs back; past the reveal width the card stays open on a red (`colorScheme.error`) area with `ic_delete` +
-  "Delete" (`onError`) that can be tapped; a full swipe or a fast fling opens the dialog right away. While the dialog
+  springs back; past the reveal width the card stays open on a red (`ExtendedTheme.colors.swipeDelete`, `ErrorRed` in both
+  modes: the dark scheme's `error` is a pale pink) area with `ic_delete` + "Delete" (`onSwipeDelete`, white) that can be tapped; a full swipe or a fast fling opens the dialog right away. While the dialog
   is open for that trip (`deletePending`) the card stays; when it closes without deleting, the card animates back.
   The drag takes only horizontal gestures, so a swipe never opens the trip and a tap still does. TalkBack gets a
   "Delete trip" custom action.
@@ -1411,8 +1416,11 @@ Reference: `design/home_screen.png`. Match it closely when adding or changing sc
   light mode, the light `…Dark` hue + `Night` initials in dark mode; `removedTraveler` = gray. "You" is
   `primary`/`onPrimary`. Never orange; `TintedColorsTest` checks ≥ 4.5:1 initials contrast, no repeats, both modes.
 - **Colors:** brand teal (`primary` #0F6E86, darker `secondary` #0B5A6E for the FAB), warm off-white background
-  #FBF8FA, white cards (`surfaceContainerLowest`), gray secondary text (`onSurfaceVariant`). A dark scheme exists for
-  every token.
+  #FBF8FA, white cards (`surfaceContainerLow`: white in light mode, `NightSurface` in dark mode; trip screen, Home's
+  Upcoming card, assistant answer bubbles and the Suggested plan card), gray secondary text (`onSurfaceVariant`). A dark
+  scheme exists for every token. In dark mode `surfaceContainerLowest` **is the background** (`Night`), so it is only
+  for things that should match the screen (the auth sheet, sheets, bordered chips and fields); a card on it would have
+  no visible edge (its 1dp shadow doesn't show on a dark background).
 - **Dynamic color is disabled** on purpose, so wallpaper colors on Android 12+ never replace the brand teal.
 - **Shapes** (`ui/theme/Shape.kt`): `small` 12dp text fields · `medium` 16dp letter squares · `large` 20dp trip
   cards · `extraLarge` 28dp hero card. Buttons and the FAB are pills (`CircleShape`).

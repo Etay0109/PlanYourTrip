@@ -46,7 +46,7 @@ fun SuggestedPlanCard(
 ) {
     val plan = card.plan
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    val cardColor = MaterialTheme.colorScheme.surfaceContainerLowest
+    val cardColor = MaterialTheme.colorScheme.surfaceContainerLow
     Surface(
         shape = MaterialTheme.shapes.large,
         color = cardColor,

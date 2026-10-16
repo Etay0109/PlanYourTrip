@@ -63,7 +63,7 @@ fun UpcomingTripCard(
             dates = { color, style ->
                 TripDatesRow(item.trip.startDate, item.trip.endDate, currentYear, color, style)
             },
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
             shadowElevation = 1.dp,
             letterContainer = pastel.container,
             letterContent = pastel.content,

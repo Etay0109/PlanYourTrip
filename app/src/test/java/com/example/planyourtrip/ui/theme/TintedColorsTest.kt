@@ -96,4 +96,13 @@ class TintedColorsTest {
             }
         }
     }
+
+    @Test
+    fun swipeToDeleteArea_isTheSameClearRed_inBothModes_withReadableText() {
+        schemes.forEach { (mode, colors) ->
+            assertEquals("swipe area in $mode", ErrorRed, colors.swipeDelete)
+            val ratio = contrast(colors.onSwipeDelete, colors.swipeDelete)
+            assertTrue("swipe text in $mode: contrast $ratio < 4.5", ratio >= 4.5f)
+        }
+    }
 }

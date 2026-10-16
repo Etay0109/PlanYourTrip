@@ -273,7 +273,7 @@ private fun AssistantRow(content: @Composable () -> Unit) {
 private fun AssistantBubble(content: @Composable () -> Unit) {
     Surface(
         shape = RoundedCornerShape(topStart = 6.dp, topEnd = 20.dp, bottomStart = 20.dp, bottomEnd = 20.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLowest,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
         shadowElevation = 1.dp,
     ) { content() }
 }

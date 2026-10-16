@@ -37,6 +37,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import com.example.planyourtrip.R
 import com.example.planyourtrip.ui.theme.Dimens
+import com.example.planyourtrip.ui.theme.ExtendedTheme
 import kotlin.math.roundToInt
 
 private enum class SwipeValue { Closed, Revealed, Dismissed }
@@ -93,7 +94,7 @@ fun SwipeToDeleteBox(
                 Modifier
                     .matchParentSize()
                     .clip(shape)
-                    .background(MaterialTheme.colorScheme.error),
+                    .background(ExtendedTheme.colors.swipeDelete),
             ) {
                 Column(
                     modifier = Modifier
@@ -107,12 +108,12 @@ fun SwipeToDeleteBox(
                     Icon(
                         painter = painterResource(if (leave) R.drawable.ic_logout else R.drawable.ic_delete),
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onError,
+                        tint = ExtendedTheme.colors.onSwipeDelete,
                     )
                     Text(
                         text = stringResource(if (leave) R.string.action_leave else R.string.action_delete),
                         style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onError,
+                        color = ExtendedTheme.colors.onSwipeDelete,
                     )
                 }
             }
