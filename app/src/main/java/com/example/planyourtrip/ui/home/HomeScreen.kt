@@ -110,24 +110,32 @@ fun HomeScreen(
     val failedText = stringResource(R.string.trip_delete_failed)
     val leftText = stringResource(R.string.trip_left)
     val leaveFailedText = stringResource(R.string.trip_leave_failed)
+    // Each message is cleared after its snackbar (clearing first changes the effect's key and cancels it), and only
+    // if it is still the current one: a newer message replaces it without being cleared.
     LaunchedEffect(deleteState.message) {
         val message = deleteState.message ?: return@LaunchedEffect
-        deleteViewModel.onMessageShown()
-        snackbarHostState.showSnackbar(
-            when (message) {
-                DeleteTripMessage.DELETED -> deletedText
-                DeleteTripMessage.FAILED -> failedText
-                DeleteTripMessage.LEFT -> leftText
-                DeleteTripMessage.LEAVE_FAILED -> leaveFailedText
-            },
-        )
+        try {
+            snackbarHostState.showSnackbar(
+                when (message) {
+                    DeleteTripMessage.DELETED -> deletedText
+                    DeleteTripMessage.FAILED -> failedText
+                    DeleteTripMessage.LEFT -> leftText
+                    DeleteTripMessage.LEAVE_FAILED -> leaveFailedText
+                },
+            )
+        } finally {
+            if (deleteState.message == message) deleteViewModel.onMessageShown()
+        }
     }
     val joinedDestination = joinState.joinedDestination
     val joinedText = joinedDestination?.let { stringResource(R.string.join_joined, it) }
     LaunchedEffect(joinedDestination) {
         val text = joinedText ?: return@LaunchedEffect
-        joinViewModel.onJoinedShown()
-        snackbarHostState.showSnackbar(text)
+        try {
+            snackbarHostState.showSnackbar(text)
+        } finally {
+            if (joinState.joinedDestination == joinedDestination) joinViewModel.onJoinedShown()
+        }
     }
     val refreshFailedText = stringResource(R.string.refresh_failed)
     LaunchedEffect(refresh.failed) {

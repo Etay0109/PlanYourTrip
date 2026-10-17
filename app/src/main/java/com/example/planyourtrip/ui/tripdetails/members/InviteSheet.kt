@@ -101,16 +101,20 @@ fun InviteHost(
     val unnamed = stringResource(R.string.member_unnamed)
     val removeFailedText = stringResource(R.string.member_remove_failed)
     val cancelFailedText = stringResource(R.string.invite_cancel_failed)
+    // Cleared after the snackbar (clearing first changes the key and cancels it), only if no newer message replaced it.
     LaunchedEffect(state.message) {
         val message = state.message ?: return@LaunchedEffect
-        viewModel.onMessageShown()
-        snackbarHostState.showSnackbar(
-            when (message) {
-                is InviteMessage.Removed -> removedText.replace("%s", message.name ?: unnamed)
-                InviteMessage.RemoveFailed -> removeFailedText
-                InviteMessage.CancelFailed -> cancelFailedText
-            },
-        )
+        try {
+            snackbarHostState.showSnackbar(
+                when (message) {
+                    is InviteMessage.Removed -> removedText.replace("%s", message.name ?: unnamed)
+                    InviteMessage.RemoveFailed -> removeFailedText
+                    InviteMessage.CancelFailed -> cancelFailedText
+                },
+            )
+        } finally {
+            if (state.message == message) viewModel.onMessageShown()
+        }
     }
     val mode = state.sheet
     if (mode != null && members != null) {

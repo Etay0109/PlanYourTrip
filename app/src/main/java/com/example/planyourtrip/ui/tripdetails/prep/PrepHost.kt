@@ -50,10 +50,14 @@ fun rememberPrepActions(viewModel: PrepViewModel, snackbarHostState: SnackbarHos
 
     val message by viewModel.message.collectAsStateWithLifecycle()
     val messageText = message?.let { stringResource(it.messageRes()) }
+    // Cleared after the snackbar (clearing first changes the key and cancels it), only if no newer message replaced it.
     LaunchedEffect(message) {
-        if (messageText == null) return@LaunchedEffect
-        viewModel.onMessageShown()
-        snackbarHostState.showSnackbar(messageText)
+        val shown = message ?: return@LaunchedEffect
+        try {
+            snackbarHostState.showSnackbar(checkNotNull(messageText))
+        } finally {
+            if (message == shown) viewModel.onMessageShown()
+        }
     }
 
     // Opens a stored file in the system viewer, with read access to that one file only.
