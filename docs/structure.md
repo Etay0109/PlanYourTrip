@@ -41,7 +41,8 @@ app/src/main/java/com/example/planyourtrip/
                                # MAX_DOCUMENT_BYTES = 20 MB, documentKind, extensionFor, defaultDocumentName)
   data/currency/               # Currency, ExchangeRate, ILS, ExchangeRateEntity/Dao (rate cache),
                                # CurrencyRepository (+ isStale, RATE_MAX_AGE) + RoomCurrencyRepository,
-                               # RatesApi + FrankfurterRatesApi (the only rates HTTP code, v2), FrankfurterJson (pure parsers) + TravelCurrencies
+                               # RatesApi + FrankfurterRatesApi (the only rates HTTP code, v2, on HttpGet), FrankfurterJson
+                               # (pure parsers) + TravelCurrencies
   data/assistant/              # AssistantRepository (interface; AssistantRequest, ChatTurn, AssistantResponse,
                                # AssistantError), FirebaseAssistantRepository (the only Firebase AI code + JSON schema),
                                # AssistantPrompt (pure: AssistantModel, assistantInstructions, classifyServerMessage),
@@ -64,6 +65,9 @@ app/src/main/java/com/example/planyourtrip/
                                # (Invite, InvitePreview, JoinResult, InviteUnavailableException, TripFullException),
                                # InviteRepository (interface) + FirestoreInviteRepository, MemberName (memberName():
                                # display name, never the email)
+  data/http/                   # HttpGet (interface: one GET → body, IOException on failure), OkHttpGet (the only HTTP
+                               # client code: OkHttp, cancelling the coroutine cancels the call, 10 s timeouts),
+                               # appUserAgent (sent with every request and photo download)
   data/place/                  # destination suggestions (nothing in Room): PlaceSuggestion (+ label, detail,
                                # withoutRepeats, toTripPlace, RegionKind), PlaceSearch (interface) + PhotonPlaceSearch (the only
                                # Photon HTTP code), PhotonJson (pure parser + type allowlist), HebrewPlaces + EnglishPlaces
@@ -71,9 +75,9 @@ app/src/main/java/com/example/planyourtrip/
                                # remote, merge; + countryCurrency)
   data/photo/                  # destination photos (this device only, nothing synced): DestinationPhotos (PhotoQuery,
                                # photoKey, Trip.photoQuery, DestinationPhoto, PhotoResult, PhotoOrigin,
-                               # DestinationPhotoSource = the one provider interface, photoUserAgent), PhotoRules (pure:
+                               # DestinationPhotoSource = the one provider interface), PhotoRules (pure:
                                # filters, distance, choosePage, bestPageImage), WikipediaJson (pure parsers),
-                               # WikipediaPhotoSource (+ HttpGet, UrlConnectionHttpGet: the only Wikipedia/Wikidata HTTP
+                               # WikipediaPhotoSource (on HttpGet: the only Wikipedia/Wikidata HTTP
                                # code), DestinationPhotoEntity/Dao, DestinationPhotoRepository + RoomDestinationPhoto…,
                                # PhotoRetryFlags (+ SharedPreferences…: the one-time "no photo" clear)
   data/reminder/               # trip reminders (this device only, nothing synced): TripReminders (pure: reminderTime,

@@ -84,7 +84,8 @@ dependencies {
     // 3.0.4 is the last Coil built with Kotlin 2.0.21 (3.1+ needs a newer Kotlin stdlib).
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
-    // The OkHttp client Coil uses, with the Wikimedia User-Agent (same version as coil-network-okhttp 3.0.4).
+    // HTTP for the rates, place search and Wikipedia (data/http/OkHttpGet) and the client Coil uses (same version as
+    // coil-network-okhttp 3.0.4).
     implementation(libs.okhttp)
     // "Trip starts tomorrow" reminders, scheduled on the device (data/reminder/WorkManagerReminderWork).
     // 2.10.x is built with Kotlin 1.8 (2.11+ needs Kotlin 2.1).
@@ -92,6 +93,8 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    // A local HTTP server for OkHttpGetTest (same version as okhttp).
+    testImplementation(libs.okhttp.mockwebserver)
     androidTestImplementation(libs.androidx.junit)
     // Provides AndroidJUnitRunner (testInstrumentationRunner above).
     androidTestImplementation(libs.androidx.test.runner)

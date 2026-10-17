@@ -1,5 +1,6 @@
 package com.example.planyourtrip.data.photo
 
+import com.example.planyourtrip.data.http.HttpGet
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

@@ -28,7 +28,7 @@ class PlanYourTripApplication : Application(), SingletonImageLoader.Factory {
 
     /** Coil's loader for the destination photos (User-Agent, disk cache). */
     override fun newImageLoader(context: PlatformContext): ImageLoader =
-        photoImageLoader(context, container.imageUserAgent)
+        photoImageLoader(context, container.userAgent)
 
     // Android resets the JVM default locale to the system language when it changes; keep it English.
     override fun onConfigurationChanged(newConfig: Configuration) {

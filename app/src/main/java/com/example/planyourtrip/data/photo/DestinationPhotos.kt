@@ -70,7 +70,3 @@ class PhotoLookupException(message: String, cause: Throwable? = null) : Exceptio
 fun interface DestinationPhotoSource {
     suspend fun find(query: PhotoQuery): PhotoResult
 }
-
-/** Wikimedia's policy asks every client to identify itself with a contact. */
-fun photoUserAgent(appVersion: String): String =
-    "PlanYourTrip/$appVersion (https://github.com/Etay0109/PlanYourTrip; Android; com.example.planyourtrip)"

@@ -14,11 +14,13 @@ import com.example.planyourtrip.data.document.AndroidDocumentFileStore
 import com.example.planyourtrip.data.document.DocumentFileStore
 import com.example.planyourtrip.data.document.DocumentRepository
 import com.example.planyourtrip.data.document.RoomDocumentRepository
+import com.example.planyourtrip.data.http.HttpGet
+import com.example.planyourtrip.data.http.OkHttpGet
+import com.example.planyourtrip.data.http.appUserAgent
 import com.example.planyourtrip.data.photo.DestinationPhotoRepository
 import com.example.planyourtrip.data.photo.RoomDestinationPhotoRepository
 import com.example.planyourtrip.data.photo.SharedPreferencesPhotoRetryFlags
 import com.example.planyourtrip.data.photo.WikipediaPhotoSource
-import com.example.planyourtrip.data.photo.photoUserAgent
 import com.example.planyourtrip.data.reminder.AndroidReminderWork
 import com.example.planyourtrip.data.reminder.REMINDER_LOG_TAG
 import com.example.planyourtrip.data.reminder.ReminderDelivery
@@ -176,20 +178,23 @@ class AppContainer(context: Context) {
     /** The last deleted activity, from the activity form to the trip screen's "Undo". */
     val deletedActivities = DeletedActivityStore()
 
+    /** Every HTTP API (rates, place search, Wikipedia) goes through this one OkHttp client; cancelling cancels the call. */
+    private val httpGet: HttpGet by lazy { OkHttpGet() }
+
     val currencyRepository: CurrencyRepository by lazy {
-        RoomCurrencyRepository(FrankfurterRatesApi(), database.exchangeRateDao(), clock)
+        RoomCurrencyRepository(FrankfurterRatesApi(httpGet, userAgent), database.exchangeRateDao(), clock)
     }
 
     /** Destination suggestions: Photon (identified by the app's version, as its usage policy asks) + the Hebrew table. */
     val destinationSuggestions: DestinationSuggestions by lazy {
-        DestinationSuggestions(PhotonPlaceSearch(appVersion = appVersion))
+        DestinationSuggestions(PhotonPlaceSearch(appVersion = appVersion, http = httpGet))
     }
 
     /** Destination photos (Home cards, trip header): Wikipedia lookups remembered in Room, this device only. */
     val destinationPhotoRepository: DestinationPhotoRepository by lazy {
         RoomDestinationPhotoRepository(
             dao = database.destinationPhotoDao(),
-            source = WikipediaPhotoSource(appVersion, log = { AppLog.i("DestinationPhoto", it) }),
+            source = WikipediaPhotoSource(appVersion, httpGet, log = { AppLog.i("DestinationPhoto", it) }),
             network = networkMonitor,
             clock = clock,
             scope = appScope,
@@ -198,8 +203,8 @@ class AppContainer(context: Context) {
         )
     }
 
-    /** Sent with every Wikipedia request and every photo download (PhotoImageLoader), as Wikimedia asks. */
-    val imageUserAgent: String get() = photoUserAgent(appVersion)
+    /** Sent with every HTTP request and every photo download (PhotoImageLoader), as Wikimedia and Photon ask. */
+    val userAgent: String get() = appUserAgent(appVersion)
 
     private val appVersion: String = runCatching {
         context.packageManager.getPackageInfo(context.packageName, 0).versionName

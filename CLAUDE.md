@@ -80,6 +80,7 @@ app/src/main/java/com/example/planyourtrip/
                    repositories, AppDatabase, Migrations, Converters
   data/document/   Prep documents (this device only), DocumentFileStore + AndroidDocumentFileStore
   data/currency/   rates cache + FrankfurterRatesApi
+  data/http/       HttpGet + OkHttpGet (the one cancellable HTTP client), appUserAgent
   data/assistant/  AssistantRepository + FirebaseAssistantRepository, prompt + JSON parsing
   data/sync/       SyncManager, planMerge, SyncDocuments, SyncPaths, CloudStore + FirestoreCloudStore, legacy migration,
                    TripAccess (lost trips)
@@ -119,7 +120,8 @@ tools/hebrew-places/   generator of HebrewPlaceTable.kt (see its README)
   `AppContainer`. Likewise only `AndroidDocumentFileStore` touches document files, only `AndroidTripPdfExporter` uses
   `PdfDocument`/`FileProvider`, only `AndroidReminderWork` uses AlarmManager/WorkManager, Coil appears only in
   `PhotoImageLoader`, `PlanYourTripApplication` and `ui/common/components/DestinationPhoto.kt`, and each HTTP API has
-  one class (`FrankfurterRatesApi`, `PhotonPlaceSearch`, `WikipediaPhotoSource`). Tests use the `Fake…` versions.
+  one class (`FrankfurterRatesApi`, `PhotonPlaceSearch`, `WikipediaPhotoSource`), all on `HttpGet`; only `OkHttpGet`
+  makes requests (cancelling cancels the call). Tests use the `Fake…` versions.
 - **No map SDK.** Maps are Google Maps URLs opened with `ACTION_VIEW` (`GoogleMaps.kt`).
 - **ViewModels have no Android `Context`.** Validation returns enum codes; the UI maps them to string resources.
 - **Package rules.** Each feature package owns its screen, ViewModel, `XxxUiState.kt` and validator. Anything used by

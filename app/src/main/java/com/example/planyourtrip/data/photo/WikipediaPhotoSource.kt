@@ -1,19 +1,10 @@
 package com.example.planyourtrip.data.photo
 
+import com.example.planyourtrip.data.http.HttpGet
+import com.example.planyourtrip.data.http.appUserAgent
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.withContext
 import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URL
 import java.net.URLEncoder
-
-/** One HTTP GET returning the body. Throws [IOException] on a connection failure or an HTTP error status. */
-fun interface HttpGet {
-    suspend fun get(url: String, userAgent: String): String
-}
 
 /**
  * Destination photos from Wikipedia and Wikidata (no API key). The only Wikipedia HTTP code.
@@ -31,12 +22,12 @@ fun interface HttpGet {
  */
 class WikipediaPhotoSource(
     appVersion: String,
-    private val http: HttpGet = UrlConnectionHttpGet(),
+    private val http: HttpGet,
     /** Which page and file each destination got (`adb logcat -s DestinationPhoto`). */
     private val log: (String) -> Unit = {},
 ) : DestinationPhotoSource {
 
-    private val userAgent = photoUserAgent(appVersion)
+    private val userAgent = appUserAgent(appVersion)
 
     override suspend fun find(query: PhotoQuery): PhotoResult {
         val languages = if (hasHebrew(query.text)) listOf("he", "en") else listOf("en")
@@ -160,39 +151,5 @@ class WikipediaPhotoSource(
         const val THUMB_WIDTH = 250
         private const val SEARCH_LIMIT = 5
         private const val PAGE_IMAGES_LIMIT = 50
-    }
-}
-
-/**
- * [HttpGet] with `HttpURLConnection` (10 s timeouts). Cancelling disconnects the running request, like
- * `PhotonPlaceSearch`.
- */
-class UrlConnectionHttpGet(private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO) : HttpGet {
-    override suspend fun get(url: String, userAgent: String): String = withContext(ioDispatcher) {
-        val connection = URL(url).openConnection() as HttpURLConnection
-        val body = async { read(connection, userAgent) }
-        try {
-            body.await()
-        } catch (e: CancellationException) {
-            // A blocked socket read ignores coroutine cancellation: closing the connection ends it right away.
-            connection.disconnect()
-            throw e
-        }
-    }
-
-    private fun read(connection: HttpURLConnection, userAgent: String): String = try {
-        connection.connectTimeout = TIMEOUT_MILLIS
-        connection.readTimeout = TIMEOUT_MILLIS
-        connection.setRequestProperty("Accept", "application/json")
-        connection.setRequestProperty("User-Agent", userAgent)
-        val status = connection.responseCode
-        if (status !in 200..299) throw IOException("HTTP $status")
-        connection.inputStream.bufferedReader().use { it.readText() }
-    } finally {
-        connection.disconnect()
-    }
-
-    private companion object {
-        const val TIMEOUT_MILLIS = 10_000
     }
 }

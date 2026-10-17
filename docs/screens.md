@@ -350,7 +350,7 @@ Reference: `design/trip_prep.png`, **with these deliberate differences**: the us
 - **The currency is only ever chosen by the user** (card or trip form) — never guessed from the destination text. The
   one exception is the trip form of a **new** trip: picking a suggested place preselects its country's currency (see
   "Destination suggestions and flags"); an existing trip's currency never changes by itself.
-- **Rate source:** Frankfurter **v2** (no API key), `HttpURLConnection` + `kotlinx-serialization-json`:
+- **Rate source:** Frankfurter **v2** (no API key), `OkHttpGet` + `kotlinx-serialization-json`:
   `GET https://api.frankfurter.dev/v2/rates?base=ILS&quotes=XXX` → `[{"date","base":"ILS","quote":"XXX","rate":…}]`.
   Asked with base ILS (the service rounds to ~5 digits, so tiny currencies stay exact this way) and **inverted**:
   shekels per unit = 1 ÷ rate, `MathContext(12, HALF_UP)` (`FrankfurterJson.INVERSION_PRECISION`; IRR ≈

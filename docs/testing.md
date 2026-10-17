@@ -49,9 +49,11 @@ member (also locally), full, failure, double tap, success refreshes, never the e
 today / checked, toggling, insertion order, suggested items; `DocumentFilesTest`: PDF/images, unsupported types, the
 20 MB limit, unknown size, badge, extension, default name; `PrepViewModelTest`: toggling, add, suggestions once, edit
 text, due dates, delete + Undo, another account's trip, too large / unsupported / unreadable / too large while copying,
-double tap, edit, delete with confirmation, view a missing file), `ActivityTypeTest`, `GoogleMapsTest` (spaces, comma, Hebrew, special
+double tap, edit, delete with confirmation, view a missing file), HTTP (`OkHttpGetTest` on a local MockWebServer: body, User-Agent/Accept, error status, connection failure, bad URL,
+cancelling ends the call at once; `FrankfurterRatesApiTest`: the request URLs, with `RecordingHttpGet`), `ActivityTypeTest`, `GoogleMapsTest` (spaces, comma, Hebrew, special
 characters, trimming, decodes back; the activity URL with/without the destination), destination suggestions and flags (`PhotonJsonTest`:
-types kept/dropped, labels, repeats only when name+region+country match; `HebrewPlacesTest`: matching rules and every
+types kept/dropped, labels, repeats only when name+region+country match; `PhotonPlaceSearchTest`: the encoded URL and
+User-Agent; `HebrewPlacesTest`: matching rules and every
 table entry, no Hebrew name in two entries; `DestinationSuggestionsTest`; `EnglishPlacesTest`; `TripFormPlaceTest` with `FakePlaceSearch`:
 instant rows, merging, the loading bar, pick, free text, edit after pick, offline, failing service, Hebrew, debounce, cancelled lookup, edit trip, currency
 preselection; `FlagsTest`: every offered currency has a flag or is left out on purpose; `TripPlaceSyncTest` +

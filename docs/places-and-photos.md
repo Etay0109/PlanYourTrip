@@ -7,8 +7,8 @@
   a later word, accents/case/dashes ignored, exact first, then table order, ≤ 5); then, 300 ms after the last keystroke
   (`TripFormViewModel.LOOKUP_DELAY_MILLIS`), Photon (`remote`, null on failure). `merge` keeps the instant rows where
   they are and adds Photon's below, minus repeats (`isSamePlaceAs`: same name, country and kind within 50 km, or a
-  country), ≤ 6 rows. A new keystroke cancels the running lookup **and disconnects its request**
-  (`PhotonPlaceSearch`), and an answer for older text is never shown. While Photon runs, `TripFormUiState.isSearching`
+  country), ≤ 6 rows. A new keystroke cancels the running lookup **and its request**
+  (`PhotonPlaceSearch` on `OkHttpGet`), and an answer for older text is never shown. While Photon runs, `TripFormUiState.isSearching`
   shows a 3dp `primary` `LinearProgressIndicator` in the gap under the field (a live region: TalkBack says "Searching");
   it ends on the answer, a failure, text below 2 characters, a pick or focus loss (a keystroke during a search keeps
   it). The list (`DestinationSuggestionList`): flag (or a pin), name, "England, United Kingdom", then "© OpenStreetMap
@@ -19,7 +19,7 @@
   and `NetworkMonitor` says offline (`TripFormUiState.searchNeedsInternet`), a card like the list's says "Connect to
   the internet to search more places" (cleared by the next keystroke; a failure while online never says it).
 - **Photon** (`https://photon.komoot.io/api/?q=…&lang=en&limit=10&osm_tag=place`, no key, `User-Agent:
-  PlanYourTrip/<versionName> (Android; com.example.planyourtrip)`, 10 s timeouts). `PhotonJson` keeps `osm_key` place
+  appUserAgent`, the same as Wikipedia's, 10 s timeouts). `PhotonJson` keeps `osm_key` place
   with `osm_value` country, state, region, province, county, city, town, village, municipality, island, archipelago
   (streets, shops, houses, neighbourhoods are dropped). A suggestion is a repeat only when name, region **and**
   country are the same (London, England and London, Ontario both show).
