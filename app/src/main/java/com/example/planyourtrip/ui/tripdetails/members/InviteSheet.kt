@@ -34,6 +34,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -85,8 +86,9 @@ import java.time.LocalDate
 import kotlinx.coroutines.launch
 
 /**
- * The members sheet of [viewModel] with its dialogs and snackbars ([snackbarHostState] is the trip screen's).
- * [onLeave] is a non-owner's "Leave trip" (the trip menu's leave flow).
+ * The members sheet of [viewModel] with its dialogs and snackbars: inside the sheet while it is open (the trip screen's
+ * would be hidden behind it), otherwise on [snackbarHostState], the trip screen's. [onLeave] is a non-owner's "Leave
+ * trip" (the trip menu's leave flow).
  */
 @Composable
 fun InviteHost(
@@ -101,11 +103,15 @@ fun InviteHost(
     val unnamed = stringResource(R.string.member_unnamed)
     val removeFailedText = stringResource(R.string.member_remove_failed)
     val cancelFailedText = stringResource(R.string.invite_cancel_failed)
+    val sheetSnackbarHostState = remember { SnackbarHostState() }
+    val sheetShown = state.sheet != null && members != null
     // Cleared after the snackbar (clearing first changes the key and cancels it), only if no newer message replaced it.
-    LaunchedEffect(state.message) {
+    // Closing the sheet ends a message shown in it (its host is gone, so it would never time out).
+    LaunchedEffect(state.message, sheetShown) {
         val message = state.message ?: return@LaunchedEffect
+        val host = if (sheetShown) sheetSnackbarHostState else snackbarHostState
         try {
-            snackbarHostState.showSnackbar(
+            host.showSnackbar(
                 when (message) {
                     is InviteMessage.Removed -> removedText.replace("%s", message.name ?: unnamed)
                     InviteMessage.RemoveFailed -> removeFailedText
@@ -123,6 +129,7 @@ fun InviteHost(
             state = state,
             members = members,
             destination = destination,
+            snackbarHostState = sheetSnackbarHostState,
             actions = InviteSheetActions(
                 onRetry = viewModel::onRetry,
                 onNewCode = viewModel::onNewCode,
@@ -166,6 +173,7 @@ fun InviteSheet(
     state: InviteUiState,
     members: MembersState,
     destination: String,
+    snackbarHostState: SnackbarHostState,
     actions: InviteSheetActions,
 ) {
     ModalBottomSheet(
@@ -173,7 +181,16 @@ fun InviteSheet(
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
     ) {
-        InviteSheetContent(mode, state, members, destination, actions)
+        Box {
+            InviteSheetContent(mode, state, members, destination, actions)
+            // The sheet's own messages, over its bottom edge.
+            SnackbarHost(
+                snackbarHostState,
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding(),
+            )
+        }
     }
 }
 
