@@ -163,8 +163,9 @@ Room database `plan_your_trip.db`, `AppDatabase` **version 17**: `trips`, `expen
   tombstone row, then delete); "Undo" re-inserts as a new row with a new uuid.
 - The budget is personal (`budget_agorot`, `budget_updated_at`, `budget_pending`); traveler keys in expenses and
   settlements are member uids or traveler uuids (the legacy `"me"` key was migrated in v14).
-- Documents, exchange rates and destination photos are never synced. Deleting a trip cascades to its children; its
-  documents (no FK) are deleted by `DocumentRepository.deleteForTrip`.
+- Documents, exchange rates and destination photos are never synced. Nothing is in Android backup or device transfer
+  (`allowBackup="false"` + `data_extraction_rules.xml`); Firestore is the backup. Deleting a trip cascades to its
+  children; its documents (no FK) are deleted by `DocumentRepository.deleteForTrip`.
 - **Changing the schema:** bump `version`, add a `Migration` or `AutoMigration`, build, commit the new JSON in
   `app/schemas/`, and add a `MigrationTest` case that proves all data is kept.
 

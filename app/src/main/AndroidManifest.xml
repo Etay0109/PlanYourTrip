@@ -14,9 +14,12 @@
          (Play allows it only for alarm and calendar apps). -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
+    <!-- No Android backup or device transfer: trips live in Firestore (the real backup), and travel documents stay
+         on this device only, as the app promises. Android 12+ ignores allowBackup for device-to-device transfer, so
+         data_extraction_rules excludes everything too. -->
     <application
         android:name=".PlanYourTripApplication"
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"

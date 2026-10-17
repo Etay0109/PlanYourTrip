@@ -2,6 +2,10 @@
 
 Database `plan_your_trip.db`, `AppDatabase` version 17, eleven tables:
 
+Nothing on the device is backed up by Android or copied to a new phone (`allowBackup="false"`, and
+`data_extraction_rules.xml` excludes everything for cloud backup and device transfer): Firestore is the backup, and
+travel documents stay on this device only.
+
 | `trips` column | Type | Notes |
 |---|---|---|
 | `id` | INTEGER PK | auto-generated |
