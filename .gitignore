@@ -23,6 +23,10 @@ local.properties
 *.jks
 *.keystore
 keystore.properties
+.env*
+*.p12
+*.pem
+*firebase-adminsdk*.json
 
 # OS and logs
 .DS_Store

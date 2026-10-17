@@ -20,7 +20,7 @@ Detailed references live in `docs/` (see "Detailed docs" at the end). Read the r
 
 ## Rules (always follow)
 - **Never commit until the user approves.** Show the change and wait for an explicit go-ahead.
-- **Never commit screenshots** (personal data: `/screens/`, the `design/*.png` references are git-ignored) or
+- **Never commit screenshots** (personal data: `/screens/` is git-ignored) or
   **secrets** (App Check debug token, keystores, `local.properties`, passwords). Never log passwords (only their length).
 - **Never run `./gradlew connectedDebugAndroidTest`** (it uninstalls the app, wiping its data and App Check token).
   Run device tests manually, see Commands.
@@ -94,7 +94,7 @@ app/src/main/java/com/example/planyourtrip/
   ui/theme/        colors, extended colors, shapes, type, dimens
 app/src/debug|release/.../AppCheckSetup.kt   App Check debug / Play Integrity provider
 app/schemas/      exported Room schemas — commit them
-design/           visual references (PNGs are git-ignored)
+design/           visual references (committed)
 firestore.rules, firebase.json, rules-tests/   security rules + emulator tests
 tools/hebrew-places/   generator of HebrewPlaceTable.kt (see its README)
 ```
