@@ -27,7 +27,7 @@ interface ActivityRepository {
 
 /** Trims the texts and turns blank optional texts into null, as stored. */
 fun ActivityInput.normalized(): ActivityInput = copy(
-    title = title.trim(),
-    note = note?.trim()?.takeIf { it.isNotEmpty() },
-    location = location?.trim()?.takeIf { it.isNotEmpty() },
+    title = title.trim().limitTo(TextLimits.ACTIVITY_TITLE),
+    note = note?.trim()?.takeIf { it.isNotEmpty() }?.limitTo(TextLimits.ACTIVITY_NOTE),
+    location = location?.trim()?.takeIf { it.isNotEmpty() }?.limitTo(TextLimits.ACTIVITY_LOCATION),
 )

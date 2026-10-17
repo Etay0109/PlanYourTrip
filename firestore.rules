@@ -37,8 +37,18 @@ service cloud.firestore {
       return v is string && v.matches('^[0-9]+([.][0-9]+)?$');
     }
 
-    function optString(v) {
-      return v == null || v is string;
+    // Text of at most [max] characters. The limits match the app's TextLimits.kt (the app never writes more).
+    function isText(v, max) {
+      return v is string && v.size() <= max;
+    }
+
+    function optText(v, max) {
+      return v == null || isText(v, max);
+    }
+
+    // Enum names (color, category, type) and currency codes.
+    function isName(v) {
+      return isText(v, 40);
     }
 
     function optPositiveInt(v) {
@@ -170,11 +180,11 @@ service cloud.firestore {
     function validTrip(d) {
       return d.keys().hasOnly(['destination', 'startDate', 'endDate', 'currencyCode', 'color', 'ownerId',
                                'memberIds', 'updatedAt', 'deleted', 'countryCode', 'latitude', 'longitude'])
-        && d.destination is string && d.destination.size() > 0
+        && isText(d.destination, 200) && d.destination.size() > 0
         && isDate(d.startDate) && isDate(d.endDate) && d.endDate >= d.startDate
-        && optString(d.currencyCode)
+        && optText(d.currencyCode, 40)
         && validPlace(d)
-        && d.color is string
+        && isName(d.color)
         && d.ownerId is string
         && validMembers(d.memberIds)
         && d.ownerId in d.memberIds
@@ -198,12 +208,12 @@ service cloud.firestore {
     function validExpense(d) {
       return d.keys().hasOnly(['name', 'amountAgorot', 'category', 'date', 'originalAmount', 'originalCurrency',
                                'exchangeRate', 'rateDate', 'paidBy', 'splitBetween', 'updatedAt', 'deleted'])
-        && d.name is string && d.name.size() > 0
+        && isText(d.name, 200) && d.name.size() > 0
         && d.amountAgorot is int && d.amountAgorot > 0
-        && d.category is string
+        && isName(d.category)
         && isDate(d.date)
         && (d.originalAmount == null || isDecimal(d.originalAmount))
-        && optString(d.originalCurrency)
+        && optText(d.originalCurrency, 40)
         && (d.exchangeRate == null || isDecimal(d.exchangeRate))
         && (d.rateDate == null || isDate(d.rateDate))
         && isTravelerKey(d.paidBy)
@@ -217,10 +227,10 @@ service cloud.firestore {
                                'booked', 'updatedAt', 'deleted'])
         && isDate(d.date)
         && (d.startTime == null || (d.startTime is string && d.startTime.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$')))
-        && d.title is string && d.title.size() > 0
-        && optString(d.note)
-        && d.type is string
-        && optString(d.location)
+        && isText(d.title, 200) && d.title.size() > 0
+        && optText(d.note, 2000)
+        && isName(d.type)
+        && optText(d.location, 300)
         && optPositiveInt(d.estimatedCostAgorot)
         && d.booked is bool
         && d.updatedAt is int
@@ -230,7 +240,7 @@ service cloud.firestore {
     function validChecklistItem(d, list) {
       return d.keys().hasOnly(['list', 'text', 'checked', 'dueDate', 'createdAt', 'updatedAt', 'deleted'])
         && d.list == list
-        && d.text is string && d.text.size() > 0
+        && isText(d.text, 500) && d.text.size() > 0
         && d.checked is bool
         && (d.dueDate == null || isDate(d.dueDate))
         && d.createdAt is int
@@ -240,8 +250,8 @@ service cloud.firestore {
 
     function validTraveler(d) {
       return d.keys().hasOnly(['name', 'color', 'createdAt', 'updatedAt', 'deleted'])
-        && d.name is string && d.name.size() > 0 && d.name.size() <= 100
-        && d.color is string
+        && isText(d.name, 100) && d.name.size() > 0
+        && isName(d.color)
         && d.createdAt is int
         && d.updatedAt is int
         && d.deleted == false;

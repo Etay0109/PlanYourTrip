@@ -50,7 +50,8 @@ member (also locally), full, failure, double tap, success refreshes, never the e
 today / checked, toggling, insertion order, suggested items; `DocumentFilesTest`: PDF/images, unsupported types, the
 20 MB limit, unknown size, badge, extension, default name; `PrepViewModelTest`: toggling, add, suggestions once, edit
 text, due dates, delete + Undo, another account's trip, too large / unsupported / unreadable / too large while copying,
-double tap, edit, delete with confirmation, view a missing file), HTTP (`OkHttpGetTest` on a local MockWebServer: body, User-Agent/Accept, error status, connection failure, bad URL,
+double tap, edit, delete with confirmation, view a missing file), text limits (`TextLimitsTest`: cutting, never half an emoji, `ActivityInput.normalized`, the upload cuts every
+limited field; `ExpenseFormTest`: the name field stops at the limit), HTTP (`OkHttpGetTest` on a local MockWebServer: body, User-Agent/Accept, error status, connection failure, bad URL,
 cancelling ends the call at once; `FrankfurterRatesApiTest`: the request URLs, with `RecordingHttpGet`), `ActivityTypeTest`, `GoogleMapsTest` (spaces, comma, Hebrew, special
 characters, trimming, decodes back; the activity URL with/without the destination), destination suggestions and flags (`PhotonJsonTest`:
 types kept/dropped, labels, repeats only when name+region+country match; `PhotonPlaceSearchTest`: the encoded URL and

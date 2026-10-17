@@ -214,8 +214,9 @@ Timestamps are device clocks (no server time), so a device with a very wrong clo
 - **memberData/{uid}** and **…/packing**: read and **delete** by that uid only, even after they left or were removed (so
   they can clean up their own data); create/update by that uid while a member. Nobody else, not even the owner.
 - **Field validation** as before (`hasOnly` key lists, ISO dates, end ≥ start, amount > 0, budget/cost null or > 0,
-  decimal strings, "HH:mm", texts not empty, `createdAt`/`updatedAt` int, traveler name 1–100, settlement keys
-  different) or a tombstone; expense `paidBy`/`splitBetween` are now **required**; shared checklist `list ==
+  decimal strings, "HH:mm", texts not empty, `createdAt`/`updatedAt` int, settlement keys different, **text
+  lengths** = `TextLimits.kt`: destination, expense name, activity title ≤ 200, activity location ≤ 300, note ≤ 2000,
+  checklist/packing text ≤ 500, traveler name 1–100, enum names and currency codes ≤ 40) or a tombstone; expense `paidBy`/`splitBetween` are now **required**; shared checklist `list ==
   'BEFORE_TRIP'`, packing `list == 'PACKING'`; trip `memberIds` 1–10 without duplicates and containing the owner;
   trip `validPlace`: `countryCode` missing/null or `^[A-Z]{2}$`, `latitude`/`longitude` both missing/null or both
   numbers in −90..90 / −180..180 (a trip without the keys stays valid; the tombstone rule is unchanged).

@@ -17,7 +17,7 @@ class RoomTravelerRepository(
         travelerDao.observeForTrip(tripId, ownerId).map { list -> list.map { it.toTraveler() } }
 
     override suspend fun addTraveler(tripId: Long, ownerId: String, name: String): Long? {
-        val clean = name.trim()
+        val clean = name.trim().limitTo(TextLimits.TRAVELER_NAME)
         if (clean.isEmpty() || !tripDao.exists(tripId, ownerId)) return null
         val now = clock.millis()
         val count = travelerDao.count(tripId, ownerId)
@@ -35,7 +35,7 @@ class RoomTravelerRepository(
     }
 
     override suspend fun renameTraveler(id: Long, ownerId: String, name: String) {
-        val clean = name.trim()
+        val clean = name.trim().limitTo(TextLimits.TRAVELER_NAME)
         if (clean.isEmpty()) return
         travelerDao.rename(id, ownerId, clean, clock.millis())
         changes.onLocalChange()

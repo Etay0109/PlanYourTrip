@@ -25,7 +25,9 @@ import com.example.planyourtrip.data.trip.ChecklistItem
 import com.example.planyourtrip.data.trip.ChecklistKind
 import com.example.planyourtrip.data.trip.ChecklistRepository
 import com.example.planyourtrip.data.trip.DeletedChecklistItem
+import com.example.planyourtrip.data.trip.TextLimits
 import com.example.planyourtrip.data.trip.TripRepository
+import com.example.planyourtrip.data.trip.limitTo
 import com.example.planyourtrip.ui.common.WhileUiSubscribed
 import com.example.planyourtrip.ui.navigation.TripDetails
 import kotlinx.coroutines.CancellationException
@@ -146,7 +148,8 @@ class PrepViewModel(
         _editText.value = EditItemTextState(id, row.text)
     }
 
-    fun onEditTextChange(text: String) = _editText.update { it?.copy(text = text, isError = false) }
+    fun onEditTextChange(text: String) =
+        _editText.update { it?.copy(text = text.limitTo(TextLimits.CHECKLIST_TEXT), isError = false) }
 
     fun onSaveItemText() {
         val edit = _editText.value ?: return

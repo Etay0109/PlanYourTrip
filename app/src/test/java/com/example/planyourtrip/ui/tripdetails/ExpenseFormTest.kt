@@ -11,6 +11,7 @@ import com.example.planyourtrip.data.currency.ExchangeRate
 import com.example.planyourtrip.data.currency.ILS
 import com.example.planyourtrip.data.trip.Expense
 import com.example.planyourtrip.data.trip.ExpenseCategory
+import com.example.planyourtrip.data.trip.TextLimits
 import com.example.planyourtrip.data.trip.ForeignAmount
 import com.example.planyourtrip.data.trip.Traveler
 import com.example.planyourtrip.data.trip.TravelerColor
@@ -124,6 +125,14 @@ class ExpenseFormTest {
         vm.onNameChange("Taxi")
         assertNull(vm.uiState.value.nameError)
         assertEquals(ExpenseFieldError.INVALID_AMOUNT, vm.uiState.value.amountError)
+    }
+
+    @Test
+    fun name_stopsAtTheLimitTheRulesAccept() = runTest(dispatcher) {
+        val vm = vm()
+        advanceUntilIdle()
+        vm.onNameChange("x".repeat(TextLimits.EXPENSE_NAME + 50))
+        assertEquals("x".repeat(TextLimits.EXPENSE_NAME), vm.uiState.value.name)
     }
 
     @Test

@@ -16,9 +16,11 @@ import com.example.planyourtrip.data.trip.Expense
 import com.example.planyourtrip.data.trip.ExpenseCategory
 import com.example.planyourtrip.data.trip.ExpenseInput
 import com.example.planyourtrip.data.trip.ExpenseRepository
+import com.example.planyourtrip.data.trip.TextLimits
 import com.example.planyourtrip.data.trip.TravelerRepository
 import com.example.planyourtrip.data.trip.TripMemberRepository
 import com.example.planyourtrip.data.trip.TripRepository
+import com.example.planyourtrip.data.trip.limitTo
 import com.example.planyourtrip.ui.common.split.Person
 import com.example.planyourtrip.ui.common.split.inListOrder
 import com.example.planyourtrip.ui.common.split.personOf
@@ -156,7 +158,8 @@ class ExpenseFormViewModel(
         return copy(preview = ExpenseCurrency.conversionPreview(EnteredAmount(amount, currencyCode), rate, stored))
     }
 
-    fun onNameChange(value: String) = _uiState.update { it.copy(name = value, nameError = null) }
+    fun onNameChange(value: String) =
+        _uiState.update { it.copy(name = value.limitTo(TextLimits.EXPENSE_NAME), nameError = null) }
 
     fun onAmountChange(value: String) =
         _uiState.update { it.copy(amount = value, amountError = null).withPreview() }

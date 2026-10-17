@@ -22,6 +22,7 @@ app/src/main/java/com/example/planyourtrip/
                                # Expense (+ ExpenseInput: the values to add/update), ExpenseCategory, ExpenseEntity, ExpenseDao,
                                # ExpenseRepository + RoomExpenseRepository, ActivityType, TripActivity (+ ActivityInput),
                                # ActivityEntity, ActivityDao, ActivityRepository + RoomActivityRepository,
+                               # TextLimits (+ limitTo: the longest synced text per field, matching firestore.rules),
                                # DeletedActivity (+ DeletedActivityStore: the "Undo" hand-over),
                                # ChecklistKind + ChecklistItem (+ DeletedChecklistItem), ChecklistItemEntity, ChecklistDao,
                                # ChecklistRepository + RoomChecklistRepository,

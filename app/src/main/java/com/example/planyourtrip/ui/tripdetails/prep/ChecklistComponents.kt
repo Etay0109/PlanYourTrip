@@ -53,6 +53,8 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.R
 import com.example.planyourtrip.data.trip.ChecklistKind
+import com.example.planyourtrip.data.trip.TextLimits
+import com.example.planyourtrip.data.trip.limitTo
 import com.example.planyourtrip.ui.common.TripFormatting
 import com.example.planyourtrip.ui.common.components.DatePickerPopup
 import com.example.planyourtrip.ui.common.errorSupportingText
@@ -309,7 +311,7 @@ private fun AddItemRow(kind: ChecklistKind, onAdd: (ChecklistKind, String) -> Bo
         val placeholder = stringResource(R.string.prep_add_item)
         BasicTextField(
             value = text,
-            onValueChange = { text = it },
+            onValueChange = { text = it.limitTo(TextLimits.CHECKLIST_TEXT) },
             singleLine = true,
             textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),

@@ -13,7 +13,9 @@ import com.example.planyourtrip.data.trip.ActivityInput
 import com.example.planyourtrip.data.trip.ActivityRepository
 import com.example.planyourtrip.data.trip.DeletedActivityStore
 import com.example.planyourtrip.data.trip.ActivityType
+import com.example.planyourtrip.data.trip.TextLimits
 import com.example.planyourtrip.data.trip.TripRepository
+import com.example.planyourtrip.data.trip.limitTo
 import com.example.planyourtrip.ui.common.Money
 import com.example.planyourtrip.ui.navigation.ActivityForm
 import com.example.planyourtrip.ui.tripdetails.defaultDay
@@ -86,7 +88,8 @@ class ActivityFormViewModel(
         }
     }
 
-    fun onTitleChange(value: String) = _uiState.update { it.copy(title = value, titleError = null) }
+    fun onTitleChange(value: String) =
+        _uiState.update { it.copy(title = value.limitTo(TextLimits.ACTIVITY_TITLE), titleError = null) }
 
     fun onTypeChange(type: ActivityType) = _uiState.update { it.copy(type = type) }
 
@@ -95,13 +98,14 @@ class ActivityFormViewModel(
     /** Null clears the start time. */
     fun onStartTimeChange(time: LocalTime?) = _uiState.update { it.copy(startTime = time) }
 
-    fun onLocationChange(value: String) = _uiState.update { it.copy(location = value) }
+    fun onLocationChange(value: String) =
+        _uiState.update { it.copy(location = value.limitTo(TextLimits.ACTIVITY_LOCATION)) }
 
     fun onCostChange(value: String) = _uiState.update { it.copy(cost = value, costError = null) }
 
     fun onBookedChange(booked: Boolean) = _uiState.update { it.copy(booked = booked) }
 
-    fun onNoteChange(value: String) = _uiState.update { it.copy(note = value) }
+    fun onNoteChange(value: String) = _uiState.update { it.copy(note = value.limitTo(TextLimits.ACTIVITY_NOTE)) }
 
     fun onSave() {
         val state = _uiState.value

@@ -187,7 +187,8 @@ Room database `plan_your_trip.db`, `AppDatabase` **version 17**: `trips`, `expen
   **Sign-out** deletes the account's local data only when it is safely in the cloud; otherwise it warns.
 - Writing a trip never changes `ownerId`/`memberIds`; one trip per batch (Firestore's 20-lookup limit).
 - **Security rules:** change them together with `SyncDocuments` and `rules-tests/rules.test.js`, run `npm test`,
-  then publish.
+  then publish. Text length limits live in `data/trip/TextLimits.kt` and must match the rules: input fields stop
+  there, repositories and `SyncDocuments.toDocument` cut longer text, so a sync is never refused for length.
 - Invites: 8-character codes (`InviteCode`), single use, 7 days; joining, leaving and removing members are described in
   `docs/sync.md`.
 

@@ -36,7 +36,7 @@ class RoomTripRepository(
         return dao.insert(
             TripEntity(
                 ownerId = ownerId,
-                destination = destination.trim(),
+                destination = destination.trim().limitTo(TextLimits.DESTINATION),
                 startDate = startDate,
                 endDate = endDate,
                 color = color,
@@ -60,7 +60,7 @@ class RoomTripRepository(
     ) {
         val where = place.normalized()
         dao.update(
-            id, ownerId, destination.trim(), startDate, endDate, currencyCode,
+            id, ownerId, destination.trim().limitTo(TextLimits.DESTINATION), startDate, endDate, currencyCode,
             where.countryCode, where.latitude, where.longitude, clock.millis(),
         )
         changes.onLocalChange()

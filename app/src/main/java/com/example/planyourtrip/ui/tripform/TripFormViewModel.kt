@@ -17,8 +17,10 @@ import com.example.planyourtrip.data.place.PlaceSuggestion
 import com.example.planyourtrip.data.place.countryCurrency
 import com.example.planyourtrip.data.reminder.ReminderPrompt
 import com.example.planyourtrip.data.sync.NetworkMonitor
+import com.example.planyourtrip.data.trip.TextLimits
 import com.example.planyourtrip.data.trip.TripPlace
 import com.example.planyourtrip.data.trip.TripRepository
+import com.example.planyourtrip.data.trip.limitTo
 import com.example.planyourtrip.data.trip.place
 import com.example.planyourtrip.ui.common.CurrencyPickerState
 import com.example.planyourtrip.ui.common.currencyName
@@ -88,7 +90,8 @@ class TripFormViewModel(
      * [DestinationSuggestions.MIN_QUERY_LENGTH] characters the built-in table's places show at once; after a short
      * pause Photon is asked ([TripFormUiState.isSearching] meanwhile) and its places are added under them.
      */
-    fun onDestinationChange(value: String) {
+    fun onDestinationChange(text: String) {
+        val value = text.limitTo(TextLimits.DESTINATION)
         val changed = value != _uiState.value.destination
         _uiState.update {
             it.copy(

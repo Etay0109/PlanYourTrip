@@ -18,7 +18,7 @@ class RoomChecklistRepository(
         checklistDao.observeForTrip(tripId, ownerId).map { list -> list.map { it.toChecklistItem() } }
 
     override suspend fun addItem(tripId: Long, ownerId: String, kind: ChecklistKind, text: String): Long? {
-        val clean = text.trim()
+        val clean = text.trim().limitTo(TextLimits.CHECKLIST_TEXT)
         if (clean.isEmpty() || !tripDao.exists(tripId, ownerId)) return null
         val now = clock.millis()
         return checklistDao.insertInOrder(tripId, listOf(newItem(tripId, kind, clean, updatedAt = now)), now).single()
@@ -26,7 +26,7 @@ class RoomChecklistRepository(
     }
 
     override suspend fun addItems(tripId: Long, ownerId: String, kind: ChecklistKind, texts: List<String>) {
-        val clean = texts.map { it.trim() }.filter { it.isNotEmpty() }
+        val clean = texts.map { it.trim().limitTo(TextLimits.CHECKLIST_TEXT) }.filter { it.isNotEmpty() }
         if (clean.isEmpty() || !tripDao.exists(tripId, ownerId)) return
         val now = clock.millis()
         // Increasing creation times (1 ms apart, after every existing item), so every device lists them in this order.
@@ -40,7 +40,7 @@ class RoomChecklistRepository(
     }
 
     override suspend fun updateText(id: Long, ownerId: String, text: String) {
-        val clean = text.trim()
+        val clean = text.trim().limitTo(TextLimits.CHECKLIST_TEXT)
         if (clean.isEmpty()) return
         checklistDao.setText(id, ownerId, clean, clock.millis())
         changes.onLocalChange()

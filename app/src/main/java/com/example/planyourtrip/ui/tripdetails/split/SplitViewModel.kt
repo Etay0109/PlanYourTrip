@@ -17,10 +17,12 @@ import com.example.planyourtrip.data.trip.MergeSuggestionStore
 import com.example.planyourtrip.data.trip.RemoveTravelerResult
 import com.example.planyourtrip.data.trip.Settlement
 import com.example.planyourtrip.data.trip.SettlementRepository
+import com.example.planyourtrip.data.trip.TextLimits
 import com.example.planyourtrip.data.trip.Traveler
 import com.example.planyourtrip.data.trip.TravelerRepository
 import com.example.planyourtrip.data.trip.TripMemberRepository
 import com.example.planyourtrip.data.trip.TripRepository
+import com.example.planyourtrip.data.trip.limitTo
 import com.example.planyourtrip.ui.common.Money
 import com.example.planyourtrip.ui.common.WhileUiSubscribed
 import com.example.planyourtrip.ui.common.split.MergeSuggestion
@@ -176,7 +178,8 @@ class SplitViewModel(
         )
     }
 
-    fun onTravelerNameChange(name: String) = _travelerDialog.update { it?.copy(name = name, error = null) }
+    fun onTravelerNameChange(name: String) =
+        _travelerDialog.update { it?.copy(name = name.limitTo(TextLimits.TRAVELER_NAME), error = null) }
 
     fun onDismissTravelerDialog() {
         if (_travelerDialog.value?.isSaving == true) return

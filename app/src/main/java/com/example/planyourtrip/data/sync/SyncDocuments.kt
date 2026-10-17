@@ -6,9 +6,11 @@ import com.example.planyourtrip.data.trip.ChecklistKind
 import com.example.planyourtrip.data.trip.ExpenseCategory
 import com.example.planyourtrip.data.trip.ForeignAmount
 import com.example.planyourtrip.data.trip.LEGACY_ME_KEY
+import com.example.planyourtrip.data.trip.TextLimits
 import com.example.planyourtrip.data.trip.TravelerColor
 import com.example.planyourtrip.data.trip.TripColor
 import com.example.planyourtrip.data.trip.TripPlace
+import com.example.planyourtrip.data.trip.limitTo
 import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.LocalTime
@@ -74,11 +76,15 @@ object SyncDocuments {
 
     private val TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.ROOT)
 
+    /**
+     * The cloud document of [item]. User text is cut to [TextLimits] (what firestore.rules accept), so text that is
+     * longer on this device (stored before the limits, or a legacy copy) never makes the sync fail.
+     */
     fun toDocument(item: SyncItem): Map<String, Any?> {
         val fields: Map<String, Any?> = when (val data = item.data) {
             null -> return mapOf(DELETED to true, UPDATED_AT to item.updatedAt)
             is ItemData.TripData -> mapOf(
-                Field.DESTINATION to data.destination,
+                Field.DESTINATION to data.destination.limitTo(TextLimits.DESTINATION),
                 Field.START_DATE to data.startDate.toString(),
                 Field.END_DATE to data.endDate.toString(),
                 Field.CURRENCY_CODE to data.currencyCode,
@@ -91,7 +97,7 @@ object SyncDocuments {
             )
             is ItemData.BudgetData -> mapOf(Field.BUDGET_AGOROT to data.budgetAgorot)
             is ItemData.ExpenseData -> mapOf(
-                Field.NAME to data.name,
+                Field.NAME to data.name.limitTo(TextLimits.EXPENSE_NAME),
                 Field.AMOUNT_AGOROT to data.amountAgorot,
                 Field.CATEGORY to data.category.name,
                 Field.DATE to data.date.toString(),
@@ -106,23 +112,23 @@ object SyncDocuments {
                 mapOf(
                     Field.DATE to date.toString(),
                     Field.START_TIME to startTime?.format(TIME),
-                    Field.TITLE to title,
-                    Field.NOTE to note,
+                    Field.TITLE to title.limitTo(TextLimits.ACTIVITY_TITLE),
+                    Field.NOTE to note?.limitTo(TextLimits.ACTIVITY_NOTE),
                     Field.TYPE to type.name,
-                    Field.LOCATION to location,
+                    Field.LOCATION to location?.limitTo(TextLimits.ACTIVITY_LOCATION),
                     Field.ESTIMATED_COST_AGOROT to estimatedCostAgorot,
                     Field.BOOKED to booked,
                 )
             }
             is ItemData.ChecklistData -> mapOf(
                 Field.LIST to data.list.name,
-                Field.TEXT to data.text,
+                Field.TEXT to data.text.limitTo(TextLimits.CHECKLIST_TEXT),
                 Field.CHECKED to data.checked,
                 Field.DUE_DATE to data.dueDate?.toString(),
                 Field.CREATED_AT to data.createdAt,
             )
             is ItemData.TravelerData -> mapOf(
-                Field.NAME to data.name,
+                Field.NAME to data.name.limitTo(TextLimits.TRAVELER_NAME),
                 Field.COLOR to data.color.name,
                 Field.CREATED_AT to data.createdAt,
             )

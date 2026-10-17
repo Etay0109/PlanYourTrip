@@ -26,7 +26,7 @@ class RoomExpenseRepository(
         return expenseDao.insert(
             ExpenseEntity(
                 tripId = tripId,
-                name = input.name.trim(),
+                name = input.name.trim().limitTo(TextLimits.EXPENSE_NAME),
                 amountAgorot = input.amountAgorot,
                 category = input.category,
                 date = input.date,
@@ -44,7 +44,8 @@ class RoomExpenseRepository(
     override suspend fun updateExpense(id: Long, ownerId: String, input: ExpenseInput) {
         val original = input.original
         expenseDao.update(
-            id, ownerId, input.name.trim(), input.amountAgorot, input.category, input.date,
+            id, ownerId, input.name.trim().limitTo(TextLimits.EXPENSE_NAME), input.amountAgorot, input.category,
+            input.date,
             original?.amount, original?.currencyCode, original?.ilsPerUnit, original?.rateDate,
             input.paidBy, cleanSplit(input.paidBy, input.splitBetween), clock.millis(),
         )

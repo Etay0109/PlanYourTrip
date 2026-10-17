@@ -572,6 +572,36 @@ describe('field validation', () => {
     await assertFails(write('settlements/s2', settlement({ date: '14.11.2026' })));
   });
 
+  // The limits match app/src/main/java/com/example/planyourtrip/data/trip/TextLimits.kt.
+  it('text lengths: the limit passes, one more character fails', async () => {
+    const x = (n) => 'x'.repeat(n);
+    const tripAs = (extra) => setDoc(doc(as('alice'), 'trips/t1'), trip('alice', ['alice', 'bob'], extra));
+    await assertSucceeds(tripAs({ destination: x(200) }));
+    await assertFails(tripAs({ destination: x(201) }));
+    await assertFails(tripAs({ color: x(41) }));
+    await assertFails(tripAs({ currencyCode: x(41) }));
+
+    await assertSucceeds(write('expenses/e2', expense({ name: x(200) })));
+    await assertFails(write('expenses/e2', expense({ name: x(201) })));
+    await assertFails(write('expenses/e2', expense({ category: x(41) })));
+    await assertFails(write('expenses/e2', expense({ originalAmount: '10.00', originalCurrency: x(41), exchangeRate: '4.02', rateDate: '2026-11-13' })));
+
+    await assertSucceeds(write('activities/a2', activity({ title: x(200), location: x(300), note: x(2000) })));
+    await assertFails(write('activities/a2', activity({ title: x(201) })));
+    await assertFails(write('activities/a2', activity({ location: x(301) })));
+    await assertFails(write('activities/a2', activity({ note: x(2001) })));
+    await assertFails(write('activities/a2', activity({ type: x(41) })));
+
+    await assertSucceeds(write('checklist/c2', checklistItem('BEFORE_TRIP', { text: x(500) })));
+    await assertFails(write('checklist/c2', checklistItem('BEFORE_TRIP', { text: x(501) })));
+    await assertSucceeds(write('memberData/alice/packing/p3', checklistItem('PACKING', { text: x(500) })));
+    await assertFails(write('memberData/alice/packing/p3', checklistItem('PACKING', { text: x(501) })));
+
+    await assertSucceeds(write('travelers/r2', traveler({ name: x(100) })));
+    await assertFails(write('travelers/r2', traveler({ name: x(101) })));
+    await assertFails(write('travelers/r2', traveler({ color: x(41) })));
+  });
+
   it('tombstones have nothing but deleted and updatedAt', async () => {
     await assertSucceeds(write('expenses/e1', tombstone));
     await assertFails(write('expenses/e1', { ...tombstone, name: 'Dinner' }));
