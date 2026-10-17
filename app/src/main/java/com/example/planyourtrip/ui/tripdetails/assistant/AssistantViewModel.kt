@@ -110,11 +110,13 @@ class AssistantViewModel(
 
     /**
      * Sends [text] (a typed message or a suggestion chip). Returns false and does nothing while a request runs,
-     * for blank text, or before the trip is loaded; the field is cleared only when this returns true.
+     * for blank text or text longer than [MAX_MESSAGE_CHARS], or before the trip is loaded; the field is cleared only
+     * when this returns true.
      */
     fun onSend(text: String): Boolean {
         val message = text.trim()
-        if (message.isEmpty() || conversation.value.isSending || tripData.value == null) return false
+        if (message.isEmpty() || message.length > MAX_MESSAGE_CHARS) return false
+        if (conversation.value.isSending || tripData.value == null) return false
         conversation.update {
             it.copy(
                 messages = it.messages + ChatMessage.User(nextId++, message),

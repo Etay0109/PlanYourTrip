@@ -118,7 +118,7 @@ fun AssistantContent(
         bottomBar = {
             InputBar(
                 text = input,
-                onTextChange = { input = it },
+                onTextChange = { input = it.take(MAX_MESSAGE_CHARS) },
                 destination = state.trip?.destination.orEmpty(),
                 sendEnabled = canSend && input.isNotBlank(),
                 onSend = { if (onSend(input)) input = "" },
@@ -363,6 +363,9 @@ private fun AssistantError.messageRes(): Int = when (this) {
     AssistantError.UNKNOWN -> R.string.assistant_error_unknown
 }
 
+/** The message counter shows this many characters before [MAX_MESSAGE_CHARS]. */
+private const val CHAR_COUNT_MARGIN = 100
+
 /** Text field and round send button; padded above the navigation bar and the keyboard. */
 @Composable
 private fun InputBar(
@@ -389,6 +392,12 @@ private fun InputBar(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                },
+                // "950 / 1000" only close to the limit, where the field stops taking text.
+                supportingText = if (text.length >= MAX_MESSAGE_CHARS - CHAR_COUNT_MARGIN) {
+                    { Text(stringResource(R.string.assistant_char_count, text.length, MAX_MESSAGE_CHARS)) }
+                } else {
+                    null
                 },
                 maxLines = 4,
                 shape = MaterialTheme.shapes.extraLarge,

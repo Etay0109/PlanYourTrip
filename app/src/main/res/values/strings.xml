@@ -367,6 +367,8 @@
     <string name="assistant_chip_budget">Am I within budget?</string>
     <string name="assistant_input_hint">Ask anything about %1$s</string>
     <string name="assistant_send">Send</string>
+    <!-- The message length close to the limit, e.g. "950 / 1000". -->
+    <string name="assistant_char_count">%1$d / %2$d</string>
     <string name="assistant_typing">The assistant is typing</string>
     <string name="assistant_disclaimer">AI generated · check details before booking</string>
     <string name="assistant_plan_label">SUGGESTED PLAN</string>

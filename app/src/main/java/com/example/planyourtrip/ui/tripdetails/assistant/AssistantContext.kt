@@ -104,18 +104,29 @@ fun suggestionChips(
     )
 }
 
+/** At most this many earlier turns (10 questions with their answers) go with a request, to save quota. */
+const val MAX_HISTORY_TURNS = 20
+
+/** The longest message that can be sent (the input field stops there). */
+const val MAX_MESSAGE_CHARS = 1000
+
 /**
  * The earlier turns to send with a new request: user messages that got an answer, and the answers (as the
- * raw JSON the model wrote). A message whose request failed has no answer, so it is never sent twice.
+ * raw JSON the model wrote). A message whose request failed has no answer, so it is never sent twice. Only the last
+ * [maxTurns] turns are kept, always starting with a user message.
  */
-fun chatHistory(messages: List<ChatMessage>): List<ChatTurn> = buildList {
-    messages.forEachIndexed { index, message ->
-        when (message) {
-            is ChatMessage.User ->
-                if (messages.getOrNull(index + 1) is ChatMessage.Assistant) add(ChatTurn(fromUser = true, message.text))
-            is ChatMessage.Assistant -> add(ChatTurn(fromUser = false, message.raw))
+fun chatHistory(messages: List<ChatMessage>, maxTurns: Int = MAX_HISTORY_TURNS): List<ChatTurn> {
+    val turns = buildList {
+        messages.forEachIndexed { index, message ->
+            when (message) {
+                is ChatMessage.User -> if (messages.getOrNull(index + 1) is ChatMessage.Assistant) {
+                    add(ChatTurn(fromUser = true, message.text))
+                }
+                is ChatMessage.Assistant -> add(ChatTurn(fromUser = false, message.raw))
+            }
         }
     }
+    return turns.takeLast(maxTurns).dropWhile { !it.fromUser }
 }
 
 /** Whether a suggested plan can be added: its day must be one of the (current) trip days. */

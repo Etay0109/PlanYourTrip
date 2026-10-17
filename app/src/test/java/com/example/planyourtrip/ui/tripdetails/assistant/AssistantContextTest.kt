@@ -126,4 +126,29 @@ class AssistantContextTest {
             chatHistory(messages),
         )
     }
+
+    @Test
+    fun history_keepsOnlyTheLastTurns_startingWithAQuestion() {
+        val messages = (1..30).flatMap { n ->
+            listOf(ChatMessage.User(2L * n, "Q$n"), ChatMessage.Assistant(2L * n + 1, "A$n", raw = "R$n"))
+        }
+
+        val history = chatHistory(messages)
+
+        assertEquals(MAX_HISTORY_TURNS, history.size)
+        assertEquals(ChatTurn(true, "Q21"), history.first())
+        assertEquals(ChatTurn(false, "R30"), history.last())
+    }
+
+    @Test
+    fun history_neverStartsWithAnAnswer() {
+        val messages = listOf(
+            ChatMessage.User(1, "Q1"),
+            ChatMessage.Assistant(2, "A1", raw = "R1"),
+            ChatMessage.User(3, "Q2"),
+            ChatMessage.Assistant(4, "A2", raw = "R2"),
+        )
+        // The last 3 turns would start with the answer R1: it is left out.
+        assertEquals(listOf(ChatTurn(true, "Q2"), ChatTurn(false, "R2")), chatHistory(messages, maxTurns = 3))
+    }
 }

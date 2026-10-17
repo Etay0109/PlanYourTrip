@@ -412,7 +412,10 @@ distances, weather, plan photo, microphone or like/dislike buttons; **no orange*
   cost → agorot HALF_UP, ≤ 0 or above ₪1,000,000,000 → null; blank titles dropped; invalid date or no activities →
   no plan (the text stays).
 - **History:** each request sends the earlier turns (`chatHistory`: answered user messages + the model's raw JSON),
-  so a failed message is never sent twice. The conversation is **in memory only** (never in Room).
+  so a failed message is never sent twice. Only the last `MAX_HISTORY_TURNS` (20) turns go, always starting with a user
+  message, so a long chat doesn't use up the small quota. A message is at most `MAX_MESSAGE_CHARS` (1000) characters:
+  the field stops taking text there and shows "n / 1000" from 900 on; `onSend` rejects anything longer. The
+  conversation is **in memory only** (never in Room).
 - **Chips** (only while the conversation is empty, `suggestionChips`): "Plan day N for me" (first trip day without
   activities; left out when all days are planned), "Dinner ideas for day N" (the default day: today during the
   trip, otherwise day 1), "Am I within budget?". A chip sends its text as a message.

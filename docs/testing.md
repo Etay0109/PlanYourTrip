@@ -15,7 +15,8 @@ What each test suite covers.
   `PickerDates`, `Money`, `BudgetCalculations`, `AppLocaleTest` (formatters stay English under an RTL default locale), `Itinerary` (`ItineraryTest`: one-day, past and current trips,
   untimed activities, activities outside the dates),
   `CurrencyConversion` (incl. digit-by-digit typing tests), activity type and category color contrast (`TintedColorsTest`), `ExpenseCurrency` (no-decimal currency, no rate, editing with/without changing the amount, switching currency), the expense date limit (`ExpenseFormTest`: default after the trip ended, date after the trip on save, editing an expense already dated after the trip), deleting an activity (`ActivityFormTest`: delete offers Undo, every type saves without a location; `TripDetailsViewModelTest`: Undo restores the activity, only this trip's message, dismiss keeps the delete), `CurrencyPicker`, `FrankfurterJson`, `isStale`, the assistant (`AssistantJsonTest`: malformed answer, unknown type,
-  bad times, costs, invalid date; `AssistantPromptTest`; `AssistantContextTest`: context, chips, history;
+  bad times, costs, invalid date; `AssistantPromptTest`; `AssistantContextTest`: context, chips, history (the last 20 turns, never starting with an
+  answer); `AssistantViewModelTest`: a long chat sends only the last turns, a message over 1000 characters is not sent;
   `SuggestionsTest`: only some checked, day outside the trip), the shared PDF (`TripPdfContentTest`: costs on/off, no
 budget, over/under/on budget, no expenses, no activities, only activities outside the dates, a day with nothing
 planned, untimed activities; `PdfFileNameTest`: special characters, emoji, Hebrew, fallback, long names;

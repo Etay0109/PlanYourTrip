@@ -116,6 +116,34 @@ class AssistantViewModelTest {
     }
 
     @Test
+    fun send_aLongConversation_sendsOnlyTheLastTurns() = runTest(dispatcher) {
+        val answers = (1..15).map { AssistantResponse.Answer("""{"reply":"Answer $it"}""") }
+        val assistant = FakeAssistantRepository(*answers.toTypedArray())
+        val vm = vm(assistant)
+
+        (1..15).forEach { assertTrue(vm.onSend("Question $it")) }
+
+        val last = assistant.requests.last()
+        assertEquals("Question 15", last.message)
+        assertEquals(MAX_HISTORY_TURNS, last.history.size)
+        assertEquals(ChatTurn(true, "Question 5"), last.history.first())
+        assertEquals(ChatTurn(false, """{"reply":"Answer 14"}"""), last.history.last())
+    }
+
+    @Test
+    fun send_aMessageOverTheLimit_isNotSent() = runTest(dispatcher) {
+        val assistant = FakeAssistantRepository(AssistantResponse.Answer("""{"reply":"Ok"}"""))
+        val vm = vm(assistant)
+
+        assertFalse(vm.onSend("x".repeat(MAX_MESSAGE_CHARS + 1)))
+        assertTrue(assistant.requests.isEmpty())
+        assertTrue(vm.uiState.value.messages.isEmpty())
+
+        assertTrue(vm.onSend("x".repeat(MAX_MESSAGE_CHARS)))
+        assertEquals(1, assistant.requests.size)
+    }
+
+    @Test
     fun send_budgetLineCountsOnlyMyShare() = runTest(dispatcher) {
         // ₪2,500 split with Noa: ₪1,250 is mine, like on the Budget tab.
         expenses.addExpense(
