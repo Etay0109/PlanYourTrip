@@ -210,12 +210,15 @@ fun InviteSheetContent(
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.semantics { heading() },
             )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = stringResource(R.string.invite_subtitle),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            // "Share this code…" only when there is (or is about to be) a code to share.
+            if (state.code is InviteCodeState.Loading || state.code is InviteCodeState.Ready) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.invite_subtitle),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Spacer(Modifier.height(24.dp))
             CodeSection(state.code, destination, actions)
             Spacer(Modifier.height(32.dp))

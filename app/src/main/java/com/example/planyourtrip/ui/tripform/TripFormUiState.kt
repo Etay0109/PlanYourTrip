@@ -16,6 +16,11 @@ data class TripFormUiState(
     /** True while Photon is being asked (after the typing pause, until it answers or fails): the thin bar shows. */
     val isSearching: Boolean = false,
     /**
+     * True when the lookup failed because the device is offline and the built-in table had nothing for the text:
+     * "Connect to the internet to search more places" shows in place of the list. Cleared by the next keystroke.
+     */
+    val searchNeedsInternet: Boolean = false,
+    /**
      * The picked suggestion's country and coordinates (or the edited trip's stored ones); null once the text is
      * edited, until a suggestion is picked again. Free text is saved without them.
      */

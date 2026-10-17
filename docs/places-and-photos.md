@@ -15,7 +15,9 @@
   contributors". `DestinationFieldWithSuggestions` draws the bar and the list **over** the fields below (a `Layout`
   that reports only the field's height, `zIndex`), so typing never moves them; a trailing spacer after Save gives room
   to scroll the list's last rows into view. It closes when the field loses focus. No network, a failed or bad answer
-  → only the instant rows, **never an error**.
+  → only the instant rows, **never an error**. The one note: when the lookup failed, the built-in table had nothing
+  and `NetworkMonitor` says offline (`TripFormUiState.searchNeedsInternet`), a card like the list's says "Connect to
+  the internet to search more places" (cleared by the next keystroke; a failure while online never says it).
 - **Photon** (`https://photon.komoot.io/api/?q=…&lang=en&limit=10&osm_tag=place`, no key, `User-Agent:
   PlanYourTrip/<versionName> (Android; com.example.planyourtrip)`, 10 s timeouts). `PhotonJson` keeps `osm_key` place
   with `osm_value` country, state, region, province, county, city, town, village, municipality, island, archipelago

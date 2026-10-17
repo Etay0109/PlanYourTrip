@@ -16,6 +16,7 @@ import com.example.planyourtrip.data.place.DestinationSuggestions
 import com.example.planyourtrip.data.place.PlaceSuggestion
 import com.example.planyourtrip.data.place.countryCurrency
 import com.example.planyourtrip.data.reminder.ReminderPrompt
+import com.example.planyourtrip.data.sync.NetworkMonitor
 import com.example.planyourtrip.data.trip.TripPlace
 import com.example.planyourtrip.data.trip.TripRepository
 import com.example.planyourtrip.data.trip.place
@@ -43,6 +44,8 @@ class TripFormViewModel(
     private val destinations: DestinationSuggestions,
     /** Told about a new trip: may ask for the notification permission (trip reminders). */
     private val reminderPrompt: ReminderPrompt = ReminderPrompt.None,
+    /** Whether a failed lookup was for lack of internet (then the form says so); null = unknown, never said. */
+    private val network: NetworkMonitor? = null,
 ) : ViewModel() {
 
     /** The running destination lookup; a new keystroke cancels it (and its request). */
@@ -88,7 +91,12 @@ class TripFormViewModel(
     fun onDestinationChange(value: String) {
         val changed = value != _uiState.value.destination
         _uiState.update {
-            it.copy(destination = value, destinationError = null, place = if (changed) null else it.place)
+            it.copy(
+                destination = value,
+                destinationError = null,
+                place = if (changed) null else it.place,
+                searchNeedsInternet = it.searchNeedsInternet && !changed,
+            )
         }
         if (!changed) return
         lookup?.cancel()
@@ -103,12 +111,15 @@ class TripFormViewModel(
             delay(LOOKUP_DELAY_MILLIS)
             _uiState.update { if (it.destination == value) it.copy(isSearching = true) else it }
             val remote = destinations.remote(value)
-            // A slow answer for older text is never shown; a failed one leaves the instant rows (no message).
+            // A slow answer for older text is never shown; a failed one leaves the instant rows. Only when there are
+            // none and the device is offline does the form say that more places need the internet.
+            val offline = network?.isOnline?.value == false
             _uiState.update {
                 if (it.destination != value) it
                 else it.copy(
                     suggestions = DestinationSuggestions.merge(instant, remote.orEmpty()),
                     isSearching = false,
+                    searchNeedsInternet = remote == null && instant.isEmpty() && offline,
                 )
             }
         }
@@ -123,6 +134,7 @@ class TripFormViewModel(
                 destinationError = null,
                 suggestions = emptyList(),
                 isSearching = false,
+                searchNeedsInternet = false,
                 place = suggestion.toTripPlace(),
             )
         }
@@ -132,7 +144,7 @@ class TripFormViewModel(
     /** The field lost focus: the list and the bar close (the text and a picked place stay). */
     fun onSuggestionsDismissed() {
         lookup?.cancel()
-        _uiState.update { it.copy(suggestions = emptyList(), isSearching = false) }
+        _uiState.update { it.copy(suggestions = emptyList(), isSearching = false, searchNeedsInternet = false) }
     }
 
     /**
@@ -229,7 +241,9 @@ class TripFormViewModel(
         // Free text (nothing picked, or edited since) is saved without a country or coordinates.
         val place = validated.place ?: TripPlace.NONE
         lookup?.cancel()
-        _uiState.update { it.copy(isSaving = true, suggestions = emptyList(), isSearching = false) }
+        _uiState.update {
+            it.copy(isSaving = true, suggestions = emptyList(), isSearching = false, searchNeedsInternet = false)
+        }
         viewModelScope.launch {
             val currency = validated.currencyCode
             if (tripId == null) {
@@ -257,6 +271,7 @@ class TripFormViewModel(
                     currencyRepository = container.currencyRepository,
                     destinations = container.destinationSuggestions,
                     reminderPrompt = container.reminderPermissionPrompt,
+                    network = container.networkMonitor,
                 )
             }
         }

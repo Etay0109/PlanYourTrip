@@ -46,7 +46,8 @@ import com.example.planyourtrip.ui.theme.Dimens
  * The destination [field] with the search bar and the suggestion list drawn **under** it, over the fields that
  * follow: the layout reports the field's height only, so typing never moves the dates, currency or Save button.
  * The thin bar sits in the gap to the next field while [isSearching]; TalkBack hears "Searching" once when it starts
- * (a live region). [onOverlayHeight] gets the height drawn below the field (bar gap + list, in px), so the form can
+ * (a live region). With [needsInternet] (offline, nothing in the built-in table) a short line in a card like the list's
+ * says that more places need the internet. [onOverlayHeight] gets the height drawn below the field (bar gap + list, in px), so the form can
  * keep room to scroll the whole list into view.
  */
 @Composable
@@ -56,6 +57,7 @@ fun DestinationFieldWithSuggestions(
     onPick: (PlaceSuggestion) -> Unit,
     onOverlayHeight: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    needsInternet: Boolean = false,
     field: @Composable () -> Unit,
 ) {
     val searching = stringResource(R.string.place_search_in_progress)
@@ -86,6 +88,9 @@ fun DestinationFieldWithSuggestions(
                     // The list starts where the next field's gap ends, as it did inside the column.
                     Spacer(Modifier.height(SearchBarGap))
                     DestinationSuggestionList(suggestions, onPick)
+                } else if (needsInternet) {
+                    Spacer(Modifier.height(SearchBarGap))
+                    NeedsInternetNote()
                 }
             }
         },
@@ -132,6 +137,26 @@ fun DestinationSuggestionList(suggestions: List<PlaceSuggestion>, onPick: (Place
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             )
         }
+    }
+}
+
+/** In place of the list, offline with nothing in the built-in table: more places need the internet. */
+@Composable
+private fun NeedsInternetNote() {
+    Surface(
+        shape = MaterialTheme.shapes.small,
+        color = MaterialTheme.colorScheme.surfaceContainerLowest,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics { liveRegion = LiveRegionMode.Polite },
+    ) {
+        Text(
+            text = stringResource(R.string.place_search_needs_internet),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+        )
     }
 }
 

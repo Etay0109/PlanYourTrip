@@ -132,8 +132,12 @@ fun HomeScreen(
     val refreshFailedText = stringResource(R.string.refresh_failed)
     LaunchedEffect(refresh.failed) {
         if (!refresh.failed) return@LaunchedEffect
-        refreshViewModel.onMessageShown()
-        snackbarHostState.showSnackbar(refreshFailedText)
+        // Cleared only after the snackbar: clearing first changes this effect's key, which cancels the snackbar.
+        try {
+            snackbarHostState.showSnackbar(refreshFailedText)
+        } finally {
+            refreshViewModel.onMessageShown()
+        }
     }
 
     ShareTripHost(shareViewModel)

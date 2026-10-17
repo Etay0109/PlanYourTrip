@@ -2,6 +2,7 @@ package com.example.planyourtrip.ui.tripform
 
 import com.example.planyourtrip.FakeAuthRepository
 import com.example.planyourtrip.FakeCurrencyRepository
+import com.example.planyourtrip.FakeNetworkMonitor
 import com.example.planyourtrip.FakePlaceSearch
 import com.example.planyourtrip.FakePlaceSearch.Companion.BUENOS_AIRES
 import com.example.planyourtrip.FakePlaceSearch.Companion.BUENOS_AIRES_PROVINCE
@@ -175,6 +176,59 @@ class TripFormPlaceTest {
         type("lond", into = failing)
         assertTrue(failing.uiState.value.suggestions.isEmpty())
         assertNull(failing.uiState.value.destinationError)
+    }
+
+    // ---------- "Connect to the internet to search more places" ----------
+
+    /** A form that knows whether the device is online ([network]). */
+    private fun formWithNetwork(network: FakeNetworkMonitor) = TripFormViewModel(
+        null, repo, user, currencies, DestinationSuggestions(search, hebrew), network = network,
+    )
+
+    @Test
+    fun offline_andNothingInTheTable_saysMorePlacesNeedTheInternet_untilTheNextKeystroke() = runTest(dispatcher) {
+        search.offline = true
+        val form = formWithNetwork(FakeNetworkMonitor(online = false))
+        type("toky", into = form)
+        assertTrue(form.uiState.value.suggestions.isEmpty())
+        assertTrue(form.uiState.value.searchNeedsInternet)
+
+        form.onDestinationChange("tokyo")
+        assertFalse(form.uiState.value.searchNeedsInternet)
+        advanceUntilIdle()
+        assertTrue(form.uiState.value.searchNeedsInternet)
+
+        form.onSuggestionsDismissed()
+        assertFalse(form.uiState.value.searchNeedsInternet)
+    }
+
+    @Test
+    fun offline_withTheTablesPlaces_showsThemWithoutTheNote() = runTest(dispatcher) {
+        search.offline = true
+        val form = formWithNetwork(FakeNetworkMonitor(online = false))
+        type("לונד", into = form)
+        assertEquals(listOf("London, United Kingdom"), form.uiState.value.suggestions.map { it.label })
+        assertFalse(form.uiState.value.searchNeedsInternet)
+    }
+
+    @Test
+    fun aFailingServiceWhileOnline_orAnUnknownConnection_neverBlamesTheInternet() = runTest(dispatcher) {
+        search.offline = true // the lookup fails, but the device says it is online
+        val online = formWithNetwork(FakeNetworkMonitor(online = true))
+        type("toky", into = online)
+        assertFalse(online.uiState.value.searchNeedsInternet)
+
+        type("toky") // vm has no network monitor
+        assertFalse(vm.uiState.value.searchNeedsInternet)
+    }
+
+    @Test
+    fun offline_butNotFound_isNotTheNote_whenTheLookupAnswered() = runTest(dispatcher) {
+        // Photon answered (nothing found) although the monitor still said offline: no note, it wasn't the internet.
+        val form = formWithNetwork(FakeNetworkMonitor(online = false))
+        type("zzzz", into = form)
+        assertTrue(form.uiState.value.suggestions.isEmpty())
+        assertFalse(form.uiState.value.searchNeedsInternet)
     }
 
     @Test

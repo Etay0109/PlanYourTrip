@@ -131,6 +131,7 @@ fun TripFormContent(
             DestinationFieldWithSuggestions(
                 isSearching = state.isSearching,
                 suggestions = state.suggestions,
+                needsInternet = state.searchNeedsInternet,
                 onPick = { suggestion ->
                     onSuggestionPicked(suggestion)
                     // Closes the keyboard; the field shows the whole picked name.

@@ -73,7 +73,8 @@ TripDetails ──("Leave trip" confirmed)──▶ the same with "pendingLeaveT
   shifted by the end padding, so it lines up with the card's edge.
 - **Card keys** are `"trip-<id>"` in all three sections and every item has `Modifier.animateItem()`, so a deleted card
   fades out and the trip that becomes the Next trip moves up from Upcoming. **Pull to refresh** (`RefreshBox` +
-  `RefreshViewModel`) runs a full sync; a failure shows "Couldn't refresh. Check your connection.". Every card sits in a `SwipeToDeleteBox`
+  `RefreshViewModel`) runs a full sync; a failure shows "Couldn't refresh. Check your connection." (the flag is cleared only after the snackbar: clearing it
+  first changed the `LaunchedEffect` key and cancelled the snackbar at once). Every card sits in a `SwipeToDeleteBox`
   (see "Deleting a trip"); the Scaffold has a `SnackbarHost` for "Trip deleted".
 - **Avatar menu** (`AccountButton` + `AccountViewModel` in `ui/common`): tapping the
   avatar opens a `DropdownMenu` with the user's name and email, the sync status (small cloud icon + "All changes
