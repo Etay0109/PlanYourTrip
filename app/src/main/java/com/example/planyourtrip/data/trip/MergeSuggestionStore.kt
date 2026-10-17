@@ -1,6 +1,7 @@
 package com.example.planyourtrip.data.trip
 
 import android.content.SharedPreferences
+import androidx.core.content.edit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -40,7 +41,7 @@ class SharedPreferencesMergeSuggestionStore(private val prefs: SharedPreferences
 
     override fun dismiss(key: String) {
         keys.value = keys.value + key
-        prefs.edit().putStringSet(DISMISSED, keys.value).apply()
+        prefs.edit { putStringSet(DISMISSED, keys.value) }
     }
 
     private companion object {

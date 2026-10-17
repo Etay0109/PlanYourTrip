@@ -14,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.R
@@ -94,7 +95,9 @@ internal fun LazyListScope.overviewTab(
                 icon = R.drawable.ic_event_note,
                 title = stringResource(R.string.trip_daily_plan),
                 subtitle = if (itinerary.hasActivities) {
-                    stringResource(R.string.plan_days_planned, progress.plannedDays, progress.totalDays)
+                    pluralStringResource(
+                        R.plurals.plan_days_planned, progress.totalDays, progress.plannedDays, progress.totalDays,
+                    )
                 } else {
                     stringResource(R.string.trip_plan_empty)
                 },

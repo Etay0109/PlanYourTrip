@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.AlertDialog
@@ -70,6 +71,7 @@ fun BatteryTipDialog(onDismiss: () -> Unit) {
 }
 
 /** "Alarms & reminders" for this app (Android 12+), falling back to the app's settings page. */
+@RequiresApi(Build.VERSION_CODES.S)
 private fun Context.openExactAlarmSettings() {
     val alarms = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.fromParts("package", packageName, null))
     val appDetails = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null))

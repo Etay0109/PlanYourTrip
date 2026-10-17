@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import androidx.core.net.toUri
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
@@ -86,7 +87,7 @@ class AndroidReminderWork(private val context: Context, private val clock: Clock
         private fun intent(context: Context, tripUuid: String): Intent =
             Intent(context, TripReminderAlarmReceiver::class.java)
                 .setAction(TripReminderAlarmReceiver.ACTION_FIRE)
-                .setData(Uri.parse("planyourtrip://trip-reminder/" + Uri.encode(tripUuid)))
+                .setData(("planyourtrip://trip-reminder/" + Uri.encode(tripUuid)).toUri())
                 .putExtra(TripReminderAlarmReceiver.EXTRA_TRIP_UUID, tripUuid)
 
         private fun alarmIntent(context: Context, tripUuid: String, uid: String): PendingIntent =

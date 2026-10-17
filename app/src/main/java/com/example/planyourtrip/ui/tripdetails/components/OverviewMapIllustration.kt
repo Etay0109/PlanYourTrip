@@ -24,7 +24,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -88,12 +89,13 @@ fun OverviewMapIllustration(modifier: Modifier = Modifier) {
 
 /**
  * The white pill with "Open in Google Maps" (and a map icon). On narrow phones (< 360dp) or above font scale
- * 1.2 the card is too narrow for both: the icon goes and the text wraps. (Measured from the screen, not with
+ * 1.2 the card is too narrow for both: the icon goes and the text wraps. (Measured from the window, not with
  * BoxWithConstraints: the card row asks for intrinsic heights, which subcomposition can't answer.)
  */
 @Composable
 private fun OpenInMapsPill(modifier: Modifier = Modifier) {
-    val compact = LocalConfiguration.current.screenWidthDp.dp < Dimens.CompactScreenWidth || isLargeFontScale()
+    val windowWidth = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.width.toDp() }
+    val compact = windowWidth < Dimens.CompactScreenWidth || isLargeFontScale()
     Surface(
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surfaceContainerLowest,

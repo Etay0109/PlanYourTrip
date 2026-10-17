@@ -34,7 +34,8 @@ fun rememberNotificationPermissionRequest(onAnswered: () -> Unit = {}): () -> Bo
     val currentOnAnswered by rememberUpdatedState(onAnswered)
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { currentOnAnswered() }
     return {
-        if (context.needsNotificationPermission() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        // needsNotificationPermission() is only true on Android 13+.
+        if (context.needsNotificationPermission()) {
             launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
             true
         } else {

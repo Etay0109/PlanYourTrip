@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">Plan Your Trip</string>
 
     <!-- Auth screen -->
@@ -126,12 +126,16 @@
     <string name="trip_no_maps_app">No maps app found</string>
     <string name="trip_daily_plan">Daily plan</string>
     <string name="trip_plan_empty">No plan yet</string>
-    <string name="plan_days_planned">%1$d of %2$d days planned</string>
+    <!-- Quantity: the trip's days (the second number). -->
+    <plurals name="plan_days_planned">
+        <item quantity="one">%1$d of %2$d day planned</item>
+        <item quantity="other">%1$d of %2$d days planned</item>
+    </plurals>
     <plurals name="plan_days_set">
         <item quantity="one">%d day set</item>
         <item quantity="other">%d days set</item>
     </plurals>
-    <string name="plan_days_open">%d open</string>
+    <string name="plan_days_open" tools:ignore="PluralsCandidate">%d open</string>
 
     <!-- Itinerary (Plan tab and the Overview day section) -->
     <!-- \u00A0 keeps "Day 1" and the date each on one line. -->
@@ -362,7 +366,7 @@
     <string name="assistant_title">Trip assistant</string>
     <string name="assistant_open">Open trip assistant</string>
     <string name="assistant_intro">Ask me to plan a day, find places to eat or check your budget.</string>
-    <string name="assistant_chip_plan_day">Plan day %1$d for me</string>
+    <string name="assistant_chip_plan_day" tools:ignore="PluralsCandidate">Plan day %1$d for me</string>
     <string name="assistant_chip_dinner">Dinner ideas for day %1$d</string>
     <string name="assistant_chip_budget">Am I within budget?</string>
     <string name="assistant_input_hint">Ask anything about %1$s</string>
@@ -480,7 +484,7 @@
 
     <!-- Prep tab -->
     <!-- "12 of 20 done" -->
-    <string name="prep_progress_done">%1$d of %2$d done</string>
+    <string name="prep_progress_done" tools:ignore="PluralsCandidate">%1$d of %2$d done</string>
     <string name="prep_progress_percent">%1$d%%</string>
     <plurals name="prep_left_before_trip">
         <item quantity="one">%1$d thing left before your trip</item>

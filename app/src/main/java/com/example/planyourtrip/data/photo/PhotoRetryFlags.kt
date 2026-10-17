@@ -1,6 +1,7 @@
 package com.example.planyourtrip.data.photo
 
 import android.content.SharedPreferences
+import androidx.core.content.edit
 
 /**
  * One-time clean-ups of the stored photo lookups, remembered on this device. Each version clears every stored
@@ -30,7 +31,7 @@ class SharedPreferencesPhotoRetryFlags(private val prefs: SharedPreferences) : P
     override fun clearedVersion(): Int = prefs.getInt(KEY, 0)
 
     override fun markCleared(version: Int) {
-        prefs.edit().putInt(KEY, version).apply()
+        prefs.edit { putInt(KEY, version) }
     }
 
     private companion object {

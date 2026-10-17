@@ -1,6 +1,7 @@
 package com.example.planyourtrip.data.reminder
 
 import android.content.SharedPreferences
+import androidx.core.content.edit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -41,13 +42,13 @@ class SharedPreferencesReminderSettings(private val prefs: SharedPreferences) : 
     override val enabled: StateFlow<Boolean> = _enabled.asStateFlow()
 
     override fun setEnabled(on: Boolean) {
-        prefs.edit().putBoolean(KEY_ENABLED, on).apply()
+        prefs.edit { putBoolean(KEY_ENABLED, on) }
         _enabled.value = on
     }
 
     override var permissionAsked: Boolean
         get() = prefs.getBoolean(KEY_PERMISSION_ASKED, false)
-        set(value) = prefs.edit().putBoolean(KEY_PERMISSION_ASKED, value).apply()
+        set(value) = prefs.edit { putBoolean(KEY_PERMISSION_ASKED, value) }
 
     /** Stored as "uuid|uid|epochMillis" (uuids and uids never contain "|"); unreadable entries are skipped. */
     override fun scheduled(): Map<String, Reminder> =
@@ -59,24 +60,26 @@ class SharedPreferencesReminderSettings(private val prefs: SharedPreferences) : 
 
     override fun setScheduled(reminders: Map<String, Reminder>) {
         val entries = reminders.map { (uuid, r) -> "$uuid|${r.uid}|${r.at.toEpochMilli()}" }.toSet()
-        prefs.edit().putStringSet(KEY_SCHEDULED, entries).apply()
+        prefs.edit { putStringSet(KEY_SCHEDULED, entries) }
     }
 
     override fun shown(): Set<String> = prefs.getStringSet(KEY_SHOWN, emptySet()).orEmpty().toSet()
 
     override fun markShown(key: String) {
-        prefs.edit().putStringSet(KEY_SHOWN, shown() + key).commit()
+        // Written right away (commit): this runs in the alarm's receiver, and the process may end just after it, so
+        // a reminder is never shown twice.
+        prefs.edit(commit = true) { putStringSet(KEY_SHOWN, shown() + key) }
     }
 
     override fun pruneShown(today: LocalDate) {
         val shown = shown()
         val kept = shown.filterTo(mutableSetOf()) { key -> shownKeyStart(key)?.isBefore(today) == false }
-        if (kept != shown) prefs.edit().putStringSet(KEY_SHOWN, kept).apply()
+        if (kept != shown) prefs.edit { putStringSet(KEY_SHOWN, kept) }
     }
 
     override var batteryTipShown: Boolean
         get() = prefs.getBoolean(KEY_BATTERY_TIP_SHOWN, false)
-        set(value) = prefs.edit().putBoolean(KEY_BATTERY_TIP_SHOWN, value).apply()
+        set(value) = prefs.edit { putBoolean(KEY_BATTERY_TIP_SHOWN, value) }
 
     private companion object {
         const val KEY_ENABLED = "enabled"

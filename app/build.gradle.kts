@@ -47,6 +47,17 @@ android {
     androidResources {
         localeFilters += "en"
     }
+    // English only, so an App Bundle never needs per-language splits (the app's locale is fixed in AppLocaleSetup).
+    bundle {
+        language {
+            enableSplit = false
+        }
+    }
+    // Version checks off: versions are pinned for Kotlin 2.0.21 on purpose (see the comments in libs.versions.toml
+    // and CLAUDE.md "Conventions").
+    lint {
+        lintConfig = file("lint.xml")
+    }
 }
 
 room {

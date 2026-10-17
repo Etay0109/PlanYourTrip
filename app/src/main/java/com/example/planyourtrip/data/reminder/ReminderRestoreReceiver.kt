@@ -1,5 +1,6 @@
 package com.example.planyourtrip.data.reminder
 
+import android.annotation.SuppressLint
 import android.app.AlarmManager
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -18,6 +19,8 @@ import kotlinx.coroutines.withTimeoutOrNull
  * System broadcasts only (not exported).
  */
 class ReminderRestoreReceiver : BroadcastReceiver() {
+    // The Android 12 action is only a string compared here; older versions simply never send it.
+    @SuppressLint("InlinedApi")
     override fun onReceive(context: Context, intent: Intent) {
         val exactAllowed = intent.action == AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED
         if (intent.action != Intent.ACTION_BOOT_COMPLETED && intent.action != Intent.ACTION_MY_PACKAGE_REPLACED &&

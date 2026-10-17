@@ -2,7 +2,6 @@ package com.example.planyourtrip.ui.tripdetails.prep
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.SnackbarDuration
@@ -15,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
+import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.planyourtrip.R
 import com.example.planyourtrip.data.document.DOCUMENT_MIME_TYPES
@@ -67,7 +67,7 @@ fun rememberPrepActions(viewModel: PrepViewModel, snackbarHostState: SnackbarHos
         val file = pendingView ?: return@LaunchedEffect
         viewModel.onViewLaunched()
         val intent = Intent(Intent.ACTION_VIEW)
-            .setDataAndType(Uri.parse(file.uri), file.mimeType)
+            .setDataAndType(file.uri.toUri(), file.mimeType)
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         try {
             context.startActivity(intent)

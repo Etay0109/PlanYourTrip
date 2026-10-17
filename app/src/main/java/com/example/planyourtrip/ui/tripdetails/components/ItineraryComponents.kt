@@ -228,7 +228,8 @@ fun PlanTimeline(
 fun DailyPlanProgress(progress: PlanProgress, modifier: Modifier = Modifier) {
     val filled = MaterialTheme.colorScheme.primary
     val open = MaterialTheme.colorScheme.outlineVariant
-    val description = stringResource(R.string.plan_days_planned, progress.plannedDays, progress.totalDays)
+    val description =
+        pluralStringResource(R.plurals.plan_days_planned, progress.totalDays, progress.plannedDays, progress.totalDays)
     Column(
         modifier
             .fillMaxWidth()

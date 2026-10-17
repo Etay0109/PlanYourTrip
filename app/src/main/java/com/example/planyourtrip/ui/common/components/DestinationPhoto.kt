@@ -59,6 +59,8 @@ class HeroPhotoState internal constructor(val url: String?) {
     }
 
     /** On a text block: its bounds inside the hero become [boundsOf] ([name]). */
+    // A member of this state (like [heroModifier]), not a Modifier extension: it records into this state's bounds.
+    @Suppress("ModifierFactoryExtensionFunction")
     fun track(name: String): Modifier = Modifier.onGloballyPositioned {
         textCoordinates[name] = it
         updateBounds()

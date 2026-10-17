@@ -1,6 +1,7 @@
 package com.example.planyourtrip.data.sync
 
 import android.content.SharedPreferences
+import androidx.core.content.edit
 
 /**
  * Sync facts remembered on this device, per account: the one-time move of the account's legacy cloud copy to the
@@ -30,7 +31,7 @@ class SharedPreferencesSyncFlags(private val prefs: SharedPreferences) : SyncFla
     override fun isSharedTripsMigrated(uid: String): Boolean = prefs.getBoolean(migratedKey(uid), false)
 
     override fun markSharedTripsMigrated(uid: String) {
-        prefs.edit().putBoolean(migratedKey(uid), true).apply()
+        prefs.edit { putBoolean(migratedKey(uid), true) }
     }
 
     override fun lastFullSync(uid: String): FullSyncRecord? {
@@ -40,9 +41,10 @@ class SharedPreferencesSyncFlags(private val prefs: SharedPreferences) : SyncFla
     }
 
     override fun recordFullSync(uid: String, record: FullSyncRecord) {
-        val editor = prefs.edit().putBoolean(okKey(uid), record.succeeded)
-        if (record.lastSuccessAt != null) editor.putLong(successKey(uid), record.lastSuccessAt) else editor.remove(successKey(uid))
-        editor.apply()
+        prefs.edit {
+            putBoolean(okKey(uid), record.succeeded)
+            if (record.lastSuccessAt != null) putLong(successKey(uid), record.lastSuccessAt) else remove(successKey(uid))
+        }
     }
 
     private fun migratedKey(uid: String) = "shared_trips_migrated_$uid"

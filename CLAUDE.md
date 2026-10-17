@@ -51,6 +51,8 @@ Detailed references live in `docs/` (see "Detailed docs" at the end). Read the r
 - Build: `./gradlew assembleDebug` (also regenerates the Room schema JSON in `app/schemas/`)
 - Release build: `./gradlew assembleRelease` (unsigned APK; must compile too, see the Compose BoM note in Conventions)
 - Unit tests: `./gradlew testDebugUnitTest`
+- Lint: `./gradlew lintDebug` must report "No issues found" (dependency version checks are off in `app/lint.xml`:
+  versions are pinned for Kotlin 2.0.21).
 - Instrumented tests (needs an emulator; Room tests + Compose layout tests `ui/LayoutPolishTest`, which save pictures to
   the app's `files/layout-checks/`): airplane mode on, `assembleDebug assembleDebugAndroidTest`, `adb install -r` both
   APKs, `adb shell am instrument -w com.example.planyourtrip.test/androidx.test.runner.AndroidJUnitRunner`, then

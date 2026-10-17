@@ -3,7 +3,6 @@ package com.example.planyourtrip.ui.tripdetails
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
@@ -61,6 +60,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.planyourtrip.R
@@ -279,7 +279,7 @@ fun TripDetailsScreen(
 
 /** Opens a Google Maps [url]; false when no app (not even a browser) can open it. */
 private fun openGoogleMaps(context: Context, url: String): Boolean = try {
-    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+    context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
     true
 } catch (e: ActivityNotFoundException) {
     false

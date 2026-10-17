@@ -1,9 +1,9 @@
 package com.example.planyourtrip.data.document
 
 import android.content.Context
-import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.core.content.FileProvider
+import androidx.core.net.toUri
 import com.example.planyourtrip.AppLog
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -24,7 +24,7 @@ class AndroidDocumentFileStore(
     private val dir: File get() = File(context.filesDir, DOCUMENTS_DIR)
 
     override suspend fun inspect(uri: String): PickedFile = withContext(ioDispatcher) {
-        val parsed = Uri.parse(uri)
+        val parsed = uri.toUri()
         val resolver = context.contentResolver
         var name: String? = null
         var size: Long? = null
@@ -48,7 +48,7 @@ class AndroidDocumentFileStore(
         dir.mkdirs()
         val target = File(dir, fileName)
         try {
-            val input = context.contentResolver.openInputStream(Uri.parse(uri))
+            val input = context.contentResolver.openInputStream(uri.toUri())
                 ?: throw IOException("Can't open the picked file")
             input.use { source ->
                 target.outputStream().use { out ->
