@@ -1,6 +1,6 @@
 package com.example.planyourtrip.data.sync
 
-import android.util.Log
+import com.example.planyourtrip.AppLog
 import com.example.planyourtrip.data.trip.TripMember
 import com.google.firebase.firestore.CollectionReference
 import com.google.firebase.firestore.DocumentReference
@@ -172,7 +172,7 @@ class FirestoreCloudStore private constructor(private val firestore: FirebaseFir
 
     private fun readMember(doc: DocumentSnapshot): TripMember? {
         val name = doc.getString(SharedTripDocuments.Member.NAME)?.trim()?.takeIf { it.isNotEmpty() }
-            ?: return null.also { Log.w(TAG, "Skipping unreadable member document ${doc.reference.path}") }
+            ?: return null.also { AppLog.w(TAG, "Skipping unreadable member document ${doc.reference.path}") }
         return TripMember(
             uid = doc.id,
             name = name,
@@ -293,7 +293,7 @@ class FirestoreCloudStore private constructor(private val firestore: FirebaseFir
     /** [tripUuid] = the trip the document belongs to (null for a trip document); see [SyncDocuments.fromDocument]. */
     private fun read(kind: SyncKind, doc: DocumentSnapshot, tripUuid: String?): SyncItem? =
         SyncDocuments.fromDocument(kind, doc.id, tripUuid, doc.data.orEmpty())
-            ?: null.also { Log.w(TAG, "Skipping unreadable ${kind.name} document ${doc.reference.path}") }
+            ?: null.also { AppLog.w(TAG, "Skipping unreadable ${kind.name} document ${doc.reference.path}") }
 
     /**
      * Every failure becomes a [CloudUnavailableException]; the sync then keeps the changes pending. Only "the server
@@ -306,7 +306,7 @@ class FirestoreCloudStore private constructor(private val firestore: FirebaseFir
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.w(TAG, "$name failed", e)
+            AppLog.w(TAG, "$name failed", e)
             val connection = e is FirebaseFirestoreException && e.code in CONNECTION_FAILURES
             throw CloudUnavailableException(e, isProblem = !connection)
         }

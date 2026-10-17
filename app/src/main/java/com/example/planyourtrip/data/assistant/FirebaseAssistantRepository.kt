@@ -1,6 +1,6 @@
 package com.example.planyourtrip.data.assistant
 
-import android.util.Log
+import com.example.planyourtrip.AppLog
 import com.example.planyourtrip.data.trip.ActivityType
 import com.google.firebase.ai.FirebaseAI
 import com.google.firebase.ai.type.ContentBlockedException
@@ -37,12 +37,12 @@ class FirebaseAssistantRepository(private val ai: FirebaseAI) : AssistantReposit
         val text = model.generateContent(contents).text
         when {
             text.isNullOrBlank() -> {
-                Log.w(TAG, "Assistant answer had no text (UNREADABLE)")
+                AppLog.w(TAG, "Assistant answer had no text (UNREADABLE)")
                 AssistantResponse.Failed(AssistantError.UNREADABLE)
             }
             else -> {
                 // The ViewModel reads it; log what the model sent when it can't, so the cause is visible.
-                if (AssistantJson.parseReply(text) == null) Log.w(TAG, "Assistant answer is not readable JSON: $text")
+                if (AssistantJson.parseReply(text) == null) AppLog.w(TAG, "Assistant answer is not readable JSON: $text")
                 AssistantResponse.Answer(text)
             }
         }
@@ -50,7 +50,7 @@ class FirebaseAssistantRepository(private val ai: FirebaseAI) : AssistantReposit
         throw e
     } catch (e: Exception) {
         val error = errorFor(e)
-        Log.w(TAG, "Assistant request to ${request.model.modelName} failed ($error)", e)
+        AppLog.w(TAG, "Assistant request to ${request.model.modelName} failed ($error)", e)
         AssistantResponse.Failed(error)
     }
 

@@ -67,7 +67,9 @@ Detailed references live in `docs/` (see "Detailed docs" at the end). Read the r
   npm install` once, then `JAVA_HOME=<Android Studio jbr> PATH="$JAVA_HOME/bin:$PATH" npm test`. Run after every rules
   change.
 - Firebase config: `app/google-services.json` (project `planyourtrip-79724`); the plugin only reads it from `app/`.
-- Log tags: `CloudSync`, `TripAssistant`, `TripPdf`, `DestinationPhoto`, `TripReminder`.
+- Log tags (debug builds only): `CloudSync`, `TripAssistant`, `TripPdf`, `DestinationPhoto`, `TripReminder`, `App`.
+  App code logs only through `AppLog` (never `android.util.Log`); release builds log nothing (`LogConfig.kt` in
+  `src/debug|release`).
 
 ## Structure (full file map: `docs/structure.md`)
 ```
@@ -93,6 +95,7 @@ app/src/main/java/com/example/planyourtrip/
                    components/)
   ui/theme/        colors, extended colors, shapes, type, dimens
 app/src/debug|release/.../AppCheckSetup.kt   App Check debug / Play Integrity provider
+app/src/debug|release/.../LogConfig.kt       AppLog on in debug, off in release
 app/schemas/      exported Room schemas — commit them
 design/           visual references (committed)
 firestore.rules, firebase.json, rules-tests/   security rules + emulator tests

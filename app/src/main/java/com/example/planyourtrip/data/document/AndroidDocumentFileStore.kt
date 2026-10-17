@@ -3,8 +3,8 @@ package com.example.planyourtrip.data.document
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
-import android.util.Log
 import androidx.core.content.FileProvider
+import com.example.planyourtrip.AppLog
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -39,7 +39,7 @@ class AndroidDocumentFileStore(
                     }
                 }
         } catch (e: Exception) {
-            Log.w(TAG, "Couldn't read the picked file's details", e)
+            AppLog.w(TAG, "Couldn't read the picked file's details", e)
         }
         PickedFile(displayName = name, mimeType = resolver.getType(parsed), sizeBytes = size)
     }
@@ -66,7 +66,7 @@ class AndroidDocumentFileStore(
             }
         } catch (e: Exception) {
             target.delete()
-            Log.w(TAG, "Copying a document failed", e)
+            AppLog.w(TAG, "Copying a document failed", e)
             throw e
         }
     }

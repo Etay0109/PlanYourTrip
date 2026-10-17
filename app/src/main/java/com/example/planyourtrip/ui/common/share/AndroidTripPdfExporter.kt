@@ -18,13 +18,13 @@ import android.text.StaticLayout
 import android.text.TextDirectionHeuristics
 import android.text.TextPaint
 import android.text.style.ForegroundColorSpan
-import android.util.Log
 import androidx.annotation.ColorInt
 import androidx.annotation.FontRes
 import androidx.core.content.FileProvider
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.withClip
 import androidx.core.graphics.withTranslation
+import com.example.planyourtrip.AppLog
 import com.example.planyourtrip.R
 import com.example.planyourtrip.ui.common.Money
 import com.example.planyourtrip.ui.common.TripFormatting
@@ -58,7 +58,7 @@ class AndroidTripPdfExporter(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.w(TAG, "Creating the trip PDF failed", e)
+            AppLog.w(TAG, "Creating the trip PDF failed", e)
             throw e
         }
     }

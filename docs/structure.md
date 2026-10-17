@@ -7,6 +7,7 @@ app/src/main/java/com/example/planyourtrip/
   MainActivity.kt              # PlanYourTripTheme { AppNavHost() }; attachBaseContext → withAppLocale()
   PhotoImageLoader.kt          # photoImageLoader(): Coil's app-wide loader (User-Agent, 50 MB disk cache)
   AppLocaleSetup.kt            # Context.withAppLocale() (English + LTR resources), applyDefaultAppLocale()
+  AppLog.kt                    # the app's only logger: logcat in debug builds, nothing in release (LogConfig.kt)
   PlanYourTripApplication.kt   # applyDefaultAppLocale() (also on config change), installAppCheck(), creates the
                                # AppContainer, syncManager.start(); SingletonImageLoader.Factory (photoImageLoader);
                                # CreationExtras.appContainer() helper
@@ -184,6 +185,8 @@ ui/common/share/             # "Share trip" PDF: TripPdfContent (pure: model, bu
                                # NotificationColors (the reminder's brand teal as an ARGB int)
 app/src/debug/.../AppCheckSetup.kt    # installAppCheck(): App Check debug provider
 app/src/release/.../AppCheckSetup.kt  # installAppCheck(): Play Integrity provider
+app/src/debug/.../LogConfig.kt        # LOGGING_ENABLED = true (AppLog writes to logcat)
+app/src/release/.../LogConfig.kt      # LOGGING_ENABLED = false (release builds log nothing)
 app/src/debug/AndroidManifest.xml + .../DebugReminderReceiver.kt  # debug-only "fire the reminders now" (see Commands)
 app/schemas/                   # exported Room schemas — commit them
 design/home_screen.png         # visual reference for the home screen and the app theme

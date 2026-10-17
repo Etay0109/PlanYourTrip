@@ -1,6 +1,6 @@
 package com.example.planyourtrip.data.sharing
 
-import android.util.Log
+import com.example.planyourtrip.AppLog
 import com.example.planyourtrip.data.sync.NetworkMonitor
 import com.example.planyourtrip.data.sync.SharedTripDocuments
 import com.example.planyourtrip.data.sync.SharedTripDocuments.Invite as InviteField
@@ -147,7 +147,7 @@ class FirestoreInviteRepository(
         return try {
             InvitePreview(code, tripUuid, destination, LocalDate.parse(start), LocalDate.parse(end), inviterName)
         } catch (e: RuntimeException) {
-            Log.w(TAG, "Unreadable invite dates", e)
+            AppLog.w(TAG, "Unreadable invite dates", e)
             null
         }
     }
@@ -179,7 +179,7 @@ class FirestoreInviteRepository(
         try {
             withTimeout(timeoutMillis) { block() }
         } catch (e: TimeoutCancellationException) {
-            Log.w(TAG, "$name timed out")
+            AppLog.w(TAG, "$name timed out")
             throw InviteUnavailableException(e)
         } catch (e: CancellationException) {
             throw e
@@ -188,7 +188,7 @@ class FirestoreInviteRepository(
         } catch (e: TripFullException) {
             throw e
         } catch (e: Exception) {
-            Log.w(TAG, "$name failed", e)
+            AppLog.w(TAG, "$name failed", e)
             throw InviteUnavailableException(e)
         }
 

@@ -1,7 +1,6 @@
 package com.example.planyourtrip
 
 import android.content.Context
-import android.util.Log
 import com.example.planyourtrip.data.assistant.AssistantRepository
 import com.example.planyourtrip.data.assistant.FirebaseAssistantRepository
 import com.example.planyourtrip.data.auth.AuthRepository
@@ -90,7 +89,7 @@ class AppContainer(context: Context) {
      */
     private val appScope = CoroutineScope(
         SupervisorJob() + Dispatchers.IO +
-            CoroutineExceptionHandler { _, error -> Log.w("App", "Background work failed", error) },
+            CoroutineExceptionHandler { _, error -> AppLog.w("App", "Background work failed", error) },
     )
 
     private val firestore: FirebaseFirestore by lazy { FirebaseFirestore.getInstance() }
@@ -109,7 +108,7 @@ class AppContainer(context: Context) {
             tripCleanup = roomDocumentRepository,
             scope = appScope,
             clock = clock,
-            log = { message, error -> Log.w("CloudSync", message, error) },
+            log = { message, error -> AppLog.w("CloudSync", message, error) },
         )
     }
 
@@ -171,7 +170,7 @@ class AppContainer(context: Context) {
 
     /** Logs how the previous process ended (`adb logcat -s TripReminder`): a force-stop clears the reminder alarms. */
     fun logLastExit(context: Context) {
-        appScope.launch { Log.i(REMINDER_LOG_TAG, lastExitLine(readLastExit(context), clock.zone)) }
+        appScope.launch { AppLog.i(REMINDER_LOG_TAG, lastExitLine(readLastExit(context), clock.zone)) }
     }
 
     /** The last deleted activity, from the activity form to the trip screen's "Undo". */
@@ -190,11 +189,11 @@ class AppContainer(context: Context) {
     val destinationPhotoRepository: DestinationPhotoRepository by lazy {
         RoomDestinationPhotoRepository(
             dao = database.destinationPhotoDao(),
-            source = WikipediaPhotoSource(appVersion, log = { Log.i("DestinationPhoto", it) }),
+            source = WikipediaPhotoSource(appVersion, log = { AppLog.i("DestinationPhoto", it) }),
             network = networkMonitor,
             clock = clock,
             scope = appScope,
-            log = { message, error -> Log.w("DestinationPhoto", message, error) },
+            log = { message, error -> AppLog.w("DestinationPhoto", message, error) },
             retryFlags = SharedPreferencesPhotoRetryFlags(context.getSharedPreferences("photos", Context.MODE_PRIVATE)),
         )
     }
@@ -230,7 +229,7 @@ class AppContainer(context: Context) {
             settings = reminderSettings,
             poster = TripReminderNotifier(context),
             clock = clock,
-            log = { Log.i(REMINDER_LOG_TAG, it) },
+            log = { AppLog.i(REMINDER_LOG_TAG, it) },
         )
     }
 
