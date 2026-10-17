@@ -66,6 +66,7 @@ import com.google.firebase.ai.ai
 import com.google.firebase.ai.type.GenerativeBackend
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -83,8 +84,14 @@ class AppContainer(context: Context) {
     /** Online/offline, for the sync. */
     val networkMonitor: NetworkMonitor by lazy { AndroidNetworkMonitor(context) }
 
-    /** Lives as long as the process; runs the cloud sync. */
-    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    /**
+     * Lives as long as the process; runs the cloud sync. An unexpected exception in its background work is logged
+     * instead of crashing the app.
+     */
+    private val appScope = CoroutineScope(
+        SupervisorJob() + Dispatchers.IO +
+            CoroutineExceptionHandler { _, error -> Log.w("App", "Background work failed", error) },
+    )
 
     private val firestore: FirebaseFirestore by lazy { FirebaseFirestore.getInstance() }
 

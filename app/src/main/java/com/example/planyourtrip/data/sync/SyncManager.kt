@@ -1,6 +1,7 @@
 package com.example.planyourtrip.data.sync
 
 import com.example.planyourtrip.data.auth.AuthRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.NonCancellable
@@ -216,6 +217,15 @@ class SyncManager(
             } catch (e: CloudUnavailableException) {
                 log("${if (full) "Full" else "Quick"} sync failed${if (e.isProblem) " (sync problem)" else ""}", e)
                 if (full) recordFullSync(uid, succeeded = false, problem = e.isProblem)
+                lastAttemptFailed.value = true
+                false
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Anything else (e.g. a local database error) is a sync problem too, never a crash; the changes stay
+                // pending and the next sync tries again.
+                log("${if (full) "Full" else "Quick"} sync failed (unexpected error)", e)
+                if (full) recordFullSync(uid, succeeded = false, problem = true)
                 lastAttemptFailed.value = true
                 false
             } finally {
