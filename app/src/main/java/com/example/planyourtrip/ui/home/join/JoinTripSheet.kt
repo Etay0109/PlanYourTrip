@@ -66,7 +66,9 @@ import com.example.planyourtrip.ui.common.split.avatarLetter
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
 import com.example.planyourtrip.ui.theme.HeroLabelStyle
+import com.example.planyourtrip.ui.theme.IconSize
 import com.example.planyourtrip.ui.theme.PlanYourTripTheme
+import com.example.planyourtrip.ui.theme.Spacing
 import java.time.LocalDate
 import kotlinx.coroutines.launch
 
@@ -133,7 +135,7 @@ fun JoinTripContent(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = Dimens.ScreenPadding)
             .navigationBarsPadding()
-            .padding(bottom = 16.dp),
+            .padding(bottom = Spacing.l),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
@@ -148,7 +150,7 @@ fun JoinTripContent(
                     tint = MaterialTheme.colorScheme.primary,
                 )
             }
-            Spacer(Modifier.width(16.dp))
+            Spacer(Modifier.width(Spacing.l))
             Column(Modifier.weight(1f)) {
                 Text(
                     text = stringResource(R.string.join_title),
@@ -161,7 +163,7 @@ fun JoinTripContent(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(Spacing.s))
             FilledTonalButton(
                 onClick = {
                     scope.launch {
@@ -172,12 +174,12 @@ fun JoinTripContent(
                 },
                 enabled = !state.isJoining,
             ) {
-                Icon(painterResource(R.drawable.ic_content_paste), contentDescription = null, Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
+                Icon(painterResource(R.drawable.ic_content_paste), contentDescription = null, Modifier.size(IconSize.s))
+                Spacer(Modifier.width(Spacing.xsPlus))
                 Text(stringResource(R.string.join_paste))
             }
         }
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(Spacing.xl))
 
         var focused by remember { mutableStateOf(false) }
         val codeDescription = stringResource(R.string.join_code_description, field.text.length)
@@ -200,20 +202,20 @@ fun JoinTripContent(
                 .semantics { contentDescription = codeDescription },
             decorationBox = { CodeBoxes(field.text, focused) },
         )
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(Spacing.l))
 
         when (val lookup = state.lookup) {
             is CodeLookup.Found -> {
                 JoiningCard(lookup.preview)
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(Spacing.l))
                 Row(verticalAlignment = Alignment.Top) {
                     Icon(
                         painterResource(R.drawable.ic_shield),
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(IconSize.m),
                     )
-                    Spacer(Modifier.width(12.dp))
+                    Spacer(Modifier.width(Spacing.m))
                     Text(
                         text = stringResource(R.string.join_privacy),
                         style = MaterialTheme.typography.bodyMedium,
@@ -222,8 +224,8 @@ fun JoinTripContent(
                 }
             }
             CodeLookup.Checking -> Row(verticalAlignment = Alignment.CenterVertically) {
-                CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                Spacer(Modifier.width(12.dp))
+                CircularProgressIndicator(Modifier.size(IconSize.s), strokeWidth = Dimens.ProgressStroke)
+                Spacer(Modifier.width(Spacing.m))
                 Text(
                     stringResource(R.string.join_checking),
                     style = MaterialTheme.typography.bodyMedium,
@@ -238,7 +240,7 @@ fun JoinTripContent(
             CodeLookup.Incomplete -> Unit
         }
         state.error?.let { error ->
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(Spacing.s))
             Message(
                 stringResource(
                     when (error) {
@@ -250,7 +252,7 @@ fun JoinTripContent(
                 ),
             )
         }
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(Spacing.xl))
         PrimaryButton(
             text = stringResource(R.string.join_trip),
             onClick = onJoin,
@@ -285,7 +287,7 @@ private fun Message(text: String) {
 @Composable
 private fun CodeBoxes(code: String, focused: Boolean) {
     Row(
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth(),
     ) {
@@ -293,8 +295,8 @@ private fun CodeBoxes(code: String, focused: Boolean) {
             if (index == InviteCode.LENGTH / 2) {
                 Box(
                     Modifier
-                        .width(6.dp)
-                        .height(2.dp)
+                        .width(CodeDashWidth)
+                        .height(CodeDashHeight)
                         .background(MaterialTheme.colorScheme.outlineVariant),
                 )
             }
@@ -308,7 +310,7 @@ private fun CodeBoxes(code: String, focused: Boolean) {
                     .clip(shape)
                     .background(MaterialTheme.colorScheme.surfaceContainerHighest)
                     .then(
-                        if (current) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, shape) else Modifier,
+                        if (current) Modifier.border(CurrentCellBorder, MaterialTheme.colorScheme.primary, shape) else Modifier,
                     ),
             ) {
                 Text(
@@ -337,7 +339,7 @@ private fun JoiningCard(preview: InvitePreview) {
     ) {
         HeroWaves(Modifier.matchParentSize())
         Column {
-            Column(Modifier.padding(start = 20.dp, end = 16.dp, top = 16.dp, bottom = 16.dp)) {
+            Column(Modifier.padding(start = Spacing.xl, end = Spacing.l, top = Spacing.l, bottom = Spacing.l)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = stringResource(R.string.join_joining_label),
@@ -349,16 +351,16 @@ private fun JoiningCard(preview: InvitePreview) {
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .background(colors.heroOverlay, CircleShape)
-                            .border(1.dp, colors.heroOverlayBorder, CircleShape)
-                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                            .border(Dimens.Hairline, colors.heroOverlayBorder, CircleShape)
+                            .padding(horizontal = Spacing.sPlus, vertical = Spacing.xs),
                     ) {
                         Icon(
                             painterResource(R.drawable.ic_verified),
                             contentDescription = null,
                             tint = colors.onHero,
-                            modifier = Modifier.size(16.dp),
+                            modifier = Modifier.size(IconSize.xs),
                         )
-                        Spacer(Modifier.width(6.dp))
+                        Spacer(Modifier.width(Spacing.xsPlus))
                         Text(
                             text = stringResource(R.string.join_valid_code),
                             style = MaterialTheme.typography.labelMedium,
@@ -366,7 +368,7 @@ private fun JoiningCard(preview: InvitePreview) {
                         )
                     }
                 }
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(Spacing.s))
                 Text(
                     text = preview.destination,
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
@@ -374,7 +376,7 @@ private fun JoiningCard(preview: InvitePreview) {
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(Spacing.xs))
                 Text(
                     text = datesWithLength(preview.startDate, preview.endDate),
                     style = MaterialTheme.typography.bodyLarge,
@@ -386,12 +388,12 @@ private fun JoiningCard(preview: InvitePreview) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(colors.heroOverlay)
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                    .padding(horizontal = Spacing.xl, vertical = Spacing.m),
             ) {
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .size(28.dp)
+                        .size(OverlayBadgeSize)
                         .background(MaterialTheme.colorScheme.inverseSurface, CircleShape),
                 ) {
                     Text(
@@ -400,7 +402,7 @@ private fun JoiningCard(preview: InvitePreview) {
                         color = MaterialTheme.colorScheme.inverseOnSurface,
                     )
                 }
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(Spacing.m))
                 Text(
                     text = stringResource(R.string.join_invited_by, preview.inviterName),
                     style = MaterialTheme.typography.titleSmall,
@@ -424,7 +426,7 @@ private val previewInvite = InvitePreview(
 
 @Preview(showBackground = true)
 @Composable
-private fun JoinTripFoundPreview() {
+internal fun JoinTripFoundPreview() {
     PlanYourTripTheme(darkTheme = false) {
         JoinTripContent(
             state = JoinUiState(isOpen = true, code = "K7M4XP2R", lookup = CodeLookup.Found(previewInvite)),
@@ -435,7 +437,7 @@ private fun JoinTripFoundPreview() {
 
 @Preview(showBackground = true, widthDp = 320, fontScale = 1.5f)
 @Composable
-private fun JoinTripNarrowPreview() {
+internal fun JoinTripNarrowPreview() {
     PlanYourTripTheme(darkTheme = false) {
         JoinTripContent(
             state = JoinUiState(isOpen = true, code = "K7M4XP2R", lookup = CodeLookup.Found(previewInvite)),
@@ -446,7 +448,7 @@ private fun JoinTripNarrowPreview() {
 
 @Preview(showBackground = true)
 @Composable
-private fun JoinTripInvalidPreview() {
+internal fun JoinTripInvalidPreview() {
     PlanYourTripTheme(darkTheme = true) {
         JoinTripContent(
             state = JoinUiState(isOpen = true, code = "K7M4XP2R", lookup = CodeLookup.Invalid),
@@ -454,3 +456,13 @@ private fun JoinTripInvalidPreview() {
         )
     }
 }
+
+/** The dash between the two halves of the code boxes. */
+private val CodeDashWidth = 6.dp
+private val CodeDashHeight = 2.dp
+
+/** The ring of the code box the next character goes into. */
+private val CurrentCellBorder = 2.dp
+
+/** The round badge at the start of the trip preview's bottom row. */
+private val OverlayBadgeSize = 28.dp

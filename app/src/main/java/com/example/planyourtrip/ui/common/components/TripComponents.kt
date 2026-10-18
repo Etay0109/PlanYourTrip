@@ -26,10 +26,11 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.R
 import com.example.planyourtrip.ui.common.TripFormatting
 import com.example.planyourtrip.ui.theme.Dimens
+import com.example.planyourtrip.ui.theme.IconSize
+import com.example.planyourtrip.ui.theme.Spacing
 import com.example.planyourtrip.ui.theme.minFitTextScale
 import java.time.LocalDate
 
@@ -66,7 +67,7 @@ fun Pill(
     Box(
         modifier = modifier
             .background(container, CircleShape)
-            .padding(horizontal = 14.dp, vertical = 6.dp),
+            .padding(horizontal = Spacing.mPlus, vertical = Spacing.xsPlus),
     ) {
         Text(text = text, style = MaterialTheme.typography.labelMedium, color = content, maxLines = 1)
     }
@@ -116,14 +117,14 @@ fun TripDatesRow(
 private fun DatesRowLayout(color: Color, modifier: Modifier, text: @Composable () -> Unit) {
     Row(
         modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.s),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             painter = painterResource(R.drawable.ic_calendar),
             contentDescription = null,
             tint = color,
-            modifier = Modifier.size(18.dp),
+            modifier = Modifier.size(IconSize.s),
         )
         text()
     }

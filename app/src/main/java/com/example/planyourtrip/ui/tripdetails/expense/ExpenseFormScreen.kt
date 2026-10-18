@@ -37,7 +37,6 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.planyourtrip.R
@@ -59,6 +58,7 @@ import com.example.planyourtrip.ui.common.split.Person
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
 import com.example.planyourtrip.ui.theme.PlanYourTripTheme
+import com.example.planyourtrip.ui.theme.Spacing
 import com.example.planyourtrip.ui.theme.isLargeFontScale
 import com.example.planyourtrip.ui.tripdetails.CurrencyConversion
 import com.example.planyourtrip.ui.tripdetails.components.TravelerAvatar
@@ -175,7 +175,7 @@ fun ExpenseFormContent(
             color = MaterialTheme.colorScheme.onBackground,
         )
         FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.s),
             modifier = Modifier.fillMaxWidth(),
         ) {
             ExpenseCategory.entries.forEach { category ->
@@ -209,7 +209,7 @@ private fun SplitFields(
         style = MaterialTheme.typography.titleMedium,
         color = MaterialTheme.colorScheme.onBackground,
     )
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.s), modifier = Modifier.fillMaxWidth()) {
         state.people.forEach { person ->
             PersonChip(person, selected = person.key == state.paidBy, onClick = { onPaidByChange(person.key) })
         }
@@ -218,9 +218,9 @@ private fun SplitFields(
         text = stringResource(R.string.expense_split_between),
         style = MaterialTheme.typography.titleMedium,
         color = MaterialTheme.colorScheme.onBackground,
-        modifier = Modifier.padding(top = 8.dp),
+        modifier = Modifier.padding(top = Spacing.s),
     )
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.s), modifier = Modifier.fillMaxWidth()) {
         FilterChip(
             selected = state.isNotShared,
             onClick = onNotShared,
@@ -239,7 +239,7 @@ private fun SplitFields(
             text = stringResource(R.string.error_split_empty),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.error,
-            modifier = Modifier.padding(horizontal = 16.dp),
+            modifier = Modifier.padding(horizontal = Spacing.l),
         )
     }
 }
@@ -271,12 +271,12 @@ private fun AmountField(
         if (stacked) {
             Column {
                 AmountTextField(state, onAmountChange, Modifier.fillMaxWidth())
-                CurrencySelector(state, onCurrencyChange, Modifier.padding(top = 8.dp))
+                CurrencySelector(state, onCurrencyChange, Modifier.padding(top = Spacing.s))
             }
         } else {
             Row(verticalAlignment = Alignment.Top) {
                 AmountTextField(state, onAmountChange, Modifier.weight(1f))
-                CurrencySelector(state, onCurrencyChange, Modifier.padding(start = 8.dp, top = 8.dp))
+                CurrencySelector(state, onCurrencyChange, Modifier.padding(start = Spacing.s, top = Spacing.s))
             }
         }
     }
@@ -349,7 +349,7 @@ private fun AmountStatus(state: ExpenseFormUiState) {
         text = text,
         style = MaterialTheme.typography.bodySmall,
         color = color,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 4.dp),
+        modifier = Modifier.padding(start = Spacing.l, end = Spacing.l, bottom = Spacing.xs),
     )
 }
 
@@ -422,15 +422,15 @@ private val previewForeign = ExpenseFormUiState(
 
 @Preview(name = "Expense form – in EUR", showBackground = true, heightDp = 900)
 @Composable
-private fun ExpenseFormForeignPreview() = Preview(previewForeign)
+internal fun ExpenseFormForeignPreview() = Preview(previewForeign)
 
 @Preview(name = "Expense form – EUR, dark", showBackground = true, heightDp = 900)
 @Composable
-private fun ExpenseFormForeignDarkPreview() = Preview(previewForeign, darkTheme = true)
+internal fun ExpenseFormForeignDarkPreview() = Preview(previewForeign, darkTheme = true)
 
 @Preview(name = "Expense form – no rate, invalid amount", showBackground = true, heightDp = 900)
 @Composable
-private fun ExpenseFormNoRatePreview() = Preview(
+internal fun ExpenseFormNoRatePreview() = Preview(
     ExpenseFormUiState(
         isLoading = false,
         isEditing = true,
@@ -447,15 +447,15 @@ private fun ExpenseFormNoRatePreview() = Preview(
 
 @Preview(name = "Expense form – trip without currency", showBackground = true, heightDp = 900)
 @Composable
-private fun ExpenseFormShekelPreview() =
+internal fun ExpenseFormShekelPreview() =
     Preview(ExpenseFormUiState(isLoading = false, amount = "85.50", date = LocalDate.of(2026, 11, 13)))
 
 @Preview(name = "Expense form – not shared, empty split error", showBackground = true, heightDp = 900)
 @Composable
-private fun ExpenseFormSplitErrorPreview() = Preview(
+internal fun ExpenseFormSplitErrorPreview() = Preview(
     previewForeign.copy(splitBetween = emptyList(), splitError = ExpenseFieldError.SPLIT_EMPTY)
 )
 
 @Preview(name = "Expense form – narrow, large font", widthDp = 320, heightDp = 1100, fontScale = 1.5f)
 @Composable
-private fun ExpenseFormNarrowPreview() = Preview(previewForeign.copy(amount = "1500", currencyCode = "EUR"))
+internal fun ExpenseFormNarrowPreview() = Preview(previewForeign.copy(amount = "1500", currencyCode = "EUR"))

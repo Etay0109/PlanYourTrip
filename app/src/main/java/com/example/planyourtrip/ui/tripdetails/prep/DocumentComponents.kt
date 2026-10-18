@@ -64,6 +64,8 @@ import com.example.planyourtrip.ui.common.components.ConfirmDeleteDialog
 import com.example.planyourtrip.ui.common.components.Pill
 import com.example.planyourtrip.ui.common.errorSupportingText
 import com.example.planyourtrip.ui.theme.Dimens
+import com.example.planyourtrip.ui.theme.IconSize
+import com.example.planyourtrip.ui.theme.Spacing
 
 @DrawableRes
 fun DocumentType.iconRes(): Int = when (this) {
@@ -89,7 +91,7 @@ fun DocumentType.labelRes(): Int = when (this) {
  */
 @Composable
 internal fun DocumentsSection(documents: List<DocumentCardState>, actions: PrepActions) {
-    Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+    Column(Modifier.fillMaxWidth().padding(top = Spacing.s)) {
         PrepSectionTitle(stringResource(R.string.prep_documents)) {
             Pill(
                 text = documents.size.toString(),
@@ -98,19 +100,19 @@ internal fun DocumentsSection(documents: List<DocumentCardState>, actions: PrepA
             )
             Spacer(Modifier.weight(1f))
             TextButton(onClick = actions.onAddDocument) {
-                Icon(painterResource(R.drawable.ic_add), contentDescription = null, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(4.dp))
+                Icon(painterResource(R.drawable.ic_add), contentDescription = null, modifier = Modifier.size(IconSize.m))
+                Spacer(Modifier.width(Spacing.xs))
                 Text(stringResource(R.string.prep_add), style = MaterialTheme.typography.titleMedium)
             }
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(Spacing.s))
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState())
                 .height(IntrinsicSize.Min)
-                .padding(horizontal = Dimens.ScreenPadding, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = Dimens.ScreenPadding, vertical = Spacing.xs),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.m),
         ) {
             documents.forEach { document ->
                 DocumentCard(
@@ -123,7 +125,7 @@ internal fun DocumentsSection(documents: List<DocumentCardState>, actions: PrepA
             }
             AddDocumentCard(onClick = actions.onAddDocument, modifier = Modifier.fillMaxHeight())
         }
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(Spacing.xs))
         Text(
             text = stringResource(R.string.prep_documents_local_note),
             style = MaterialTheme.typography.bodySmall,
@@ -146,10 +148,10 @@ private fun DocumentCard(
         onClick = onView,
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shadowElevation = 1.dp,
+        shadowElevation = Dimens.CardElevation,
         modifier = modifier.width(Dimens.DocumentCardWidth),
     ) {
-        Column(Modifier.padding(start = 16.dp, top = 16.dp, bottom = 12.dp)) {
+        Column(Modifier.padding(start = Spacing.l, top = Spacing.l, bottom = Spacing.m)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
@@ -161,7 +163,7 @@ private fun DocumentCard(
                         painter = painterResource(document.type.iconRes()),
                         contentDescription = stringResource(document.type.labelRes()),
                         tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(22.dp),
+                        modifier = Modifier.size(IconSize.l),
                     )
                 }
                 Spacer(Modifier.weight(1f))
@@ -173,12 +175,12 @@ private fun DocumentCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
                         .background(MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.shapes.extraSmall)
-                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                        .padding(horizontal = Spacing.s, vertical = TagPaddingVertical),
                 )
                 DocumentMenu(document.name, onEdit, onDelete)
             }
-            Spacer(Modifier.height(12.dp))
-            Column(Modifier.padding(end = 16.dp).weight(1f)) {
+            Spacer(Modifier.height(Spacing.m))
+            Column(Modifier.padding(end = Spacing.l).weight(1f)) {
                 Text(
                     text = document.name,
                     style = MaterialTheme.typography.titleMedium,
@@ -187,7 +189,7 @@ private fun DocumentCard(
                     overflow = TextOverflow.Ellipsis,
                 )
                 document.detail?.let {
-                    Spacer(Modifier.height(2.dp))
+                    Spacer(Modifier.height(Spacing.xxs))
                     Text(
                         text = it,
                         style = MaterialTheme.typography.bodyMedium,
@@ -197,15 +199,15 @@ private fun DocumentCard(
                     )
                 }
             }
-            Spacer(Modifier.height(12.dp))
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.heightIn(min = 32.dp)) {
+            Spacer(Modifier.height(Spacing.m))
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.heightIn(min = MetaRowMinHeight)) {
                 Icon(
                     painter = painterResource(R.drawable.ic_visibility),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(IconSize.s),
                 )
-                Spacer(Modifier.width(6.dp))
+                Spacer(Modifier.width(Spacing.xsPlus))
                 Text(
                     text = stringResource(R.string.prep_view_file),
                     style = MaterialTheme.typography.labelLarge,
@@ -258,24 +260,24 @@ private fun AddDocumentCard(onClick: () -> Unit, modifier: Modifier = Modifier) 
     Column(
         modifier = modifier
             .width(Dimens.DocumentCardWidth)
-            .heightIn(min = 168.dp)
+            .heightIn(min = DocumentCardMinHeight)
             .clip(shape)
             .drawBehind {
-                val stroke = 1.5.dp.toPx()
+                val stroke = DashedStroke.toPx()
                 drawRoundRect(
                     color = outline,
                     topLeft = Offset(stroke / 2, stroke / 2),
                     size = Size(size.width - stroke, size.height - stroke),
                     // The same corners as shapes.large (the document cards).
-                    cornerRadius = CornerRadius(20.dp.toPx()),
+                    cornerRadius = CornerRadius(AddCardCorner.toPx()),
                     style = Stroke(
                         width = stroke,
-                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 6.dp.toPx())),
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(DashOn.toPx(), DashOff.toPx())),
                     ),
                 )
             }
             .clickable(role = Role.Button, onClick = onClick)
-            .padding(16.dp),
+            .padding(Spacing.l),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -289,10 +291,10 @@ private fun AddDocumentCard(onClick: () -> Unit, modifier: Modifier = Modifier) 
                 painter = painterResource(R.drawable.ic_add),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(IconSize.xl),
             )
         }
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(Spacing.sPlus))
         Text(
             text = stringResource(R.string.prep_add_document),
             style = MaterialTheme.typography.titleMedium,
@@ -336,14 +338,14 @@ fun DocumentFormDialog(
                     shape = MaterialTheme.shapes.small,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(Spacing.m))
                 Text(
                     text = stringResource(R.string.prep_document_type),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Spacer(Modifier.height(4.dp))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Spacer(Modifier.height(Spacing.xs))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                     DocumentType.entries.forEach { type ->
                         FilterChip(
                             selected = state.type == type,
@@ -354,13 +356,13 @@ fun DocumentFormDialog(
                                 Icon(
                                     painterResource(type.iconRes()),
                                     contentDescription = null,
-                                    modifier = Modifier.size(18.dp),
+                                    modifier = Modifier.size(IconSize.s),
                                 )
                             },
                         )
                     }
                 }
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(Spacing.m))
                 OutlinedTextField(
                     value = state.detail,
                     onValueChange = onDetailChange,
@@ -376,7 +378,7 @@ fun DocumentFormDialog(
         confirmButton = {
             TextButton(onClick = onSave, enabled = !state.isSaving) {
                 if (state.isSaving) {
-                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                    CircularProgressIndicator(Modifier.size(IconSize.s), strokeWidth = Dimens.ProgressStroke)
                 } else {
                     Text(stringResource(R.string.action_save))
                 }
@@ -398,3 +400,17 @@ fun DeleteDocumentDialog(name: String, onConfirm: () -> Unit, onDismiss: () -> U
         onDismiss = onDismiss,
     )
 }
+
+/** The small type tag on a document card. */
+private val TagPaddingVertical = 3.dp
+
+/** The card's bottom row (file name and menu). */
+private val MetaRowMinHeight = 32.dp
+
+private val DocumentCardMinHeight = 168.dp
+
+/** The dashed "Add document" card. */
+private val DashedStroke = 1.5.dp
+private val AddCardCorner = 20.dp
+private val DashOn = 8.dp
+private val DashOff = 6.dp

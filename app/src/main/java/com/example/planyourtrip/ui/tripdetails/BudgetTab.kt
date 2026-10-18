@@ -17,9 +17,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.R
 import com.example.planyourtrip.ui.common.categoryTotals
+import com.example.planyourtrip.ui.theme.Spacing
 import com.example.planyourtrip.ui.tripdetails.components.BudgetCard
 import com.example.planyourtrip.ui.tripdetails.components.CategoryChartCard
 import com.example.planyourtrip.ui.tripdetails.components.ExpenseRow
@@ -54,7 +54,7 @@ internal fun LazyListScope.budgetTab(
             summary = state.summary,
             onSetBudget = actions.onEditBudget,
             showEditButton = true,
-            modifier = cardPadding.padding(top = 8.dp),
+            modifier = cardPadding.padding(top = Spacing.s),
         )
     }
     if (split is SplitUiState.Loaded) {
@@ -64,12 +64,12 @@ internal fun LazyListScope.budgetTab(
                     suggestion = suggestion,
                     isMerging = split.isMerging,
                     actions = splitActions,
-                    modifier = cardPadding.padding(top = 8.dp),
+                    modifier = cardPadding.padding(top = Spacing.s),
                 )
             }
         }
         item(key = "travelers") {
-            TravelersSection(split, splitActions, modifier = Modifier.padding(top = 8.dp))
+            TravelersSection(split, splitActions, modifier = Modifier.padding(top = Spacing.s))
         }
         // Only me: nobody to owe or be owed.
         if (split.hasOthers) {
@@ -84,7 +84,7 @@ internal fun LazyListScope.budgetTab(
         }
     }
     item(key = "expenses-header") {
-        Row(cardPadding.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(cardPadding.padding(top = Spacing.s), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = stringResource(R.string.budget_expenses),
                 style = MaterialTheme.typography.headlineSmall,

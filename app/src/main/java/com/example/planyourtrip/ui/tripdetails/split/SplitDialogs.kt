@@ -41,7 +41,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.planyourtrip.R
 import com.example.planyourtrip.data.trip.Settlement
@@ -53,6 +52,7 @@ import com.example.planyourtrip.ui.common.shekels
 import com.example.planyourtrip.ui.common.split.Transfer
 import com.example.planyourtrip.ui.common.split.TravelerNameError
 import com.example.planyourtrip.ui.theme.Dimens
+import com.example.planyourtrip.ui.theme.Spacing
 
 /** The traveler dialog, the "Settle up" sheet and the delete-payment confirmation of [viewModel]. */
 @Composable
@@ -140,7 +140,7 @@ fun TravelerDialog(
                         text = stringResource(R.string.traveler_in_use, editing.name),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 4.dp),
+                        modifier = Modifier.padding(top = Spacing.xs),
                     )
                 }
             }
@@ -205,7 +205,7 @@ fun SettleUpSheet(
                 .imePadding()
                 .navigationBarsPadding()
                 .padding(horizontal = Dimens.ScreenPadding)
-                .padding(bottom = 24.dp),
+                .padding(bottom = Spacing.xxl),
         ) {
             when (sheet.page) {
                 SettlePage.TRANSFERS -> TransfersPage(sheet, state, onSelect, onAmountChange, onMarkAsPaid, onShowHistory)
@@ -230,7 +230,7 @@ private fun TransfersPage(
             text = stringResource(R.string.settle_nothing_open),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(vertical = 16.dp),
+            modifier = Modifier.padding(vertical = Spacing.l),
         )
         return
     }
@@ -239,8 +239,8 @@ private fun TransfersPage(
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
-    Spacer(Modifier.height(12.dp))
-    Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Spacer(Modifier.height(Spacing.m))
+    Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
         state.transfers.forEach { transfer ->
             val selected = transfer == sheet.selected
             Row(
@@ -249,29 +249,29 @@ private fun TransfersPage(
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.shapes.large)
                     .selectable(selected = selected, role = Role.RadioButton, onClick = { onSelect(transfer) })
-                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                    .padding(horizontal = Spacing.s, vertical = Spacing.s),
             ) {
-                RadioButton(selected = selected, onClick = null, modifier = Modifier.padding(horizontal = 8.dp))
+                RadioButton(selected = selected, onClick = null, modifier = Modifier.padding(horizontal = Spacing.s))
                 TransferAvatars(state.person(transfer.fromKey), state.person(transfer.toKey))
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(Spacing.m))
                 Text(
                     text = transferSentence(state.person(transfer.fromKey), state.person(transfer.toKey)),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f),
                 )
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(Spacing.s))
                 Text(
                     text = shekels(transfer.amountAgorot),
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(end = 8.dp),
+                    modifier = Modifier.padding(end = Spacing.s),
                 )
             }
         }
     }
     val selected = sheet.selected ?: return
-    Spacer(Modifier.height(16.dp))
+    Spacer(Modifier.height(Spacing.l))
     OutlinedTextField(
         value = sheet.amount,
         onValueChange = onAmountChange,
@@ -295,7 +295,7 @@ private fun TransfersPage(
         shape = MaterialTheme.shapes.small,
         modifier = Modifier.fillMaxWidth(),
     )
-    Spacer(Modifier.height(12.dp))
+    Spacer(Modifier.height(Spacing.m))
     PrimaryButton(
         text = stringResource(R.string.settle_mark_paid),
         onClick = onMarkAsPaid,
@@ -317,23 +317,23 @@ private fun HistoryPage(
             text = stringResource(R.string.settle_history_empty),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(vertical = 16.dp),
+            modifier = Modifier.padding(vertical = Spacing.l),
         )
         return
     }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
         state.settlements.forEach { settlement ->
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.shapes.large)
-                    .padding(start = 16.dp, top = 4.dp, bottom = 4.dp),
+                    .padding(start = Spacing.l, top = Spacing.xs, bottom = Spacing.xs),
             ) {
                 TransferAvatars(state.person(settlement.fromKey), state.person(settlement.toKey))
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(Spacing.m))
                 // Like the expense rows: who paid whom with the date under it, the amount in bold on the right.
-                Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
+                Column(Modifier.weight(1f).padding(vertical = Spacing.s)) {
                     Text(
                         text = settlementSentence(settlement, state),
                         style = MaterialTheme.typography.bodyLarge,
@@ -345,7 +345,7 @@ private fun HistoryPage(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(Spacing.s))
                 Text(
                     text = shekels(settlement.amountAgorot),
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
@@ -379,5 +379,5 @@ private fun SheetTitle(title: Int, actionLabel: Int, onAction: () -> Unit) {
         )
         TextButton(onClick = onAction) { Text(stringResource(actionLabel)) }
     }
-    Spacer(Modifier.height(8.dp))
+    Spacer(Modifier.height(Spacing.s))
 }

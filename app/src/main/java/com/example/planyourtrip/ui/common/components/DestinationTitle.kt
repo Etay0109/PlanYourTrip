@@ -24,13 +24,13 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
 import com.example.planyourtrip.ui.common.TitleFit
 import com.example.planyourtrip.ui.common.countryFlag
 import com.example.planyourtrip.ui.common.fitDestinationTitle
 import com.example.planyourtrip.ui.common.shortDestination
 import com.example.planyourtrip.ui.theme.DestinationTitleMinShare
+import com.example.planyourtrip.ui.theme.Spacing
 import com.example.planyourtrip.ui.theme.minFitTextScale
 
 /**
@@ -140,7 +140,7 @@ private class TitleMeasure(
         if (flag == null) 0 else textWidth(flag, scale) + with(density) { FlagGap.roundToPx() }
 }
 
-private val FlagGap = 8.dp
+private val FlagGap = Spacing.s
 
 /**
  * How the title's text was laid out, as a semantics property for the layout tests (TalkBack ignores it): its line

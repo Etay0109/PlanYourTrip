@@ -22,9 +22,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.R
 import com.example.planyourtrip.ui.theme.Dimens
+import com.example.planyourtrip.ui.theme.Spacing
 
 /** The delete action of an edit form: the top bar icon's label and the confirmation dialog's texts. */
 class FormDelete(
@@ -76,12 +76,12 @@ fun EditFormScaffold(
                 .padding(innerPadding)
                 .imePadding()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = Dimens.ScreenPadding, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(horizontal = Dimens.ScreenPadding, vertical = Spacing.l),
+            verticalArrangement = Arrangement.spacedBy(Spacing.s),
         ) {
             fields()
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(Spacing.l))
 
             PrimaryButton(
                 text = saveText,

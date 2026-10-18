@@ -78,7 +78,9 @@ import com.example.planyourtrip.ui.common.split.Person
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
 import com.example.planyourtrip.ui.theme.HeroLabelStyle
+import com.example.planyourtrip.ui.theme.IconSize
 import com.example.planyourtrip.ui.theme.PlanYourTripTheme
+import com.example.planyourtrip.ui.theme.Spacing
 import com.example.planyourtrip.ui.theme.isLargeFontScale
 import com.example.planyourtrip.ui.tripdetails.components.TravelerAvatar
 import com.example.planyourtrip.ui.tripdetails.components.personName
@@ -213,7 +215,7 @@ fun InviteSheetContent(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = Dimens.ScreenPadding)
             .navigationBarsPadding()
-            .padding(bottom = 16.dp),
+            .padding(bottom = Spacing.l),
     ) {
         if (mode == MembersSheetMode.INVITE && members.isOwner) {
             Box(
@@ -224,7 +226,7 @@ fun InviteSheetContent(
             ) {
                 Icon(painterResource(R.drawable.ic_person_add), contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(Spacing.l))
             Text(
                 text = stringResource(R.string.invite_title, destination),
                 style = MaterialTheme.typography.headlineSmall,
@@ -233,21 +235,21 @@ fun InviteSheetContent(
             )
             // "Share this code…" only when there is (or is about to be) a code to share.
             if (state.code is InviteCodeState.Loading || state.code is InviteCodeState.Ready) {
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(Spacing.xs))
                 Text(
                     text = stringResource(R.string.invite_subtitle),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(Spacing.xxl))
             CodeSection(state.code, destination, actions)
-            Spacer(Modifier.height(32.dp))
+            Spacer(Modifier.height(Spacing.xxxl))
         }
         // Without the invite part, "Members" with the count is the sheet's only title.
         MembersList(members, actions, isSheetTitle = mode != MembersSheetMode.INVITE || !members.isOwner)
         if (!members.isOwner) {
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(Spacing.xl))
             OutlinedButton(
                 onClick = actions.onLeave,
                 shape = CircleShape,
@@ -259,9 +261,9 @@ fun InviteSheetContent(
                     painterResource(R.drawable.ic_logout),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(IconSize.m),
                 )
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(Spacing.s))
                 Text(stringResource(R.string.trip_leave), color = MaterialTheme.colorScheme.error)
             }
         }
@@ -275,17 +277,17 @@ private fun CodeSection(code: InviteCodeState, destination: String, actions: Inv
         InviteCodeState.Loading -> Box(
             Modifier
                 .fillMaxWidth()
-                .heightIn(min = 160.dp),
+                .heightIn(min = CodeLoadingMinHeight),
             contentAlignment = Alignment.Center,
         ) { CircularProgressIndicator() }
         is InviteCodeState.Ready -> {
             CodeCard(code.invite)
-            Spacer(Modifier.height(20.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Spacer(Modifier.height(Spacing.xl))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.s), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
                 InfoPill(R.drawable.ic_schedule, stringResource(R.string.invite_expires, TripFormatting.dayMonth(code.expiresOn)))
                 InfoPill(R.drawable.ic_shield, stringResource(R.string.invite_works_once))
             }
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(Spacing.xxl))
             val context = LocalContext.current
             val message = stringResource(
                 R.string.invite_share_message,
@@ -309,7 +311,7 @@ private fun CodeSection(code: InviteCodeState, destination: String, actions: Inv
                     .height(Dimens.TouchTarget),
             ) {
                 if (code.isCancelling) {
-                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                    CircularProgressIndicator(Modifier.size(IconSize.s), strokeWidth = Dimens.ProgressStroke)
                 } else {
                     Text(stringResource(R.string.invite_cancel), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -337,7 +339,7 @@ private fun CodeSection(code: InviteCodeState, destination: String, actions: Inv
 private fun StatusWithAction(text: String, action: String, onAction: () -> Unit) {
     Column {
         Text(text = text, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(Spacing.m))
         PrimaryButton(text = action, onClick = onAction, modifier = Modifier.fillMaxWidth())
     }
 }
@@ -360,7 +362,7 @@ private fun CodeCard(invite: Invite) {
             .background(colors.heroGradient),
     ) {
         HeroWaves(Modifier.matchParentSize())
-        Column(Modifier.padding(start = 24.dp, end = 12.dp, top = 12.dp, bottom = 28.dp)) {
+        Column(Modifier.padding(start = Spacing.xxl, end = Spacing.m, top = Spacing.m, bottom = Spacing.xxlPlus)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = stringResource(R.string.invite_code_label),
@@ -381,7 +383,7 @@ private fun CodeCard(invite: Invite) {
                     Icon(painterResource(R.drawable.ic_content_copy), contentDescription = copyLabel, tint = colors.onHero)
                 }
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(Spacing.s))
             Text(
                 text = shown,
                 style = MaterialTheme.typography.displaySmall.copy(
@@ -392,7 +394,7 @@ private fun CodeCard(invite: Invite) {
                 textAlign = TextAlign.Center,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(end = 12.dp)
+                    .padding(end = Spacing.m)
                     .clearAndSetSemantics { contentDescription = spoken },
             )
         }
@@ -405,15 +407,15 @@ private fun InfoPill(icon: Int, text: String) {
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .background(MaterialTheme.colorScheme.surfaceContainerHighest, CircleShape)
-            .padding(horizontal = 14.dp, vertical = 8.dp),
+            .padding(horizontal = Spacing.mPlus, vertical = Spacing.s),
     ) {
         Icon(
             painterResource(icon),
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(18.dp),
+            modifier = Modifier.size(IconSize.s),
         )
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(Spacing.s))
         Text(text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -431,7 +433,7 @@ private fun MembersList(members: MembersState, actions: InviteSheetActions, isSh
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.semantics { heading() },
         )
-        Spacer(Modifier.width(10.dp))
+        Spacer(Modifier.width(Spacing.sPlus))
         val countText = pluralStringResource(R.plurals.members_count_description, members.count, members.count)
         Pill(
             text = members.count.toString(),
@@ -440,14 +442,14 @@ private fun MembersList(members: MembersState, actions: InviteSheetActions, isSh
             modifier = Modifier.clearAndSetSemantics { contentDescription = countText },
         )
     }
-    Spacer(Modifier.height(if (isSheetTitle) 20.dp else 12.dp))
+    Spacer(Modifier.height(if (isSheetTitle) Spacing.xl else Spacing.m))
     val shape = MaterialTheme.shapes.large
     Column(
         Modifier
             .fillMaxWidth()
             .clip(shape)
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape),
+            .border(Dimens.Hairline, MaterialTheme.colorScheme.outlineVariant, shape),
     ) {
         members.members.forEachIndexed { index, member ->
             if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -473,11 +475,11 @@ private fun MemberRow(member: MemberEntry, onRemove: (() -> Unit)?) {
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 72.dp)
-                .padding(start = 16.dp, end = if (onRemove != null) 4.dp else 16.dp, top = 8.dp, bottom = 8.dp),
+                .heightIn(min = MemberRowMinHeight)
+                .padding(start = Spacing.l, end = if (onRemove != null) Spacing.xs else Spacing.l, top = Spacing.s, bottom = Spacing.s),
         ) {
             TravelerAvatar(member.person, Dimens.TravelerAvatarSize)
-            Spacer(Modifier.width(16.dp))
+            Spacer(Modifier.width(Spacing.l))
             Column(Modifier.weight(1f)) {
                 Text(
                     text = name,
@@ -487,7 +489,7 @@ private fun MemberRow(member: MemberEntry, onRemove: (() -> Unit)?) {
                     overflow = TextOverflow.Ellipsis,
                 )
                 if (member.isOwner && !ownerInline) {
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(Spacing.xs))
                     OwnerRowPill()
                 }
                 val joined = member.joinedOn
@@ -500,7 +502,7 @@ private fun MemberRow(member: MemberEntry, onRemove: (() -> Unit)?) {
                 }
             }
             if (member.isOwner && ownerInline) {
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(Spacing.s))
                 OwnerRowPill()
             }
             if (onRemove != null) {
@@ -545,7 +547,7 @@ private fun RemoveMemberDialog(name: String, isRemoving: Boolean, onConfirm: () 
         confirmButton = {
             TextButton(onClick = onConfirm, enabled = !isRemoving) {
                 if (isRemoving) {
-                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.error)
+                    CircularProgressIndicator(Modifier.size(IconSize.s), strokeWidth = Dimens.ProgressStroke, color = MaterialTheme.colorScheme.error)
                 } else {
                     Text(stringResource(R.string.member_remove), color = MaterialTheme.colorScheme.error)
                 }
@@ -573,7 +575,7 @@ private val previewInviteState = InviteUiState(
 
 @Preview(showBackground = true, heightDp = 1200)
 @Composable
-private fun InviteSheetPreview() {
+internal fun InviteSheetPreview() {
     PlanYourTripTheme(darkTheme = false) {
         InviteSheetContent(
             MembersSheetMode.INVITE,
@@ -591,7 +593,7 @@ private fun InviteSheetPreview() {
 
 @Preview(showBackground = true, widthDp = 320, fontScale = 1.5f, heightDp = 1400)
 @Composable
-private fun InviteSheetNarrowPreview() {
+internal fun InviteSheetNarrowPreview() {
     PlanYourTripTheme(darkTheme = true) {
         InviteSheetContent(MembersSheetMode.INVITE, previewInviteState, previewMembers, "Rome, Italy", InviteSheetActions.None)
     }
@@ -599,7 +601,7 @@ private fun InviteSheetNarrowPreview() {
 
 @Preview(showBackground = true)
 @Composable
-private fun MembersSheetMemberPreview() {
+internal fun MembersSheetMemberPreview() {
     PlanYourTripTheme(darkTheme = false) {
         InviteSheetContent(
             MembersSheetMode.MEMBERS,
@@ -631,3 +633,8 @@ private fun OwnerRowPill() {
         content = MaterialTheme.colorScheme.onPrimaryContainer,
     )
 }
+
+/** The code card's place while the code is created. */
+private val CodeLoadingMinHeight = 160.dp
+
+private val MemberRowMinHeight = 72.dp

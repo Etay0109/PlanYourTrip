@@ -46,6 +46,8 @@ import com.example.planyourtrip.ui.common.shekels
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
 import com.example.planyourtrip.ui.theme.HeroLabelStyle
+import com.example.planyourtrip.ui.theme.IconSize
+import com.example.planyourtrip.ui.theme.Spacing
 import com.example.planyourtrip.ui.tripdetails.DayTitle
 import com.example.planyourtrip.ui.tripdetails.OverviewDayState
 import com.example.planyourtrip.ui.tripdetails.PlanDayState
@@ -79,7 +81,7 @@ fun DayChipsRow(
     LazyRow(
         state = listState,
         contentPadding = PaddingValues(horizontal = Dimens.ScreenPadding),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sPlus),
         modifier = modifier.fillMaxWidth(),
     ) {
         itemsIndexed(days, key = { _, day -> day.toEpochDay() }) { index, day ->
@@ -100,10 +102,10 @@ private fun DayChip(text: String, selected: Boolean, onClick: () -> Unit) {
         onClick = onClick,
         shape = CircleShape,
         color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest,
-        modifier = Modifier.heightIn(min = 48.dp),
+        modifier = Modifier.heightIn(min = Dimens.TouchTarget),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp),
+            modifier = Modifier.padding(horizontal = Spacing.lPlus, vertical = Spacing.m),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (selected) {
@@ -111,9 +113,9 @@ private fun DayChip(text: String, selected: Boolean, onClick: () -> Unit) {
                     painter = painterResource(R.drawable.ic_check_circle),
                     contentDescription = null,
                     tint = content,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(IconSize.m),
                 )
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(Spacing.s))
             }
             Text(text = text, style = MaterialTheme.typography.labelLarge, color = content, maxLines = 1)
         }
@@ -129,16 +131,16 @@ fun DaySummaryCard(plan: PlanDayState, modifier: Modifier = Modifier) {
         color = MaterialTheme.colorScheme.surfaceContainerHighest,
         modifier = modifier.fillMaxWidth(),
     ) {
-        Column(Modifier.padding(20.dp)) {
+        Column(Modifier.padding(Spacing.xl)) {
             Text(
                 text = stringResource(R.string.itinerary_daily_rhythm),
                 style = HeroLabelStyle,
                 color = MaterialTheme.colorScheme.primary,
             )
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(Spacing.sPlus))
             FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(20.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xl),
+                verticalArrangement = Arrangement.spacedBy(Spacing.s),
             ) {
                 val count = plan.activities.size
                 SummaryItem(R.drawable.ic_list, pluralStringResource(R.plurals.itinerary_activity_count, count, count))
@@ -157,9 +159,9 @@ private fun SummaryItem(icon: Int, text: String) {
             painter = painterResource(icon),
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(20.dp),
+            modifier = Modifier.size(IconSize.m),
         )
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(Spacing.s))
         Text(text = text, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
     }
 }
@@ -173,10 +175,10 @@ fun AddActivityButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
         color = MaterialTheme.colorScheme.surfaceContainerHighest,
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 60.dp),
+            .heightIn(min = PlaceholderMinHeight),
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(Spacing.l),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -184,9 +186,9 @@ fun AddActivityButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
                 painter = painterResource(R.drawable.ic_add_circle),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(IconSize.xl),
             )
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(Spacing.sPlus))
             Text(
                 text = stringResource(R.string.itinerary_add_activity),
                 style = MaterialTheme.typography.titleLarge,
@@ -234,16 +236,16 @@ fun DailyPlanProgress(progress: PlanProgress, modifier: Modifier = Modifier) {
         modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.shapes.large)
-            .padding(14.dp)
+            .padding(Spacing.mPlus)
             .clearAndSetSemantics { contentDescription = description },
     ) {
         if (progress.segmented) {
-            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(DaySegmentGap)) {
                 progress.dayPlanned.forEach { planned ->
                     Box(
                         Modifier
                             .weight(1f)
-                            .height(10.dp)
+                            .height(Dimens.ProgressBarHeight)
                             .background(if (planned) filled else open, CircleShape)
                     )
                 }
@@ -258,10 +260,10 @@ fun DailyPlanProgress(progress: PlanProgress, modifier: Modifier = Modifier) {
                 drawStopIndicator = {},
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(10.dp),
+                    .height(Dimens.ProgressBarHeight),
             )
         }
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(Spacing.sPlus))
         Row(verticalAlignment = Alignment.Top) {
             Text(
                 text = pluralStringResource(R.plurals.plan_days_set, progress.plannedDays, progress.plannedDays),
@@ -269,7 +271,7 @@ fun DailyPlanProgress(progress: PlanProgress, modifier: Modifier = Modifier) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f),
             )
-            Spacer(Modifier.width(6.dp))
+            Spacer(Modifier.width(Spacing.xsPlus))
             Text(
                 text = stringResource(R.string.plan_days_open, progress.openDays),
                 style = MaterialTheme.typography.bodySmall,
@@ -294,13 +296,13 @@ fun DayPreviewCard(
     Surface(
         shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shadowElevation = 1.dp,
+        shadowElevation = Dimens.CardElevation,
         modifier = modifier.fillMaxWidth(),
     ) {
-        Column(Modifier.padding(start = 24.dp, end = 12.dp, top = 16.dp, bottom = 12.dp)) {
+        Column(Modifier.padding(start = Spacing.xxl, end = Spacing.m, top = Spacing.l, bottom = Spacing.m)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TitleDot()
-                Spacer(Modifier.width(10.dp))
+                Spacer(Modifier.width(Spacing.sPlus))
                 Text(
                     text = dayTitle(state.title),
                     style = MaterialTheme.typography.headlineSmall,
@@ -327,15 +329,15 @@ fun DayPreviewCard(
                     )
                 }
             }
-            Spacer(Modifier.height(12.dp))
-            Column(Modifier.padding(end = 12.dp)) {
+            Spacer(Modifier.height(Spacing.m))
+            Column(Modifier.padding(end = Spacing.m)) {
                 if (state.activities.isEmpty()) {
                     Text(
                         text = stringResource(R.string.itinerary_day_empty_title),
                         style = MaterialTheme.typography.bodyLarge,
                         color = muted,
                     )
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(Spacing.l))
                     PrimaryButton(
                         text = stringResource(R.string.itinerary_add_activity),
                         onClick = { actions.onAddActivity(state.day) },
@@ -347,40 +349,40 @@ fun DayPreviewCard(
                             isFirst = index == 0,
                             isLast = index == state.activities.lastIndex,
                             dotColor = ExtendedTheme.colors.activityType(activity.type).content,
-                            dotTop = 24.dp,
-                            bottomGap = 12.dp,
+                            dotTop = Spacing.xxl,
+                            bottomGap = Spacing.m,
                         ) {
                             CompactActivityCard(activity, onClick = { actions.onActivityClick(activity.id) })
                         }
                     }
                     if (state.moreCount > 0) {
-                        Spacer(Modifier.height(10.dp))
+                        Spacer(Modifier.height(Spacing.sPlus))
                         Text(
                             text = pluralStringResource(R.plurals.itinerary_more, state.moreCount, state.moreCount),
                             style = MaterialTheme.typography.labelLarge,
                             color = muted,
-                            modifier = Modifier.padding(start = 44.dp),
+                            modifier = Modifier.padding(start = MoreTextIndent),
                         )
                     }
                 }
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(Spacing.l))
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
             TextButton(
                 onClick = actions.onSeeFullPlan,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(end = 12.dp, top = 4.dp),
+                    .padding(end = Spacing.m, top = Spacing.xs),
             ) {
                 Text(
                     text = stringResource(R.string.itinerary_see_full_plan),
                     style = MaterialTheme.typography.titleMedium,
                 )
-                Spacer(Modifier.width(6.dp))
+                Spacer(Modifier.width(Spacing.xsPlus))
                 Icon(
                     painter = painterResource(R.drawable.ic_arrow_forward),
                     contentDescription = null,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(IconSize.m),
                 )
             }
         }
@@ -393,3 +395,12 @@ private fun dayTitle(title: DayTitle): String = when (title) {
     DayTitle.Today -> stringResource(R.string.itinerary_today)
     is DayTitle.DayNumber -> stringResource(R.string.itinerary_day_number, title.number)
 }
+
+/** The empty-day card. */
+private val PlaceholderMinHeight = 60.dp
+
+/** Between the day segments of the "days planned" bar. */
+private val DaySegmentGap = 5.dp
+
+/** "+2 more" lines up with the activity titles (after the rail). */
+private val MoreTextIndent = 44.dp

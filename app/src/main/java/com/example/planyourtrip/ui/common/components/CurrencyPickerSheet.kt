@@ -33,6 +33,8 @@ import com.example.planyourtrip.data.currency.Currency
 import com.example.planyourtrip.ui.common.CurrencyPickerState
 import com.example.planyourtrip.ui.common.currencyFlag
 import com.example.planyourtrip.ui.theme.Dimens
+import com.example.planyourtrip.ui.theme.IconSize
+import com.example.planyourtrip.ui.theme.Spacing
 
 /** Searchable list of the currencies the rates service supports (code + full name). */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -56,7 +58,7 @@ fun CurrencyPickerSheet(
                 style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(Spacing.l))
             OutlinedTextField(
                 value = state.query,
                 onValueChange = onQueryChange,
@@ -66,22 +68,22 @@ fun CurrencyPickerSheet(
                 shape = MaterialTheme.shapes.small,
                 modifier = Modifier.fillMaxWidth(),
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(Spacing.s))
             when {
                 state.isLoading && state.currencies.isEmpty() -> Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 32.dp),
+                        .padding(vertical = Spacing.xxxl),
                     contentAlignment = Alignment.Center,
                 ) {
                     CircularProgressIndicator()
                 }
-                state.failed && state.currencies.isEmpty() -> Column(Modifier.padding(vertical = 16.dp)) {
+                state.failed && state.currencies.isEmpty() -> Column(Modifier.padding(vertical = Spacing.l)) {
                     SheetMessage(stringResource(R.string.currency_picker_failed))
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(Spacing.l))
                     PrimaryButton(text = stringResource(R.string.currency_try_again), onClick = onRetry)
                 }
-                state.results.isEmpty() -> Box(Modifier.padding(vertical = 16.dp)) {
+                state.results.isEmpty() -> Box(Modifier.padding(vertical = Spacing.l)) {
                     SheetMessage(stringResource(R.string.currency_picker_no_results, state.query.trim()))
                 }
                 else -> LazyColumn(Modifier.weight(1f, fill = false)) {
@@ -90,7 +92,7 @@ fun CurrencyPickerSheet(
                     }
                 }
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(Spacing.l))
         }
     }
 }
@@ -102,14 +104,14 @@ private fun CurrencyRow(currency: Currency, selected: Boolean, onSelect: (String
         leadingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // A fixed slot, so the codes line up also next to a currency without a flag.
-                Box(Modifier.width(32.dp)) {
+                Box(Modifier.width(FlagSlotWidth)) {
                     currencyFlag(currency.code)?.let { FlagEmoji(it, style = MaterialTheme.typography.titleLarge) }
                 }
                 Text(
                     text = currency.code,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.width(48.dp),
+                    modifier = Modifier.width(CodeWidth),
                 )
             }
         },
@@ -119,7 +121,7 @@ private fun CurrencyRow(currency: Currency, selected: Boolean, onSelect: (String
                     painter = painterResource(R.drawable.ic_check),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(22.dp),
+                    modifier = Modifier.size(IconSize.l),
                 )
             }
         } else {
@@ -138,3 +140,9 @@ private fun SheetMessage(text: String) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
 }
+
+/** The flag slot before each currency code. */
+private val FlagSlotWidth = 32.dp
+
+/** The code column ("EUR"), so the names line up. */
+private val CodeWidth = 48.dp

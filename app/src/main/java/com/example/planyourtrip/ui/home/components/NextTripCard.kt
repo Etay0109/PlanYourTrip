@@ -52,6 +52,7 @@ import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
 import com.example.planyourtrip.ui.theme.HeroLabelStyle
 import com.example.planyourtrip.ui.theme.HeroPhotoScrim
+import com.example.planyourtrip.ui.theme.Spacing
 
 /**
  * Large teal gradient card for the nearest (or ongoing) trip. With a destination photo ([photoUrl], about 960 px)
@@ -93,24 +94,24 @@ fun NextTripCard(
             val compactCountdown = rememberCompactCountdown(next, constraints.maxWidth)
             Row(
                 modifier = Modifier
-                    .padding(start = 24.dp, end = Dimens.CardMenuEndPadding, top = 24.dp, bottom = 24.dp),
+                    .padding(start = Spacing.xxl, end = Dimens.CardMenuEndPadding, top = Spacing.xxl, bottom = Spacing.xxl),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = photo.track(LABEL_AREA)) {
                         Box(
                             Modifier
-                                .size(8.dp)
+                                .size(Dimens.Dot)
                                 .background(colors.heroLiveDot, CircleShape)
                         )
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(Spacing.s))
                         Text(
                             text = stringResource(R.string.home_next_trip),
                             style = HeroLabelStyle,
                             color = mutedText,
                         )
                     }
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(Spacing.l))
                     DestinationTitle(
                         destination = next.trip.destination,
                         countryCode = next.trip.countryCode,
@@ -119,7 +120,7 @@ fun NextTripCard(
                         maxLines = 3,
                         modifier = photo.track(TITLE_AREA),
                     )
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(Spacing.l))
                     TripDatesRow(
                         start = next.trip.startDate,
                         end = next.trip.endDate,
@@ -129,7 +130,7 @@ fun NextTripCard(
                         modifier = photo.track(DATES_AREA),
                     )
                 }
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(Spacing.m))
                 CountdownBox(next.status, photo, compactCountdown)
                 // The button's own inset gives the gap to the countdown box. On a photo it sits on a round chip.
                 val menuChip = photo.color(Color.Transparent, colors.heroPhotoChip)
@@ -159,7 +160,7 @@ private fun rememberCompactCountdown(next: ActiveTrip, cardWidth: Int): Boolean 
         with(density) {
             val content = box.maxOf { (text, style) -> width(text, style) }
             val boxWidth = maxOf(CountdownMinWidth.roundToPx(), content + 2 * CountdownPadding.roundToPx())
-            val fixed = 24.dp.roundToPx() + Dimens.CardMenuEndPadding.roundToPx() + 12.dp.roundToPx() +
+            val fixed = Spacing.xxl.roundToPx() + Dimens.CardMenuEndPadding.roundToPx() + Spacing.m.roundToPx() +
                 Dimens.TouchTarget.roundToPx()
             val room = cardWidth - fixed - boxWidth
             destinationOneLineWidth(
@@ -189,8 +190,8 @@ private fun countdownNumberStyle(compact: Boolean): TextStyle =
 
 /** The regular countdown box: at least this wide, with this side padding; the compact one has neither minimum. */
 private val CountdownMinWidth = 92.dp
-private val CountdownPadding = 14.dp
-private val CompactCountdownPadding = 8.dp
+private val CountdownPadding = Spacing.mPlus
+private val CompactCountdownPadding = Spacing.s
 
 /** The texts on the left (each wraps its content, so its bounds end where its text ends). */
 private const val LABEL_AREA = "label"
@@ -232,8 +233,8 @@ private fun CountdownBox(status: TripStatus, photo: HeroPhotoState, compact: Boo
             .widthIn(min = if (compact) 0.dp else CountdownMinWidth)
             .clip(shape)
             .background(photo.chipColor())
-            .border(1.dp, colors.heroOverlayBorder, shape)
-            .padding(horizontal = if (compact) CompactCountdownPadding else CountdownPadding, vertical = 14.dp),
+            .border(Dimens.Hairline, colors.heroOverlayBorder, shape)
+            .padding(horizontal = if (compact) CompactCountdownPadding else CountdownPadding, vertical = Spacing.mPlus),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -243,7 +244,7 @@ private fun CountdownBox(status: TripStatus, photo: HeroPhotoState, compact: Boo
                 style = countdownNowStyle(compact),
                 color = colors.onHero,
                 maxLines = 1,
-                modifier = Modifier.padding(vertical = 10.dp),
+                modifier = Modifier.padding(vertical = Spacing.sPlus),
             )
             is TripStatus.InDays -> {
                 Text(

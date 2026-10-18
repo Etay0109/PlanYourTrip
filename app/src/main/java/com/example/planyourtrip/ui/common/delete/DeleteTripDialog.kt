@@ -11,9 +11,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.planyourtrip.R
+import com.example.planyourtrip.ui.theme.Dimens
+import com.example.planyourtrip.ui.theme.IconSize
 import com.example.planyourtrip.ui.theme.PlanYourTripTheme
 
 /**
@@ -44,8 +45,8 @@ fun DeleteTripDialog(state: DeleteDialogState, onConfirm: () -> Unit, onDismiss:
             TextButton(onClick = onConfirm, enabled = !state.isDeleting) {
                 if (state.isDeleting) {
                     CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(IconSize.s),
+                        strokeWidth = Dimens.ProgressStroke,
                         color = MaterialTheme.colorScheme.error,
                     )
                 } else {
@@ -66,7 +67,7 @@ fun DeleteTripDialog(state: DeleteDialogState, onConfirm: () -> Unit, onDismiss:
 
 @Preview
 @Composable
-private fun DeleteTripDialogPreview() {
+internal fun DeleteTripDialogPreview() {
     PlanYourTripTheme(darkTheme = false) {
         DeleteTripDialog(DeleteDialogState(tripId = 1, destination = "Rome, Italy"), onConfirm = {}, onDismiss = {})
     }
@@ -74,7 +75,7 @@ private fun DeleteTripDialogPreview() {
 
 @Preview
 @Composable
-private fun LeaveTripDialogPreview() {
+internal fun LeaveTripDialogPreview() {
     PlanYourTripTheme(darkTheme = false) {
         DeleteTripDialog(DeleteDialogState(tripId = 1, destination = "Rome, Italy", leave = true), onConfirm = {}, onDismiss = {})
     }
@@ -82,7 +83,7 @@ private fun LeaveTripDialogPreview() {
 
 @Preview
 @Composable
-private fun DeleteTripDialogHebrewPreview() {
+internal fun DeleteTripDialogHebrewPreview() {
     PlanYourTripTheme(darkTheme = false) {
         DeleteTripDialog(DeleteDialogState(tripId = 1, destination = "תל אביב"), onConfirm = {}, onDismiss = {})
     }

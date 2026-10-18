@@ -32,8 +32,11 @@ import com.example.planyourtrip.R
 import com.example.planyourtrip.ui.common.Money
 import com.example.planyourtrip.ui.common.components.PrimaryButton
 import com.example.planyourtrip.ui.common.shekels
+import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
 import com.example.planyourtrip.ui.theme.HeroLabelStyle
+import com.example.planyourtrip.ui.theme.IconSize
+import com.example.planyourtrip.ui.theme.Spacing
 import com.example.planyourtrip.ui.tripdetails.BudgetSummary
 
 /**
@@ -52,18 +55,18 @@ fun BudgetCard(
     showEditButton: Boolean = false,
 ) {
     val content: @Composable () -> Unit = {
-        Column(Modifier.padding(24.dp)) {
+        Column(Modifier.padding(Spacing.xxl)) {
             if (summary == null) NoBudget(onSetBudget) else WithBudget(summary, showEditButton, onSetBudget)
         }
     }
     val shape = MaterialTheme.shapes.extraLarge
     val color = MaterialTheme.colorScheme.surfaceContainerLow
     if (onClick != null) {
-        Surface(onClick = onClick, shape = shape, color = color, shadowElevation = 1.dp, modifier = modifier.fillMaxWidth()) {
+        Surface(onClick = onClick, shape = shape, color = color, shadowElevation = Dimens.CardElevation, modifier = modifier.fillMaxWidth()) {
             content()
         }
     } else {
-        Surface(shape = shape, color = color, shadowElevation = 1.dp, modifier = modifier.fillMaxWidth()) {
+        Surface(shape = shape, color = color, shadowElevation = Dimens.CardElevation, modifier = modifier.fillMaxWidth()) {
             content()
         }
     }
@@ -74,17 +77,17 @@ private fun NoBudget(onSetBudget: () -> Unit) {
     Row(verticalAlignment = Alignment.Top) {
         Column(Modifier.weight(1f)) {
             BudgetLabel()
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(Spacing.s))
             Text(
                 text = stringResource(R.string.budget_empty_body),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(Spacing.m))
         IconChip(R.drawable.ic_wallet)
     }
-    Spacer(Modifier.height(20.dp))
+    Spacer(Modifier.height(Spacing.xl))
     PrimaryButton(text = stringResource(R.string.budget_set), onClick = onSetBudget)
 }
 
@@ -95,7 +98,7 @@ private fun WithBudget(summary: BudgetSummary, showEditButton: Boolean, onEdit: 
     Row(verticalAlignment = Alignment.Top) {
         Column(Modifier.weight(1f)) {
             BudgetLabel()
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(Spacing.xs))
             if (summary.isOverBudget) {
                 Text(
                     text = stringResource(R.string.budget_over, shekels(-summary.leftAgorot)),
@@ -110,7 +113,7 @@ private fun WithBudget(summary: BudgetSummary, showEditButton: Boolean, onEdit: 
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.alignByBaseline(),
                     )
-                    Spacer(Modifier.width(6.dp))
+                    Spacer(Modifier.width(Spacing.xsPlus))
                     Text(
                         text = stringResource(R.string.budget_left),
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Normal),
@@ -122,12 +125,12 @@ private fun WithBudget(summary: BudgetSummary, showEditButton: Boolean, onEdit: 
         }
         // The Budget tab (with the edit button) is the design's plain card; the Overview keeps the wallet chip.
         if (!showEditButton) {
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(Spacing.m))
             IconChip(R.drawable.ic_wallet)
         }
     }
 
-    Spacer(Modifier.height(20.dp))
+    Spacer(Modifier.height(Spacing.xl))
     LinearProgressIndicator(
         progress = { summary.progress },
         color = if (summary.isWarning) colors.budgetWarning else MaterialTheme.colorScheme.primary,
@@ -137,19 +140,19 @@ private fun WithBudget(summary: BudgetSummary, showEditButton: Boolean, onEdit: 
         drawStopIndicator = {},
         modifier = Modifier
             .fillMaxWidth()
-            .height(10.dp),
+            .height(Dimens.ProgressBarHeight),
     )
-    Spacer(Modifier.height(12.dp))
+    Spacer(Modifier.height(Spacing.m))
 
     Row(verticalAlignment = Alignment.CenterVertically) {
         Row(
             modifier = Modifier.weight(1f),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.s),
         ) {
             Box(
                 Modifier
-                    .size(8.dp)
+                    .size(Dimens.Dot)
                     .background(
                         if (summary.isWarning) colors.budgetWarning else MaterialTheme.colorScheme.primary,
                         CircleShape,
@@ -165,26 +168,26 @@ private fun WithBudget(summary: BudgetSummary, showEditButton: Boolean, onEdit: 
                 color = MaterialTheme.colorScheme.onSurface,
             )
         }
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(Spacing.s))
         Text(
             text = stringResource(R.string.budget_total, shekels(summary.totalAgorot)),
             style = MaterialTheme.typography.bodyLarge,
             color = muted,
         )
         if (showEditButton) {
-            IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
+            IconButton(onClick = onEdit, modifier = Modifier.size(EditButtonSize)) {
                 Icon(
                     painter = painterResource(R.drawable.ic_edit),
                     contentDescription = stringResource(R.string.budget_edit),
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(IconSize.s),
                 )
             }
         }
     }
 
     summary.perDay?.let { perDay ->
-        HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant)
+        HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.m), color = MaterialTheme.colorScheme.outlineVariant)
         Text(
             text = pluralStringResource(R.plurals.budget_per_day, perDay.days, shekels(perDay.amountAgorot), perDay.days),
             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
@@ -201,3 +204,6 @@ private fun BudgetLabel() {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
 }
+
+/** The pencil button next to the budget. */
+private val EditButtonSize = 36.dp

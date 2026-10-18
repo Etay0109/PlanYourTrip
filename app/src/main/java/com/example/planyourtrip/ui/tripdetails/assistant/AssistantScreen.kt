@@ -74,7 +74,9 @@ import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.data.trip.TripColor
 import com.example.planyourtrip.ui.common.components.BackTopAppBar
 import com.example.planyourtrip.ui.theme.Dimens
+import com.example.planyourtrip.ui.theme.IconSize
 import com.example.planyourtrip.ui.theme.PlanYourTripTheme
+import com.example.planyourtrip.ui.theme.Spacing
 import java.time.LocalDate
 import java.time.LocalTime
 
@@ -130,8 +132,8 @@ fun AssistantContent(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
-            contentPadding = PaddingValues(horizontal = Dimens.ScreenPadding, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(horizontal = Dimens.ScreenPadding, vertical = Spacing.l),
+            verticalArrangement = Arrangement.spacedBy(Spacing.l),
         ) {
             item(key = "intro") {
                 if (state.messages.isEmpty()) {
@@ -165,7 +167,7 @@ private fun Intro(chips: List<AssistantChip>, enabled: Boolean, onChip: (String)
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             AssistantAvatar()
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(Spacing.m))
             Text(
                 text = stringResource(R.string.assistant_intro),
                 style = MaterialTheme.typography.bodyLarge,
@@ -173,10 +175,10 @@ private fun Intro(chips: List<AssistantChip>, enabled: Boolean, onChip: (String)
                 modifier = Modifier.weight(1f),
             )
         }
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(Spacing.l))
         FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.s),
+            verticalArrangement = Arrangement.spacedBy(Spacing.s),
         ) {
             chips.forEach { chip ->
                 val label = chip.label()
@@ -216,17 +218,17 @@ private fun AssistantChip.label(): String = when (this) {
 private fun UserBubble(text: String) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
         Surface(
-            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 20.dp, bottomEnd = 6.dp),
+            shape = RoundedCornerShape(topStart = BubbleCorner, topEnd = BubbleCorner, bottomStart = BubbleCorner, bottomEnd = BubbleTail),
             color = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
             modifier = Modifier
-                .padding(start = 48.dp)
+                .padding(start = UserBubbleIndent)
                 .weight(1f, fill = false),
         ) {
             Text(
                 text = text,
                 style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                modifier = Modifier.padding(horizontal = Spacing.l, vertical = Spacing.m),
             )
         }
     }
@@ -242,20 +244,20 @@ private fun AssistantAnswer(message: ChatMessage.Assistant, onToggle: (Int) -> U
                     text = message.text,
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    modifier = Modifier.padding(horizontal = Spacing.l, vertical = Spacing.m),
                 )
             }
         }
         message.plan?.let { card ->
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(Spacing.m))
             SuggestedPlanCard(card, onToggle = onToggle, onAdd = onAdd)
         }
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(Spacing.xsPlus))
         Text(
             text = stringResource(R.string.assistant_disclaimer),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 4.dp),
+            modifier = Modifier.padding(start = Spacing.xs),
         )
     }
 }
@@ -264,7 +266,7 @@ private fun AssistantAnswer(message: ChatMessage.Assistant, onToggle: (Int) -> U
 private fun AssistantRow(content: @Composable () -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
         AssistantAvatar()
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(Spacing.s))
         Column(Modifier.weight(1f)) { content() }
     }
 }
@@ -272,9 +274,9 @@ private fun AssistantRow(content: @Composable () -> Unit) {
 @Composable
 private fun AssistantBubble(content: @Composable () -> Unit) {
     Surface(
-        shape = RoundedCornerShape(topStart = 6.dp, topEnd = 20.dp, bottomStart = 20.dp, bottomEnd = 20.dp),
+        shape = RoundedCornerShape(topStart = BubbleTail, topEnd = BubbleCorner, bottomStart = BubbleCorner, bottomEnd = BubbleCorner),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shadowElevation = 1.dp,
+        shadowElevation = Dimens.CardElevation,
     ) { content() }
 }
 
@@ -283,7 +285,7 @@ private fun AssistantBubble(content: @Composable () -> Unit) {
 private fun AssistantAvatar() {
     Box(
         modifier = Modifier
-            .size(36.dp)
+            .size(AssistantAvatarSize)
             .background(MaterialTheme.colorScheme.primary, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
@@ -291,7 +293,7 @@ private fun AssistantAvatar() {
             painter = painterResource(R.drawable.ic_sparkle),
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onPrimary,
-            modifier = Modifier.size(20.dp),
+            modifier = Modifier.size(IconSize.m),
         )
     }
 }
@@ -305,9 +307,9 @@ private fun TypingIndicator() {
         AssistantBubble {
             Row(
                 modifier = Modifier
-                    .padding(horizontal = 18.dp, vertical = 16.dp)
+                    .padding(horizontal = Spacing.lPlus, vertical = Spacing.l)
                     .semantics { contentDescription = description },
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
             ) {
                 repeat(3) { index ->
                     val alpha by transition.animateFloat(
@@ -322,7 +324,7 @@ private fun TypingIndicator() {
                     )
                     Box(
                         Modifier
-                            .size(8.dp)
+                            .size(Dimens.Dot)
                             .alpha(alpha)
                             .background(MaterialTheme.colorScheme.primary, CircleShape)
                     )
@@ -340,11 +342,11 @@ private fun ErrorMessage(error: AssistantError, onRetry: () -> Unit) {
             color = MaterialTheme.colorScheme.errorContainer,
             contentColor = MaterialTheme.colorScheme.onErrorContainer,
         ) {
-            Column(Modifier.padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 4.dp)) {
+            Column(Modifier.padding(start = Spacing.l, end = Spacing.s, top = Spacing.m, bottom = Spacing.xs)) {
                 Text(
                     text = stringResource(error.messageRes()),
                     style = MaterialTheme.typography.bodyLarge,
-                    modifier = Modifier.padding(end = 8.dp),
+                    modifier = Modifier.padding(end = Spacing.s),
                 )
                 TextButton(onClick = onRetry, modifier = Modifier.align(Alignment.End)) {
                     Text(stringResource(R.string.assistant_try_again))
@@ -380,7 +382,7 @@ private fun InputBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = Spacing.l, vertical = Spacing.m),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TextField(
@@ -414,7 +416,7 @@ private fun InputBar(
                 keyboardActions = KeyboardActions(onSend = { if (sendEnabled) onSend() }),
                 modifier = Modifier.weight(1f),
             )
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(Spacing.m))
             FilledIconButton(
                 onClick = onSend,
                 enabled = sendEnabled,
@@ -423,7 +425,7 @@ private fun InputBar(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                 ),
-                modifier = Modifier.size(56.dp),
+                modifier = Modifier.size(SendButtonSize),
             ) {
                 Icon(painterResource(R.drawable.ic_send), contentDescription = stringResource(R.string.assistant_send))
             }
@@ -479,16 +481,16 @@ private val previewChips = listOf(
 
 @Preview(name = "Empty", widthDp = 411, heightDp = 891)
 @Composable
-private fun EmptyPreview() = Preview(AssistantUiState(trip = previewTrip, chips = previewChips))
+internal fun EmptyPreview() = Preview(AssistantUiState(trip = previewTrip, chips = previewChips))
 
 @Preview(name = "Conversation with plan", widthDp = 411, heightDp = 1500)
 @Composable
-private fun ConversationPreview() =
+internal fun ConversationPreview() =
     Preview(AssistantUiState(trip = previewTrip, messages = previewConversation))
 
 @Preview(name = "Typing, dark", widthDp = 411, heightDp = 1500)
 @Composable
-private fun TypingDarkPreview() = Preview(
+internal fun TypingDarkPreview() = Preview(
     AssistantUiState(
         trip = previewTrip,
         messages = previewConversation + ChatMessage.User(3, "Any dinner ideas near the hotel?"),
@@ -499,7 +501,7 @@ private fun TypingDarkPreview() = Preview(
 
 @Preview(name = "Added + error", widthDp = 411, heightDp = 1500)
 @Composable
-private fun ErrorPreview() = Preview(
+internal fun ErrorPreview() = Preview(
     AssistantUiState(
         trip = previewTrip,
         messages = listOf(
@@ -515,7 +517,7 @@ private fun ErrorPreview() = Preview(
 
 @Preview(name = "Outside the trip, narrow, large font", widthDp = 320, heightDp = 1800, fontScale = 1.5f)
 @Composable
-private fun OutsideNarrowPreview() = Preview(
+internal fun OutsideNarrowPreview() = Preview(
     AssistantUiState(
         trip = previewTrip,
         messages = listOf(
@@ -526,3 +528,15 @@ private fun OutsideNarrowPreview() = Preview(
         ),
     ),
 )
+
+/** Chat bubbles: the round corners, and the small corner next to the speaker. */
+private val BubbleCorner = 20.dp
+private val BubbleTail = 6.dp
+
+/** My messages keep this much room on their start side. */
+private val UserBubbleIndent = 48.dp
+
+private val AssistantAvatarSize = 36.dp
+
+/** The round Send button. */
+private val SendButtonSize = 56.dp

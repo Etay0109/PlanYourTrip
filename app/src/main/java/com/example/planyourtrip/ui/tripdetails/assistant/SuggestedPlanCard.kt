@@ -20,15 +20,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.R
 import com.example.planyourtrip.data.assistant.SuggestedActivity
 import com.example.planyourtrip.ui.common.TripFormatting
 import com.example.planyourtrip.ui.common.components.PrimaryButton
 import com.example.planyourtrip.ui.common.labelRes
 import com.example.planyourtrip.ui.common.shekels
+import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
 import com.example.planyourtrip.ui.theme.HeroLabelStyle
+import com.example.planyourtrip.ui.theme.Spacing
 import com.example.planyourtrip.ui.tripdetails.components.TagPill
 import com.example.planyourtrip.ui.tripdetails.components.TimelineRow
 
@@ -50,16 +51,16 @@ fun SuggestedPlanCard(
     Surface(
         shape = MaterialTheme.shapes.large,
         color = cardColor,
-        shadowElevation = 1.dp,
+        shadowElevation = Dimens.CardElevation,
         modifier = modifier.fillMaxWidth(),
     ) {
-        Column(Modifier.padding(20.dp)) {
+        Column(Modifier.padding(Spacing.xl)) {
             Text(
                 text = stringResource(R.string.assistant_plan_label),
                 style = HeroLabelStyle,
                 color = MaterialTheme.colorScheme.primary,
             )
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(Spacing.xs))
             Text(
                 text = if (card.withinTrip) {
                     stringResource(R.string.assistant_plan_day, card.dayNumber, TripFormatting.weekdayDayMonth(plan.date))
@@ -70,14 +71,14 @@ fun SuggestedPlanCard(
                 color = muted,
             )
             if (plan.title.isNotEmpty()) {
-                Spacer(Modifier.height(2.dp))
+                Spacer(Modifier.height(Spacing.xxs))
                 Text(
                     text = plan.title,
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(Spacing.l))
             val selectable = card.withinTrip && card.status == AddStatus.NEW
             plan.activities.forEachIndexed { index, suggestion ->
                 TimelineRow(
@@ -85,7 +86,7 @@ fun SuggestedPlanCard(
                     isLast = index == plan.activities.lastIndex,
                     dotColor = ExtendedTheme.colors.activityType(suggestion.type).content,
                     dotBackground = cardColor,
-                    dotTop = 24.dp,
+                    dotTop = Spacing.xxl,
                 ) {
                     SuggestionRow(
                         suggestion = suggestion,
@@ -95,7 +96,7 @@ fun SuggestedPlanCard(
                     )
                 }
             }
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(Spacing.xl))
             if (card.withinTrip) {
                 val added = card.status == AddStatus.ADDED
                 PrimaryButton(
@@ -137,31 +138,31 @@ private fun SuggestionRow(
             .toggleable(value = checked, enabled = enabled, role = Role.Checkbox, onValueChange = { onToggle() }),
         verticalAlignment = Alignment.Top,
     ) {
-        Column(Modifier.weight(1f).padding(top = 12.dp)) {
+        Column(Modifier.weight(1f).padding(top = Spacing.m)) {
             Text(
                 text = suggestion.startTime?.let { TripFormatting.time(it) }
                     ?: stringResource(R.string.assistant_plan_no_time),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
             )
-            Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.height(Spacing.xxs))
             Text(
                 text = suggestion.title,
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             suggestion.note?.let { note ->
-                Spacer(Modifier.height(2.dp))
+                Spacer(Modifier.height(Spacing.xxs))
                 Text(
                     text = note,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(Spacing.xsPlus))
             FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.s),
+                verticalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
             ) {
                 TagPill(stringResource(suggestion.type.labelRes()), typeColor.container, typeColor.content)
                 suggestion.estimatedCostAgorot?.let { cost ->
@@ -180,8 +181,8 @@ private fun SuggestionRow(
                 }
             }
         }
-        Spacer(Modifier.width(4.dp))
+        Spacer(Modifier.width(Spacing.xs))
         // The row handles the click, so the checkbox itself is not a second touch target.
-        Checkbox(checked = checked, onCheckedChange = null, enabled = enabled, modifier = Modifier.padding(12.dp))
+        Checkbox(checked = checked, onCheckedChange = null, enabled = enabled, modifier = Modifier.padding(Spacing.m))
     }
 }

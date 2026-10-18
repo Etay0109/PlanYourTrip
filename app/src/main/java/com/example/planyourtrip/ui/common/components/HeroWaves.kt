@@ -6,7 +6,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.unit.dp
+import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
 
 /** Faint flowing lines decorating the teal hero gradient (home hero card, trip header), as in the design. */
@@ -15,7 +15,7 @@ fun HeroWaves(modifier: Modifier = Modifier) {
     val waveColor = ExtendedTheme.colors.heroWave
     val glowColor = ExtendedTheme.colors.heroGlow
     Canvas(modifier) {
-        val stroke = Stroke(width = 1.dp.toPx())
+        val stroke = Stroke(width = Dimens.Hairline.toPx())
         val w = size.width
         val h = size.height
         listOf(0.18f, 0.42f, 0.66f, 0.9f).forEachIndexed { i, y ->

@@ -92,6 +92,7 @@ import com.example.planyourtrip.ui.tripdetails.split.SplitDialogs
 import com.example.planyourtrip.ui.tripdetails.split.SplitUiState
 import com.example.planyourtrip.ui.tripdetails.split.SplitViewModel
 import com.example.planyourtrip.data.trip.Trip
+import com.example.planyourtrip.ui.theme.Spacing
 import com.example.planyourtrip.ui.tripdetails.members.InviteHost
 import com.example.planyourtrip.ui.tripdetails.members.InviteViewModel
 import com.example.planyourtrip.ui.tripdetails.members.MemberActions
@@ -337,10 +338,10 @@ fun TripDetailsContent(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
+                            .padding(horizontal = Spacing.l),
                     ) {
                         AddExpenseFab(budgetActions.onAddExpense)
-                        Spacer(Modifier.weight(1f).widthIn(min = 16.dp))
+                        Spacer(Modifier.weight(1f).widthIn(min = Spacing.l))
                         AssistantFab(onOpenAssistant)
                     }
                 } else {
@@ -365,7 +366,7 @@ fun TripDetailsContent(
                         modifier = Modifier.fillMaxSize(),
                         // The buttons float over the list; this end padding lets the last card scroll fully above them.
                         contentPadding = PaddingValues(bottom = innerPadding.calculateBottomPadding() + FabClearance),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.l),
                     ) {
                         item(key = HEADER_KEY) {
                             TripHeader(
@@ -455,23 +456,23 @@ internal fun EmptyMessage(@DrawableRes icon: Int, title: String, body: String) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = Dimens.ScreenPadding + 12.dp, vertical = 32.dp),
+            .padding(horizontal = Dimens.ScreenPadding + Spacing.m, vertical = Spacing.xxxl),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Icon(
             painter = painterResource(icon),
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(40.dp),
+            modifier = Modifier.size(EmptyIconSize),
         )
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(Spacing.l))
         Text(
             text = title,
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onBackground,
             textAlign = TextAlign.Center,
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(Spacing.s))
         Text(
             text = body,
             style = MaterialTheme.typography.bodyLarge,
@@ -481,11 +482,14 @@ internal fun EmptyMessage(@DrawableRes icon: Int, title: String, body: String) {
     }
 }
 
+/** A Material floating action button. */
+private val FabSize = 56.dp
+
 /**
  * Bottom list padding on every tab: the buttons' height (56dp, the round sparkle and the "+ Add expense" pill alike),
  * the Scaffold's 16dp gap above the navigation bar, and 24dp of air, so the last card can scroll fully above them.
  */
-private val FabClearance = 56.dp + 16.dp + 24.dp
+private val FabClearance = FabSize + Spacing.l + Spacing.xxl
 
 /** Round button with a sparkle that opens the trip assistant. */
 @Composable
@@ -550,9 +554,9 @@ private fun NotFound(onBack: () -> Unit) {
                 .padding(Dimens.ScreenPadding),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Spacer(Modifier.height(48.dp))
-            BrandMark(size = 96.dp, iconSize = 44.dp)
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(NotFoundTopGap))
+            BrandMark(size = Dimens.EmptyStateMarkSize, iconSize = Dimens.EmptyStateMarkIconSize)
+            Spacer(Modifier.height(Spacing.xxl))
             Text(
                 text = stringResource(R.string.trip_not_found),
                 style = MaterialTheme.typography.bodyLarge,
@@ -562,3 +566,9 @@ private fun NotFound(onBack: () -> Unit) {
         }
     }
 }
+
+/** The icon above an empty tab's message. */
+private val EmptyIconSize = 40.dp
+
+/** "Trip not found": space above the brand mark. */
+private val NotFoundTopGap = 48.dp

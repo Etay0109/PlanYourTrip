@@ -13,8 +13,8 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.R
+import com.example.planyourtrip.ui.theme.Spacing
 import com.example.planyourtrip.ui.tripdetails.components.ActivityCard
 import com.example.planyourtrip.ui.tripdetails.components.AddActivityButton
 import com.example.planyourtrip.ui.tripdetails.components.DayChipsRow
@@ -32,7 +32,7 @@ internal fun LazyListScope.planTab(
     item(key = "day-chips") {
         DayChipsRow(
             itinerary.days, selected = plan.day, onSelect = actions.onPlanDaySelected,
-            modifier = Modifier.padding(top = 8.dp),
+            modifier = Modifier.padding(top = Spacing.s),
         )
     }
     item(key = "day-summary") {
@@ -57,13 +57,13 @@ internal fun LazyListScope.planTab(
     }
     if (itinerary.outside.isNotEmpty()) {
         item(key = "outside-header") {
-            Column(cardPadding.padding(top = 16.dp)) {
+            Column(cardPadding.padding(top = Spacing.l)) {
                 Text(
                     text = stringResource(R.string.itinerary_outside_dates),
                     style = MaterialTheme.typography.headlineSmall,
                     color = MaterialTheme.colorScheme.onBackground,
                 )
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(Spacing.xs))
                 Text(
                     text = stringResource(R.string.itinerary_outside_dates_body),
                     style = MaterialTheme.typography.bodyMedium,

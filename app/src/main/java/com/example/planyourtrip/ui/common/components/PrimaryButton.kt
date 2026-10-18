@@ -13,8 +13,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.ui.theme.Dimens
+import com.example.planyourtrip.ui.theme.IconSize
+import com.example.planyourtrip.ui.theme.Spacing
 
 /**
  * Pill-shaped primary button. While [loading], it is disabled and shows a spinner instead of [text].
@@ -37,11 +38,11 @@ fun PrimaryButton(
         modifier = modifier.height(Dimens.ButtonHeight),
     ) {
         if (loading) {
-            CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+            CircularProgressIndicator(modifier = Modifier.size(IconSize.l), strokeWidth = Dimens.ProgressStroke)
         } else {
             if (leadingIcon != null) {
-                Icon(painterResource(leadingIcon), contentDescription = null, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(8.dp))
+                Icon(painterResource(leadingIcon), contentDescription = null, modifier = Modifier.size(IconSize.m))
+                Spacer(Modifier.width(Spacing.s))
             }
             Text(text)
         }

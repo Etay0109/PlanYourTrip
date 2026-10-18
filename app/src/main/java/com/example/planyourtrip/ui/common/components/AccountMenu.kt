@@ -35,13 +35,14 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.R
 import com.example.planyourtrip.data.sync.SyncStatus
 import com.example.planyourtrip.ui.common.TripFormatting
 import com.example.planyourtrip.ui.common.rememberNotificationPermissionRequest
 import com.example.planyourtrip.ui.common.account.AccountState
 import com.example.planyourtrip.ui.common.account.SignOutWarning
+import com.example.planyourtrip.ui.theme.IconSize
+import com.example.planyourtrip.ui.theme.Spacing
 import java.time.ZoneId
 
 /** Callbacks of [AccountButton] (from `AccountViewModel`). */
@@ -86,7 +87,7 @@ fun AccountButton(
             }
         }
         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Column(modifier = Modifier.padding(horizontal = Spacing.l, vertical = Spacing.s)) {
                 Text(
                     text = state.userName,
                     style = MaterialTheme.typography.titleMedium,
@@ -100,13 +101,13 @@ fun AccountButton(
                     )
                 }
                 if (state.syncStatus != SyncStatus.PROBLEM) {
-                    SyncStatusRow(state.syncStatus, modifier = Modifier.padding(top = 8.dp))
+                    SyncStatusRow(state.syncStatus, modifier = Modifier.padding(top = Spacing.s))
                 }
             }
             if (state.syncStatus == SyncStatus.PROBLEM) {
                 SyncProblemItem(state.lastSyncedAt, isRetrying = state.isRetrying, onRetry = actions.onRetrySync)
             }
-            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.xs))
             RemindersItem(enabled = state.remindersEnabled, onChange = actions.onRemindersChanged)
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.home_sign_out)) },
@@ -157,9 +158,9 @@ private fun SyncStatusRow(status: SyncStatus, modifier: Modifier = Modifier) {
             painter = painterResource(icon),
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(16.dp),
+            modifier = Modifier.size(IconSize.xs),
         )
-        Spacer(Modifier.width(6.dp))
+        Spacer(Modifier.width(Spacing.xsPlus))
         Text(
             text = stringResource(text),
             style = MaterialTheme.typography.bodySmall,

@@ -261,11 +261,11 @@ private fun Preview(
 
 @Preview(name = "Overview", widthDp = 411, heightDp = 891)
 @Composable
-private fun OverviewPreview() = Preview(previewState(), TripTab.OVERVIEW)
+internal fun OverviewPreview() = Preview(previewState(), TripTab.OVERVIEW)
 
 @Preview(name = "Overview – no budget", widthDp = 411, heightDp = 891)
 @Composable
-private fun OverviewNoBudgetPreview() =
+internal fun OverviewNoBudgetPreview() =
     Preview(
         previewState(previewTrip.copy(budgetAgorot = null), emptyList(), activities = emptyList()),
         TripTab.OVERVIEW,
@@ -274,17 +274,17 @@ private fun OverviewNoBudgetPreview() =
 
 @Preview(name = "Overview – shekel trip, dark", widthDp = 411, heightDp = 891)
 @Composable
-private fun OverviewShekelPreview() =
+internal fun OverviewShekelPreview() =
     Preview(previewState(), TripTab.OVERVIEW, darkTheme = true, currency = CurrencyCardState.Shekel)
 
 @Preview(name = "Overview – rate unavailable", widthDp = 411, heightDp = 891)
 @Composable
-private fun OverviewRateUnavailablePreview() =
+internal fun OverviewRateUnavailablePreview() =
     Preview(previewState(), TripTab.OVERVIEW, currency = CurrencyCardState.Unavailable("EUR"))
 
 @Preview(name = "Overview – JPY rate", widthDp = 411, heightDp = 891)
 @Composable
-private fun OverviewJpyPreview() = Preview(
+internal fun OverviewJpyPreview() = Preview(
     previewState(),
     TripTab.OVERVIEW,
     currency = CurrencyCardState.Rate("JPY", BigDecimal("0.01944"), LocalDate.of(2026, 10, 2)),
@@ -292,32 +292,32 @@ private fun OverviewJpyPreview() = Preview(
 
 @Preview(name = "Budget", widthDp = 411, heightDp = 1900)
 @Composable
-private fun BudgetPreview() = Preview(previewState(), TripTab.BUDGET)
+internal fun BudgetPreview() = Preview(previewState(), TripTab.BUDGET)
 
 @Preview(name = "Budget – over budget, dark", widthDp = 411, heightDp = 1400)
 @Composable
-private fun BudgetOverPreview() =
+internal fun BudgetOverPreview() =
     Preview(previewState(previewTrip.copy(budgetAgorot = 300_000)), TripTab.BUDGET, darkTheme = true)
 
 @Preview(name = "Budget – dark", widthDp = 411, heightDp = 1900)
 @Composable
-private fun BudgetDarkPreview() = Preview(previewState(), TripTab.BUDGET, darkTheme = true)
+internal fun BudgetDarkPreview() = Preview(previewState(), TripTab.BUDGET, darkTheme = true)
 
 @Preview(name = "Budget – narrow, large font", widthDp = 320, heightDp = 2400, fontScale = 1.5f)
 @Composable
-private fun BudgetNarrowPreview() = Preview(previewState(), TripTab.BUDGET)
+internal fun BudgetNarrowPreview() = Preview(previewState(), TripTab.BUDGET)
 
 @Preview(name = "Budget – no expenses", widthDp = 411, heightDp = 891)
 @Composable
-private fun BudgetEmptyPreview() = Preview(previewState(expenses = emptyList()), TripTab.BUDGET)
+internal fun BudgetEmptyPreview() = Preview(previewState(expenses = emptyList()), TripTab.BUDGET)
 
 @Preview(name = "Budget – only me", widthDp = 411, heightDp = 1900)
 @Composable
-private fun BudgetOnlyMePreview() = Preview(previewState(travelers = emptyList()), TripTab.BUDGET)
+internal fun BudgetOnlyMePreview() = Preview(previewState(travelers = emptyList()), TripTab.BUDGET)
 
 @Preview(name = "Budget – all settled up", widthDp = 411, heightDp = 1900)
 @Composable
-private fun BudgetSettledPreview() {
+internal fun BudgetSettledPreview() {
     val state = previewState()
     val order = travelerOrder(PREVIEW_ME, state.trip.memberIds, state.travelers)
     // Pay every open debt.
@@ -330,47 +330,47 @@ private fun BudgetSettledPreview() {
 
 @Preview(name = "Overview – narrow, large font", widthDp = 320, heightDp = 1000, fontScale = 1.5f)
 @Composable
-private fun OverviewNarrowPreview() = Preview(
+internal fun OverviewNarrowPreview() = Preview(
     previewState(previewTrip.copy(destination = "San Carlos de Bariloche, Argentina", budgetAgorot = 1_250_000)),
     TripTab.OVERVIEW,
 )
 
 @Preview(name = "Plan", widthDp = 411, heightDp = 2100)
 @Composable
-private fun PlanPreview() = Preview(previewState(), TripTab.PLAN)
+internal fun PlanPreview() = Preview(previewState(), TripTab.PLAN)
 
 @Preview(name = "Plan – all types, dark", widthDp = 411, heightDp = 2100)
 @Composable
-private fun PlanDarkPreview() = Preview(previewState(), TripTab.PLAN, darkTheme = true)
+internal fun PlanDarkPreview() = Preview(previewState(), TripTab.PLAN, darkTheme = true)
 
 @Preview(name = "Overview – dark", widthDp = 411, heightDp = 1500)
 @Composable
-private fun OverviewDarkPreview() = Preview(previewState(), TripTab.OVERVIEW, darkTheme = true)
+internal fun OverviewDarkPreview() = Preview(previewState(), TripTab.OVERVIEW, darkTheme = true)
 
 @Preview(name = "Plan – empty day, dark", widthDp = 411, heightDp = 1000)
 @Composable
-private fun PlanEmptyDayPreview() =
+internal fun PlanEmptyDayPreview() =
     Preview(previewState(planDay = nov12.plusDays(5)), TripTab.PLAN, darkTheme = true)
 
 @Preview(name = "Prep", widthDp = 411, heightDp = 1700)
 @Composable
-private fun PrepPreview() = Preview(previewState(), TripTab.PREP)
+internal fun PrepPreview() = Preview(previewState(), TripTab.PREP)
 
 @Preview(name = "Prep – dark", widthDp = 411, heightDp = 1700)
 @Composable
-private fun PrepDarkPreview() = Preview(previewState(), TripTab.PREP, darkTheme = true)
+internal fun PrepDarkPreview() = Preview(previewState(), TripTab.PREP, darkTheme = true)
 
 @Preview(name = "Prep – empty", widthDp = 411, heightDp = 1300)
 @Composable
-private fun PrepEmptyPreview() = Preview(previewState(), TripTab.PREP, prep = previewPrep(emptyList(), emptyList()))
+internal fun PrepEmptyPreview() = Preview(previewState(), TripTab.PREP, prep = previewPrep(emptyList(), emptyList()))
 
 @Preview(name = "Prep – narrow, large font", widthDp = 320, heightDp = 2200, fontScale = 1.5f)
 @Composable
-private fun PrepNarrowPreview() = Preview(previewState(), TripTab.PREP)
+internal fun PrepNarrowPreview() = Preview(previewState(), TripTab.PREP)
 
 @Preview(name = "Plan – outside trip dates", widthDp = 411, heightDp = 1200)
 @Composable
-private fun PlanOutsidePreview() = Preview(
+internal fun PlanOutsidePreview() = Preview(
     previewState(
         // Dates moved one day later: the four activities of 12 Nov are now outside the trip.
         previewTrip.copy(startDate = nov12.plusDays(1), endDate = nov12.plusDays(6)),
@@ -380,9 +380,9 @@ private fun PlanOutsidePreview() = Preview(
 
 @Preview(name = "Plan – narrow, large font", widthDp = 320, heightDp = 1600, fontScale = 1.5f)
 @Composable
-private fun PlanNarrowPreview() = Preview(previewState(), TripTab.PLAN)
+internal fun PlanNarrowPreview() = Preview(previewState(), TripTab.PLAN)
 
 @Preview(name = "Overview – long trip progress", widthDp = 411, heightDp = 1400)
 @Composable
-private fun OverviewLongTripPreview() =
+internal fun OverviewLongTripPreview() =
     Preview(previewState(previewTrip.copy(endDate = nov12.plusDays(20))), TripTab.OVERVIEW)

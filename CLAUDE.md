@@ -54,7 +54,8 @@ Detailed references live in `docs/` (see "Detailed docs" at the end). Read the r
 - Lint: `./gradlew lintDebug` must report "No issues found" (dependency version checks are off in `app/lint.xml`:
   versions are pinned for Kotlin 2.0.21).
 - Instrumented tests (needs an emulator; Room tests + Compose layout tests `ui/LayoutPolishTest`, which save pictures to
-  the app's `files/layout-checks/`): airplane mode on, `assembleDebug assembleDebugAndroidTest`, `adb install -r` both
+  the app's `files/layout-checks/`, and `ui/ScreenshotBaselineTest`, every `@Preview` to `files/screenshots/` for
+  before/after comparisons, see `docs/testing.md`): airplane mode on, `assembleDebug assembleDebugAndroidTest`, `adb install -r` both
   APKs, `adb shell am instrument -w com.example.planyourtrip.test/androidx.test.runner.AndroidJUnitRunner`, then
   uninstall only `com.example.planyourtrip.test`.
 - Fire the trip reminders now (debug builds, emulator): `adb shell am broadcast -a
@@ -226,7 +227,8 @@ Reference images in `design/`; match them, with the deliberate differences noted
 - **Never orange** for types/categories/travelers: orange (`budgetWarning`) means a warning. Keep `TintedColorsTest`
   passing when changing colors. Dynamic color is disabled on purpose. A dark scheme exists for every token.
 - Typography is bundled Inter via named styles in `Type.kt`; never write `fontSize`/`letterSpacing` in screens.
-  Sizes and breakpoints live in `Dimens.kt`. Shapes in `Shape.kt`; buttons are pills.
+  Sizes and breakpoints live in `Dimens.kt`, gaps in its `Spacing` scale, icon sizes in `IconSize`; no raw `N.dp` in
+  screens (one-file sizes are named `private val`s). Shapes in `Shape.kt`; buttons are pills.
 - **Long text never gets cut off**; check new layouts at 320dp / font scale 1.5.
 - Reuse the shared components (`PrimaryButton`, `BackTopAppBar`, `DateField`, `Pill`, `EditFormScaffold`,
   `ConfirmDeleteDialog`, `TintedFilterChip`, …) before writing new UI. Icons are vector drawables in `res/drawable`,

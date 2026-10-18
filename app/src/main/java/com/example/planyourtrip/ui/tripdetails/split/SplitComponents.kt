@@ -61,6 +61,8 @@ import com.example.planyourtrip.ui.common.split.Person
 import com.example.planyourtrip.ui.common.split.Transfer
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
+import com.example.planyourtrip.ui.theme.IconSize
+import com.example.planyourtrip.ui.theme.Spacing
 import com.example.planyourtrip.ui.tripdetails.components.TravelerAvatar
 import com.example.planyourtrip.ui.tripdetails.components.personName
 
@@ -103,7 +105,7 @@ fun TravelersSection(
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.semantics { heading() },
             )
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(Spacing.sPlus))
             val countDescription = pluralStringResource(R.plurals.travelers_count_description, count, count)
             Pill(
                 text = count.toString(),
@@ -112,13 +114,13 @@ fun TravelersSection(
                 modifier = Modifier.clearAndSetSemantics { contentDescription = countDescription },
             )
         }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(Spacing.m))
         Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.s),
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState())
-                .padding(horizontal = Dimens.ScreenPadding - 4.dp),
+                .padding(horizontal = Dimens.ScreenPadding - Spacing.xs),
         ) {
             state.people.forEach { person ->
                 val traveler = state.travelers.firstOrNull { it.uuid == person.key }
@@ -146,10 +148,10 @@ private fun TravelerItem(person: Person, onClick: (() -> Unit)?) {
             .clip(MaterialTheme.shapes.medium)
             .then(if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick) else Modifier)
             .clearAndSetSemantics { contentDescription = description }
-            .padding(vertical = 4.dp),
+            .padding(vertical = Spacing.xs),
     ) {
         TravelerAvatar(person, Dimens.TravelerAvatarSize)
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(Spacing.s))
         Text(
             text = name,
             style = MaterialTheme.typography.bodyMedium,
@@ -201,24 +203,24 @@ fun MergeSuggestionCard(
     Surface(
         shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shadowElevation = 1.dp,
+        shadowElevation = Dimens.CardElevation,
         modifier = modifier.fillMaxWidth(),
     ) {
-        Column(Modifier.padding(24.dp)) {
+        Column(Modifier.padding(Spacing.xxl)) {
             Text(
                 text = question,
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(Spacing.xsPlus))
             Text(
                 text = body,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(Spacing.m))
             FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.s, Alignment.End),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 if (suggestion.blocked != null) {
@@ -249,28 +251,28 @@ private fun AddTravelerItem(onClick: () -> Unit) {
             .clip(MaterialTheme.shapes.medium)
             .clickable(role = Role.Button, onClick = onClick)
             .clearAndSetSemantics { contentDescription = description }
-            .padding(vertical = 4.dp),
+            .padding(vertical = Spacing.xs),
     ) {
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
                 .size(Dimens.TravelerAvatarSize)
                 .drawBehind {
-                    val stroke = 1.5.dp.toPx()
+                    val stroke = DashedStroke.toPx()
                     drawCircle(
                         color = outline,
                         radius = size.minDimension / 2 - stroke / 2,
                         center = Offset(size.width / 2, size.height / 2),
                         style = Stroke(
                             width = stroke,
-                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 4.dp.toPx())),
+                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(DashOn.toPx(), DashOff.toPx())),
                         ),
                     )
                 },
         ) {
             Icon(painterResource(R.drawable.ic_add), contentDescription = null, tint = muted)
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(Spacing.s))
         Text(
             text = stringResource(R.string.travelers_add),
             style = MaterialTheme.typography.bodyMedium,
@@ -281,7 +283,7 @@ private fun AddTravelerItem(onClick: () -> Unit) {
 }
 
 /** Avatar + room for a short name under it. */
-private val TravelerItemWidth = Dimens.TravelerAvatarSize + 16.dp
+private val TravelerItemWidth = Dimens.TravelerAvatarSize + Spacing.l
 
 /**
  * "Who owes whom": one row per open transfer (two avatars with an arrow, the sentence, the amount) and "Settle up";
@@ -296,10 +298,10 @@ fun WhoOwesWhomCard(
     Surface(
         shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shadowElevation = 1.dp,
+        shadowElevation = Dimens.CardElevation,
         modifier = modifier.fillMaxWidth(),
     ) {
-        Column(Modifier.padding(24.dp)) {
+        Column(Modifier.padding(Spacing.xxl)) {
             Text(
                 text = stringResource(R.string.owes_title),
                 style = MaterialTheme.typography.titleLarge,
@@ -307,10 +309,10 @@ fun WhoOwesWhomCard(
                 modifier = Modifier.semantics { heading() },
             )
             owesSummary(state.transfers, state.me)?.let {
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(Spacing.xs))
                 OwesSummaryLine(it)
             }
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(Spacing.xs))
             Text(
                 text = pluralStringResource(
                     R.plurals.owes_subtitle, state.sharedExpenseCount, state.sharedExpenseCount,
@@ -318,19 +320,19 @@ fun WhoOwesWhomCard(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(Spacing.l))
             if (state.transfers.isEmpty()) {
                 SettledUp()
                 if (state.settlements.isNotEmpty()) {
-                    TextButton(onClick = actions.onShowHistory, modifier = Modifier.padding(top = 4.dp)) {
+                    TextButton(onClick = actions.onShowHistory, modifier = Modifier.padding(top = Spacing.xs)) {
                         Text(stringResource(R.string.settle_history))
                     }
                 }
             } else {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
                     state.transfers.forEach { TransferRow(it, state) }
                 }
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(Spacing.l))
                 SettleUpButton(actions.onSettleUp)
             }
         }
@@ -344,14 +346,14 @@ private fun SettledUp() {
         modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.shapes.large)
-            .padding(16.dp),
+            .padding(Spacing.l),
     ) {
         Icon(
             painterResource(R.drawable.ic_check_circle),
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
         )
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(Spacing.m))
         Text(
             text = stringResource(R.string.owes_settled),
             style = MaterialTheme.typography.titleMedium,
@@ -405,7 +407,7 @@ fun TransferRow(transfer: Transfer, state: SplitUiState.Loaded, modifier: Modifi
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.shapes.large)
             .clearAndSetSemantics { contentDescription = description }
-            .padding(horizontal = 12.dp, vertical = 12.dp),
+            .padding(horizontal = Spacing.m, vertical = Spacing.m),
     ) {
         val maxWidthPx = constraints.maxWidth
         val layout = remember(sentence, amount, sentenceStyle, amountStyle, maxWidthPx, density) {
@@ -447,10 +449,10 @@ fun TransferRow(transfer: Transfer, state: SplitUiState.Loaded, modifier: Modifi
                     Spacer(Modifier.weight(1f).widthIn(min = TransferGap))
                     amountText()
                 }
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(Spacing.s))
                 sentenceText(Modifier.fillMaxWidth())
             }
-            TransferLayout.STACKED -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            TransferLayout.STACKED -> Column(verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
                 TransferAvatars(from, to)
                 sentenceText(Modifier.fillMaxWidth())
                 amountText()
@@ -462,10 +464,10 @@ fun TransferRow(transfer: Transfer, state: SplitUiState.Loaded, modifier: Modifi
 private enum class TransferLayout { ONE_LINE, SENTENCE_BELOW, STACKED }
 
 /** Between the avatars, the sentence and the amount. */
-private val TransferGap = 8.dp
+private val TransferGap = Spacing.s
 
 /** [TransferAvatars]: two small avatars and the 16dp arrow with 4dp on each side. */
-private val TransferAvatarsWidth = Dimens.TravelerAvatarSmallSize * 2 + 24.dp
+private val TransferAvatarsWidth = Dimens.TravelerAvatarSmallSize * 2 + Spacing.xxl
 
 /** The payer's avatar, an arrow, the receiver's avatar. */
 @Composable
@@ -477,8 +479,8 @@ fun TransferAvatars(from: Person, to: Person) {
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier
-                .padding(horizontal = 4.dp)
-                .size(16.dp),
+                .padding(horizontal = Spacing.xs)
+                .size(IconSize.xs),
         )
         TravelerAvatar(to, Dimens.TravelerAvatarSmallSize)
     }
@@ -519,15 +521,20 @@ private fun SettleUpButton(onClick: () -> Unit) {
         Row(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(vertical = 14.dp, horizontal = 16.dp),
+            modifier = Modifier.padding(vertical = Spacing.mPlus, horizontal = Spacing.l),
         ) {
             Icon(
                 painterResource(R.drawable.ic_wallet),
                 contentDescription = null,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(IconSize.m),
             )
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(Spacing.s))
             Text(stringResource(R.string.settle_up), style = MaterialTheme.typography.labelLarge)
         }
     }
 }
+
+/** The dashed "+ Add" circle. */
+private val DashedStroke = 1.5.dp
+private val DashOn = 5.dp
+private val DashOff = 4.dp

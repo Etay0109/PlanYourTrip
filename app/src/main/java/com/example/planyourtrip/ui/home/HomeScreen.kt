@@ -70,6 +70,7 @@ import com.example.planyourtrip.ui.home.join.JoinTripViewModel
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
 import com.example.planyourtrip.ui.theme.PlanYourTripTheme
+import com.example.planyourtrip.ui.theme.Spacing
 import java.time.LocalDate
 
 @Composable
@@ -194,7 +195,7 @@ fun HomeContent(
         floatingActionButton = {
             // "Join trip" next to "Add trip", across the bottom (design/home_join.png).
             Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.m),
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -207,13 +208,13 @@ fun HomeContent(
                         containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
                         contentColor = MaterialTheme.colorScheme.primary,
                     ),
-                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    contentPadding = PaddingValues(horizontal = Spacing.l),
                     modifier = Modifier
                         .weight(1f)
-                        .height(56.dp),
+                        .height(JoinButtonHeight),
                 ) {
                     Icon(painterResource(R.drawable.ic_key), contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(Spacing.s))
                     Text(
                         stringResource(R.string.join_trip),
                         style = MaterialTheme.typography.titleMedium,
@@ -256,10 +257,10 @@ fun HomeContent(
                 contentPadding = PaddingValues(
                     start = innerPadding.calculateStartPadding(layoutDirection) + Dimens.ScreenPadding,
                     end = innerPadding.calculateEndPadding(layoutDirection) + Dimens.ScreenPadding,
-                    top = innerPadding.calculateTopPadding() + 32.dp,
-                    bottom = innerPadding.calculateBottomPadding() + 104.dp,
+                    top = innerPadding.calculateTopPadding() + Spacing.xxxl,
+                    bottom = innerPadding.calculateBottomPadding() + FabListClearance,
                 ),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(Spacing.l),
             ) {
                 item(key = "header") {
                     HomeHeader(content, account, accountActions)
@@ -279,7 +280,7 @@ fun HomeContent(
                             deletePending = deletingTripId == next.trip.id,
                             onDelete = { onDeleteTrip(next.trip) },
                             leave = !content.isOwner(next.trip),
-                            modifier = Modifier.animateItem().padding(top = 8.dp),
+                            modifier = Modifier.animateItem().padding(top = Spacing.s),
                         ) {
                             NextTripCard(
                                 next = next,
@@ -387,7 +388,7 @@ private fun HomeHeader(content: HomeUiState.Content, account: AccountState?, acc
             )
         }
         if (account != null) {
-            Spacer(Modifier.width(16.dp))
+            Spacer(Modifier.width(Spacing.l))
             AccountButton(account, accountActions, size = Dimens.AvatarSize)
         }
     }
@@ -405,7 +406,7 @@ private fun SectionHeader(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(top = 16.dp),
+            .padding(top = Spacing.l),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -423,25 +424,25 @@ private fun EmptyState(onAddTrip: () -> Unit, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(top = 64.dp, start = 12.dp, end = 12.dp),
+            .padding(top = EmptyStateTopPadding, start = Spacing.m, end = Spacing.m),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        BrandMark(size = 96.dp, iconSize = 44.dp)
-        Spacer(Modifier.height(24.dp))
+        BrandMark(size = Dimens.EmptyStateMarkSize, iconSize = Dimens.EmptyStateMarkIconSize)
+        Spacer(Modifier.height(Spacing.xxl))
         Text(
             text = stringResource(R.string.home_empty_title),
             style = MaterialTheme.typography.headlineSmall,
             color = MaterialTheme.colorScheme.onBackground,
             textAlign = TextAlign.Center,
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(Spacing.s))
         Text(
             text = stringResource(R.string.home_empty_body),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(Spacing.xxl))
         PrimaryButton(text = stringResource(R.string.home_empty_button), onClick = onAddTrip)
     }
 }
@@ -467,7 +468,7 @@ private val previewAccount = AccountState(userName = "Etay Zahavi", email = "tra
 
 @Preview(name = "Home", widthDp = 411, heightDp = 891)
 @Composable
-private fun HomePreview() {
+internal fun HomePreview() {
     PlanYourTripTheme(darkTheme = false) {
         HomeContent(previewState(previewTrips), previewAccount, onAddTrip = {}, onTripClick = {}, onShareTrip = {})
     }
@@ -475,7 +476,7 @@ private fun HomePreview() {
 
 @Preview(name = "Home – narrow, large font", widthDp = 320, heightDp = 800, fontScale = 1.5f)
 @Composable
-private fun HomeNarrowPreview() {
+internal fun HomeNarrowPreview() {
     PlanYourTripTheme(darkTheme = false) {
         HomeContent(
             previewState(
@@ -499,7 +500,7 @@ private fun HomeNarrowPreview() {
 
 @Preview(name = "Home – dark", widthDp = 411, heightDp = 891)
 @Composable
-private fun HomeDarkPreview() {
+internal fun HomeDarkPreview() {
     PlanYourTripTheme(darkTheme = true) {
         HomeContent(previewState(previewTrips), previewAccount, onAddTrip = {}, onTripClick = {}, onShareTrip = {})
     }
@@ -507,8 +508,17 @@ private fun HomeDarkPreview() {
 
 @Preview(name = "Home – empty", widthDp = 411, heightDp = 891)
 @Composable
-private fun HomeEmptyPreview() {
+internal fun HomeEmptyPreview() {
     PlanYourTripTheme(darkTheme = false) {
         HomeContent(previewState(emptyList()), previewAccount, onAddTrip = {}, onTripClick = {}, onShareTrip = {})
     }
 }
+
+/** The outlined "Join trip" button next to the floating "New trip" button. */
+private val JoinButtonHeight = 56.dp
+
+/** Extra space under the trip list, so the last card scrolls above the floating buttons. */
+private val FabListClearance = 104.dp
+
+/** The empty state's distance from the top bar. */
+private val EmptyStateTopPadding = 64.dp

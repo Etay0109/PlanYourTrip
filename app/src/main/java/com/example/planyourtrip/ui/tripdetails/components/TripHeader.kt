@@ -49,6 +49,8 @@ import com.example.planyourtrip.ui.common.statusLabel
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
 import com.example.planyourtrip.ui.theme.HeroPhotoScrim
+import com.example.planyourtrip.ui.theme.IconSize
+import com.example.planyourtrip.ui.theme.Spacing
 import com.example.planyourtrip.ui.theme.isLargeFontScale
 
 /**
@@ -93,7 +95,7 @@ fun TripHeader(
         BoxWithConstraints(
             modifier = Modifier
                 .statusBarsPadding()
-                .padding(start = Dimens.ScreenPadding, end = Dimens.ScreenPadding, top = 12.dp, bottom = 28.dp),
+                .padding(start = Dimens.ScreenPadding, end = Dimens.ScreenPadding, top = Spacing.m, bottom = Spacing.xxlPlus),
         ) {
             // Three buttons leave little room: on narrow screens or large fonts the badge gets its own line.
             val badgeInline = maxWidth >= Dimens.NarrowContentWidth && !isLargeFontScale()
@@ -103,20 +105,20 @@ fun TripHeader(
                     Spacer(Modifier.weight(1f))
                     if (status != null && badgeInline) {
                         StatusBadge(statusLabel(status), photo)
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(Spacing.s))
                     }
                     HeaderButton(R.drawable.ic_edit, stringResource(R.string.trip_edit), onEdit, photo)
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(Spacing.s))
                     val moreDescription = stringResource(R.string.share_more_options, trip.destination)
                     TripMoreMenu(onShare, onDelete, isOwner = isOwner) { open ->
                         HeaderButton(R.drawable.ic_more_vert, moreDescription, open, photo)
                     }
                 }
                 if (status != null && !badgeInline) {
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(Spacing.l))
                     StatusBadge(statusLabel(status), photo)
                 }
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(Spacing.xl))
                 DestinationTitle(
                     destination = trip.destination,
                     countryCode = trip.countryCode,
@@ -125,7 +127,7 @@ fun TripHeader(
                     maxLines = 3,
                     modifier = photo.track(TITLE_AREA),
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(Spacing.s))
                 TripDatesRow(
                     start = trip.startDate,
                     end = trip.endDate,
@@ -177,10 +179,10 @@ private fun HeaderButton(@DrawableRes icon: Int, description: String, onClick: (
         shape = CircleShape,
         color = photo.chipColor(),
         contentColor = colors.onHero,
-        modifier = Modifier.size(Dimens.IconChipSize + 8.dp),
+        modifier = Modifier.size(Dimens.IconChipSize + Spacing.s),
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Icon(painterResource(icon), contentDescription = description, modifier = Modifier.size(24.dp))
+            Icon(painterResource(icon), contentDescription = description, modifier = Modifier.size(IconSize.xl))
         }
     }
 }
@@ -192,15 +194,15 @@ private fun StatusBadge(text: String, photo: HeroPhotoState) {
     Row(
         modifier = Modifier
             .background(photo.chipColor(), CircleShape)
-            .padding(horizontal = 14.dp, vertical = 8.dp),
+            .padding(horizontal = Spacing.mPlus, vertical = Spacing.s),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             Modifier
-                .size(8.dp)
+                .size(Dimens.Dot)
                 .background(photo.mutedTextColor(), CircleShape)
         )
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(Spacing.s))
         Text(text = text, style = MaterialTheme.typography.labelMedium, color = colors.onHero, maxLines = 1)
     }
 }

@@ -11,8 +11,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.ui.common.currencyFlag
+import com.example.planyourtrip.ui.theme.Spacing
 
 /**
  * A flag emoji ([com.example.planyourtrip.ui.common.countryFlag] / `currencyFlag`) as its own text, next to the name
@@ -30,7 +30,7 @@ fun CurrencyCodeLabel(code: String, style: TextStyle, color: Color, modifier: Mo
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         currencyFlag(code)?.let {
             FlagEmoji(it, style = style)
-            Spacer(Modifier.width(4.dp))
+            Spacer(Modifier.width(Spacing.xs))
         }
         Text(code, style = style, color = color, maxLines = 1)
     }

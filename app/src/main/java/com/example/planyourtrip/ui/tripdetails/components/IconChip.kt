@@ -14,11 +14,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.data.trip.ExpenseCategory
 import com.example.planyourtrip.ui.common.iconRes
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
+import com.example.planyourtrip.ui.theme.IconSize
 
 /** Round gray chip with a teal icon (wallet, bookmark, plan) on the trip cards. */
 @Composable
@@ -33,7 +33,7 @@ fun IconChip(@DrawableRes icon: Int, modifier: Modifier = Modifier) {
             painter = painterResource(icon),
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(22.dp),
+            modifier = Modifier.size(IconSize.l),
         )
     }
 }
@@ -52,7 +52,7 @@ fun CategoryIcon(category: ExpenseCategory, modifier: Modifier = Modifier) {
             painter = painterResource(category.iconRes()),
             contentDescription = null,
             tint = color.content,
-            modifier = Modifier.size(22.dp),
+            modifier = Modifier.size(IconSize.l),
         )
     }
 }
@@ -71,7 +71,7 @@ fun ActivityTypeIcon(type: ActivityType, modifier: Modifier = Modifier) {
             painter = painterResource(type.iconRes()),
             contentDescription = stringResource(type.labelRes()),
             tint = color.content,
-            modifier = Modifier.size(20.dp),
+            modifier = Modifier.size(IconSize.m),
         )
     }
 }

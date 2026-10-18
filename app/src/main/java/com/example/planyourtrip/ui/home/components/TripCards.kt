@@ -32,6 +32,7 @@ import com.example.planyourtrip.ui.common.statusLabel
 import com.example.planyourtrip.ui.home.ActiveTrip
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
+import com.example.planyourtrip.ui.theme.Spacing
 import com.example.planyourtrip.ui.theme.isLargeFontScale
 
 /**
@@ -64,7 +65,7 @@ fun UpcomingTripCard(
                 TripDatesRow(item.trip.startDate, item.trip.endDate, currentYear, color, style)
             },
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-            shadowElevation = 1.dp,
+            shadowElevation = Dimens.CardElevation,
             letterContainer = pastel.container,
             letterContent = pastel.content,
             titleStyle = MaterialTheme.typography.titleLarge,
@@ -77,13 +78,13 @@ fun UpcomingTripCard(
             thumbUrl = thumbUrl,
             belowDates = {
                 if (!badgeInline) {
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(Spacing.s))
                     Pill(badge, colors.badgeContainer, colors.onBadge)
                 }
             },
             beforeMenu = {
                 if (badgeInline) {
-                    Spacer(Modifier.width(12.dp))
+                    Spacer(Modifier.width(Spacing.m))
                     Pill(badge, colors.badgeContainer, colors.onBadge)
                 }
             },
@@ -110,7 +111,7 @@ fun PastTripCard(
         countryCode = trip.countryCode,
         dates = { color, style -> TripDatesRow(TripFormatting.monthYear(trip.startDate), color, style) },
         containerColor = colors.pastCardContainer,
-        border = BorderStroke(1.dp, colors.pastCardBorder),
+        border = BorderStroke(Dimens.Hairline, colors.pastCardBorder),
         letterContainer = colors.pastLetterContainer,
         letterContent = colors.onPastCard,
         titleStyle = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Medium),
@@ -162,14 +163,14 @@ private fun TripListCard(
         modifier = modifier.fillMaxWidth(),
     ) {
         Row(
-            modifier = Modifier.padding(start = 16.dp, end = Dimens.CardMenuEndPadding, top = 16.dp, bottom = 16.dp),
+            modifier = Modifier.padding(start = Spacing.l, end = Dimens.CardMenuEndPadding, top = Spacing.l, bottom = Spacing.l),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             PhotoSquare(thumbUrl, destination, letterContainer, letterContent)
-            Spacer(Modifier.width(16.dp))
+            Spacer(Modifier.width(Spacing.l))
             Column(modifier = Modifier.weight(1f)) {
                 DestinationTitle(destination, countryCode, titleStyle, titleColor, maxLines = 2)
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(Spacing.xs))
                 dates(datesColor, MaterialTheme.typography.bodyLarge)
                 belowDates()
             }

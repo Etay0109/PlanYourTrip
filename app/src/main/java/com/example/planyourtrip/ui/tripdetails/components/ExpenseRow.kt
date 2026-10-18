@@ -21,7 +21,6 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.R
 import com.example.planyourtrip.data.trip.Expense
 import com.example.planyourtrip.ui.common.TripFormatting
@@ -30,6 +29,7 @@ import com.example.planyourtrip.ui.common.shekels
 import com.example.planyourtrip.ui.common.split.Person
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
+import com.example.planyourtrip.ui.theme.Spacing
 import com.example.planyourtrip.ui.tripdetails.expense.ExpenseCurrency
 
 /** Who paid an expense and who shares it, shown only when the trip has other travelers. */
@@ -60,15 +60,15 @@ fun ExpenseRow(
         onClick = onClick,
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shadowElevation = 1.dp,
+        shadowElevation = Dimens.CardElevation,
         modifier = modifier.fillMaxWidth(),
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(Spacing.l),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             CategoryIcon(expense.category)
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(Spacing.m))
             Column(Modifier.weight(1f)) {
                 Text(
                     text = expense.name,
@@ -77,10 +77,10 @@ fun ExpenseRow(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(Spacing.xs))
                 FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.s),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.xs),
                     itemVerticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
@@ -95,10 +95,10 @@ fun ExpenseRow(
                     )
                 }
                 if (split != null) {
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(Spacing.xs))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         TravelerAvatar(split.payer, Dimens.TravelerAvatarTinySize)
-                        Spacer(Modifier.width(6.dp))
+                        Spacer(Modifier.width(Spacing.xsPlus))
                         Text(
                             text = splitLine(split),
                             style = MaterialTheme.typography.bodySmall,
@@ -107,7 +107,7 @@ fun ExpenseRow(
                     }
                 }
             }
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(Spacing.m))
             Column(horizontalAlignment = Alignment.End) {
                 Text(
                     text = shekels(expense.amountAgorot),

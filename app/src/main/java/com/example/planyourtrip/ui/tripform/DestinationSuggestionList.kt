@@ -41,6 +41,8 @@ import com.example.planyourtrip.ui.common.components.FlagEmoji
 import com.example.planyourtrip.ui.common.components.Pill
 import com.example.planyourtrip.ui.common.countryFlag
 import com.example.planyourtrip.ui.theme.Dimens
+import com.example.planyourtrip.ui.theme.IconSize
+import com.example.planyourtrip.ui.theme.Spacing
 
 /**
  * The destination [field] with the search bar and the suggestion list drawn **under** it, over the fields that
@@ -122,7 +124,7 @@ fun DestinationSuggestionList(suggestions: List<PlaceSuggestion>, onPick: (Place
     Surface(
         shape = MaterialTheme.shapes.small,
         color = MaterialTheme.colorScheme.surfaceContainerLowest,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        border = BorderStroke(Dimens.Hairline, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column {
@@ -134,7 +136,7 @@ fun DestinationSuggestionList(suggestions: List<PlaceSuggestion>, onPick: (Place
                 text = stringResource(R.string.place_suggestions_attribution),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = Spacing.l, vertical = Spacing.s),
             )
         }
     }
@@ -146,7 +148,7 @@ private fun NeedsInternetNote() {
     Surface(
         shape = MaterialTheme.shapes.small,
         color = MaterialTheme.colorScheme.surfaceContainerLowest,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        border = BorderStroke(Dimens.Hairline, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier
             .fillMaxWidth()
             .semantics { liveRegion = LiveRegionMode.Polite },
@@ -155,7 +157,7 @@ private fun NeedsInternetNote() {
             text = stringResource(R.string.place_search_needs_internet),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.padding(horizontal = Spacing.l, vertical = Spacing.m),
         )
     }
 }
@@ -166,9 +168,9 @@ private fun SuggestionRow(suggestion: PlaceSuggestion, onPick: (PlaceSuggestion)
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = Dimens.TouchTarget + 8.dp)
+            .heightIn(min = Dimens.TouchTarget + Spacing.s)
             .clickable(role = Role.Button) { onPick(suggestion) }
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(horizontal = Spacing.l, vertical = Spacing.sPlus),
     ) {
         // A fixed slot, so names line up also next to a place without a country.
         Box(Modifier.width(Dimens.SuggestionFlagWidth), contentAlignment = Alignment.CenterStart) {
@@ -180,11 +182,11 @@ private fun SuggestionRow(suggestion: PlaceSuggestion, onPick: (PlaceSuggestion)
                     painter = painterResource(R.drawable.ic_location),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(22.dp),
+                    modifier = Modifier.size(IconSize.l),
                 )
             }
         }
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(Spacing.s))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -196,7 +198,7 @@ private fun SuggestionRow(suggestion: PlaceSuggestion, onPick: (PlaceSuggestion)
                     modifier = Modifier.weight(1f, fill = false),
                 )
                 suggestion.regionKind?.let { kind ->
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(Spacing.s))
                     Pill(
                         text = stringResource(kind.labelRes()),
                         container = MaterialTheme.colorScheme.surfaceContainerHighest,

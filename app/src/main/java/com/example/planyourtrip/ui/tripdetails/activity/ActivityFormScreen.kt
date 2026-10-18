@@ -32,7 +32,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.planyourtrip.R
@@ -47,6 +46,7 @@ import com.example.planyourtrip.ui.common.iconRes
 import com.example.planyourtrip.ui.common.labelRes
 import com.example.planyourtrip.ui.theme.ExtendedTheme
 import com.example.planyourtrip.ui.theme.PlanYourTripTheme
+import com.example.planyourtrip.ui.theme.Spacing
 import java.time.LocalDate
 import java.time.LocalTime
 
@@ -142,7 +142,7 @@ fun ActivityFormContent(
             color = MaterialTheme.colorScheme.onBackground,
         )
         FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.s),
             modifier = Modifier.fillMaxWidth(),
         ) {
             ActivityType.entries.forEach { type ->
@@ -156,7 +156,7 @@ fun ActivityFormContent(
                 )
             }
         }
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(Spacing.xs))
 
         DateField(
             label = R.string.activity_date,
@@ -218,7 +218,7 @@ private fun BookedRow(booked: Boolean, onBookedChange: (Boolean) -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .toggleable(value = booked, role = Role.Switch, onValueChange = onBookedChange)
-            .padding(vertical = 8.dp),
+            .padding(vertical = Spacing.s),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
@@ -233,7 +233,7 @@ private fun BookedRow(booked: Boolean, onBookedChange: (Boolean) -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(Spacing.m))
         // The whole row toggles; the switch only shows the value.
         Switch(checked = booked, onCheckedChange = null)
     }
@@ -252,7 +252,7 @@ private val previewActions = ActivityFormActions(
 
 @Preview(showBackground = true, heightDp = 1100)
 @Composable
-private fun ActivityFormPreview() {
+internal fun ActivityFormPreview() {
     PlanYourTripTheme(darkTheme = false) {
         ActivityFormContent(
             state = ActivityFormUiState(
@@ -276,7 +276,7 @@ private fun ActivityFormPreview() {
 
 @Preview(name = "Activity form – narrow, large font", widthDp = 320, heightDp = 1400, fontScale = 1.5f)
 @Composable
-private fun ActivityFormNarrowPreview() {
+internal fun ActivityFormNarrowPreview() {
     PlanYourTripTheme(darkTheme = false) {
         ActivityFormContent(
             state = ActivityFormUiState(isLoading = false, date = LocalDate.of(2026, 11, 12)),
@@ -288,7 +288,7 @@ private fun ActivityFormNarrowPreview() {
 
 @Preview(name = "Activity form – dining selected, dark", heightDp = 1100)
 @Composable
-private fun ActivityFormDarkPreview() {
+internal fun ActivityFormDarkPreview() {
     PlanYourTripTheme(darkTheme = true) {
         ActivityFormContent(
             state = ActivityFormUiState(

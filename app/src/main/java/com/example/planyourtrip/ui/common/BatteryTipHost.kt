@@ -19,10 +19,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.R
 import com.example.planyourtrip.data.reminder.canUseExactAlarms
 import com.example.planyourtrip.data.reminder.isSamsung
+import com.example.planyourtrip.ui.theme.Spacing
 
 /** The app is already left out of battery optimization (then the battery screen is never offered). */
 fun Context.isIgnoringBatteryOptimizations(): Boolean =
@@ -43,7 +43,7 @@ fun BatteryTipDialog(onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.battery_tip_title)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
                 Text(stringResource(R.string.battery_tip_body))
                 if (isSamsung(Build.MANUFACTURER)) {
                     Text(

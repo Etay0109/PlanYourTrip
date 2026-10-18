@@ -9,7 +9,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.unit.dp
+import com.example.planyourtrip.ui.theme.Dimens
+import com.example.planyourtrip.ui.theme.IconSize
 import com.example.planyourtrip.ui.theme.TintedColor
 
 /**
@@ -29,7 +30,7 @@ fun TintedFilterChip(
         onClick = onClick,
         label = { Text(label) },
         leadingIcon = {
-            Icon(painterResource(icon), contentDescription = null, modifier = Modifier.size(18.dp))
+            Icon(painterResource(icon), contentDescription = null, modifier = Modifier.size(IconSize.s))
         },
         colors = FilterChipDefaults.filterChipColors(
             iconColor = color.content,
@@ -41,7 +42,7 @@ fun TintedFilterChip(
             enabled = true,
             selected = selected,
             selectedBorderColor = color.content,
-            selectedBorderWidth = 1.dp,
+            selectedBorderWidth = Dimens.Hairline,
         ),
     )
 }

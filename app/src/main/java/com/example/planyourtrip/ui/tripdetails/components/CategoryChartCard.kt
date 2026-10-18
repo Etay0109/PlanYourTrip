@@ -44,6 +44,7 @@ import com.example.planyourtrip.ui.common.wholeShekels
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
 import com.example.planyourtrip.ui.theme.HeroLabelStyle
+import com.example.planyourtrip.ui.theme.Spacing
 import com.example.planyourtrip.ui.theme.isLargeFontScale
 import com.example.planyourtrip.ui.theme.minFitTextScale
 
@@ -57,28 +58,28 @@ fun CategoryChartCard(totals: List<CategoryTotal>, modifier: Modifier = Modifier
     Surface(
         shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shadowElevation = 1.dp,
+        shadowElevation = Dimens.CardElevation,
         modifier = modifier.fillMaxWidth(),
     ) {
-        Column(Modifier.padding(24.dp)) {
+        Column(Modifier.padding(Spacing.xxl)) {
             Text(
                 text = stringResource(R.string.budget_by_category),
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(Spacing.xl))
             BoxWithConstraints {
                 val stacked = maxWidth < Dimens.NarrowContentWidth || isLargeFontScale()
                 if (stacked) {
                     Column {
-                        Donut(totals, Modifier.align(Alignment.CenterHorizontally).size(160.dp))
-                        Spacer(Modifier.height(20.dp))
+                        Donut(totals, Modifier.align(Alignment.CenterHorizontally).size(DonutSize))
+                        Spacer(Modifier.height(Spacing.xl))
                         Legend(totals)
                     }
                 } else {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Donut(totals, Modifier.size(140.dp))
-                        Spacer(Modifier.width(20.dp))
+                        Donut(totals, Modifier.size(DonutSizeCompact))
+                        Spacer(Modifier.width(Spacing.xl))
                         Legend(totals, Modifier.weight(1f))
                     }
                 }
@@ -89,7 +90,7 @@ fun CategoryChartCard(totals: List<CategoryTotal>, modifier: Modifier = Modifier
 
 @Composable
 private fun Legend(totals: List<CategoryTotal>, modifier: Modifier = Modifier) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(Spacing.sPlus)) {
         totals.forEach { LegendRow(it) }
     }
 }
@@ -103,7 +104,7 @@ private fun Donut(totals: List<CategoryTotal>, modifier: Modifier = Modifier) {
     val description = stringResource(R.string.budget_chart_description)
     Box(modifier.semantics { contentDescription = description }, contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
-            val strokeWidth = 22.dp.toPx()
+            val strokeWidth = DonutStroke.toPx()
             val inset = strokeWidth / 2
             val arcSize = Size(size.width - strokeWidth, size.height - strokeWidth)
             if (slices.isEmpty()) {
@@ -128,7 +129,7 @@ private fun Donut(totals: List<CategoryTotal>, modifier: Modifier = Modifier) {
                 start += sweep
             }
         }
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(horizontal = 28.dp)) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(horizontal = Spacing.xxlPlus)) {
             Text(
                 text = stringResource(R.string.budget_chart_total),
                 style = HeroLabelStyle,
@@ -174,10 +175,10 @@ private fun LegendRow(total: CategoryTotal) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
             Modifier
-                .size(10.dp)
+                .size(Dimens.DotLarge)
                 .background(color, CircleShape)
         )
-        Spacer(Modifier.width(10.dp))
+        Spacer(Modifier.width(Spacing.sPlus))
         Text(
             text = stringResource(total.category.labelRes()),
             style = MaterialTheme.typography.bodyMedium,
@@ -186,19 +187,27 @@ private fun LegendRow(total: CategoryTotal) {
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(Spacing.s))
         Text(
             text = shekels(total.amountAgorot),
             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
             color = MaterialTheme.colorScheme.onSurface,
         )
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(Spacing.s))
         Text(
             text = Money.formatPercent(total.percent),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.End,
-            modifier = Modifier.widthIn(min = 32.dp),
+            modifier = Modifier.widthIn(min = PercentMinWidth),
         )
     }
 }
+
+/** The donut chart: stacked above the legend, beside it, and its ring. */
+private val DonutSize = 160.dp
+private val DonutSizeCompact = 140.dp
+private val DonutStroke = 22.dp
+
+/** The legend's percent column, so the values line up. */
+private val PercentMinWidth = 32.dp

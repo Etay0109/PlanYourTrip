@@ -58,7 +58,9 @@ import com.example.planyourtrip.ui.common.components.PrimaryButton
 import com.example.planyourtrip.ui.theme.ConverterAmountStyles
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
+import com.example.planyourtrip.ui.theme.IconSize
 import com.example.planyourtrip.ui.theme.PlanYourTripTheme
+import com.example.planyourtrip.ui.theme.Spacing
 import com.example.planyourtrip.ui.theme.isLargeFontScale
 import com.example.planyourtrip.ui.tripdetails.ConverterInput
 import com.example.planyourtrip.ui.tripdetails.ConverterSide
@@ -90,25 +92,25 @@ fun CurrencyCard(
     Surface(
         shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shadowElevation = 1.dp,
+        shadowElevation = Dimens.CardElevation,
         modifier = modifier.fillMaxWidth(),
     ) {
-        Column(Modifier.padding(24.dp)) {
+        Column(Modifier.padding(Spacing.xxl)) {
             when (state) {
                 CurrencyCardState.NoCurrency -> NoCurrency(actions.onChooseCurrency)
                 CurrencyCardState.Shekel -> CodeWithMessage(ILS, actions.onChooseCurrency) {
                     MutedText(stringResource(R.string.currency_shekel_body), Modifier.weight(1f))
                 }
                 is CurrencyCardState.Loading -> CodeWithMessage(state.code, actions.onChooseCurrency) {
-                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                    Spacer(Modifier.width(8.dp))
+                    CircularProgressIndicator(modifier = Modifier.size(IconSize.s), strokeWidth = Dimens.ProgressStroke)
+                    Spacer(Modifier.width(Spacing.s))
                     MutedText(stringResource(R.string.currency_loading), Modifier.weight(1f))
                 }
                 is CurrencyCardState.Unavailable -> {
                     CodeWithMessage(state.code, actions.onChooseCurrency) {
                         MutedText(stringResource(R.string.currency_unavailable), Modifier.weight(1f))
                     }
-                    Spacer(Modifier.height(20.dp))
+                    Spacer(Modifier.height(Spacing.xl))
                     PrimaryButton(text = stringResource(R.string.currency_try_again), onClick = actions.onRetry)
                 }
                 is CurrencyCardState.Rate -> WithRate(state, actions, initialConverter)
@@ -121,10 +123,10 @@ fun CurrencyCard(
 private fun NoCurrency(onChoose: () -> Unit) {
     Row(verticalAlignment = Alignment.Top) {
         MutedText(stringResource(R.string.currency_empty_body), Modifier.weight(1f))
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(Spacing.m))
         IconChip(R.drawable.ic_currency_exchange)
     }
-    Spacer(Modifier.height(20.dp))
+    Spacer(Modifier.height(Spacing.xl))
     PrimaryButton(text = stringResource(R.string.currency_choose), onClick = onChoose)
 }
 
@@ -133,7 +135,7 @@ private fun NoCurrency(onChoose: () -> Unit) {
 private fun CodeWithMessage(code: String, onChoose: () -> Unit, message: @Composable RowScope.() -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         CodeChip(code, onChoose)
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(Spacing.m))
         message()
     }
 }
@@ -146,18 +148,18 @@ private fun WithRate(state: CurrencyCardState.Rate, actions: CurrencyCardActions
         if (inline) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 RateHeadline(state, actions.onChooseCurrency, Modifier.weight(1f))
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(Spacing.s))
                 UpdatedPill(state)
             }
         } else {
             Column {
                 RateHeadline(state, actions.onChooseCurrency)
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(Spacing.s))
                 UpdatedPill(state)
             }
         }
     }
-    Spacer(Modifier.height(16.dp))
+    Spacer(Modifier.height(Spacing.l))
     // The converter text is Compose state, updated synchronously while typing (never echoed through the
     // ViewModel). Keyed by the currency code, so choosing another currency clears both fields.
     var input by rememberSaveable(state.code, stateSaver = ConverterInputSaver) { mutableStateOf(initialConverter) }
@@ -228,7 +230,7 @@ private fun RateText(text: String, style: TextStyle, color: Color) {
     Text(text, style = style, color = color, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
 }
 
-private val RateGap = 6.dp
+private val RateGap = Spacing.xsPlus
 
 /** The code chip's width besides its label: 10 + 4 dp padding, the 18 dp arrow and the flag's 4 dp gap. */
 private val ChipFixedWidth = 36.dp
@@ -241,13 +243,13 @@ private fun CodeChip(code: String, onClick: () -> Unit) {
         onClick = onClick,
         shape = CircleShape,
         color = ExtendedTheme.colors.iconChip,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        border = BorderStroke(Dimens.Hairline, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier
             .minimumInteractiveComponentSize()
             .semantics { contentDescription = description },
     ) {
         Row(
-            modifier = Modifier.padding(start = 10.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+            modifier = Modifier.padding(start = Spacing.sPlus, end = Spacing.xs, top = Spacing.xs, bottom = Spacing.xs),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             CurrencyCodeLabel(code, MaterialTheme.typography.labelLarge, MaterialTheme.colorScheme.primary)
@@ -255,7 +257,7 @@ private fun CodeChip(code: String, onClick: () -> Unit) {
                 painter = painterResource(R.drawable.ic_expand_more),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(IconSize.s),
             )
         }
     }
@@ -268,13 +270,13 @@ private fun UpdatedPill(state: CurrencyCardState.Rate) {
     Row(
         modifier = Modifier
             .background(colors.badgeContainer, CircleShape)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .padding(horizontal = Spacing.m, vertical = Spacing.xsPlus),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
     ) {
         Box(
             Modifier
-                .size(6.dp)
+                .size(Dimens.DotSmall)
                 .background(MaterialTheme.colorScheme.primary, CircleShape)
         )
         Text(
@@ -320,7 +322,7 @@ private fun Converter(
         modifier = Modifier
             .fillMaxWidth()
             .background(ExtendedTheme.colors.iconChip, MaterialTheme.shapes.large)
-            .padding(4.dp),
+            .padding(Spacing.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Swapping recreates both fields, so neither inherits the other's cursor or scroll state.
@@ -339,15 +341,15 @@ private fun SwapButton(onClick: () -> Unit) {
         shape = CircleShape,
         color = ExtendedTheme.colors.badgeContainer,
         modifier = Modifier
-            .padding(horizontal = 4.dp)
-            .size(36.dp),
+            .padding(horizontal = Spacing.xs)
+            .size(SwapButtonSize),
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
                 painter = painterResource(R.drawable.ic_swap_horiz),
                 contentDescription = stringResource(R.string.currency_swap),
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(IconSize.m),
             )
         }
     }
@@ -366,13 +368,13 @@ private fun AmountField(
     Column(
         modifier
             .background(MaterialTheme.colorScheme.surfaceContainerLowest, MaterialTheme.shapes.medium)
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+            .padding(horizontal = Spacing.sPlus, vertical = Spacing.s),
     ) {
         CurrencyCodeLabel(code, MaterialTheme.typography.labelLarge, MaterialTheme.colorScheme.onSurfaceVariant)
         Row(verticalAlignment = Alignment.CenterVertically) {
             AmountInput(code, text, onTextChange, amountColor, Modifier.weight(1f))
             if (symbol != null) {
-                Spacer(Modifier.width(4.dp))
+                Spacer(Modifier.width(Spacing.xs))
                 Text(symbol, style = MaterialTheme.typography.titleLarge, color = amountColor, maxLines = 1)
             }
         }
@@ -442,7 +444,7 @@ private fun MutedText(text: String, modifier: Modifier = Modifier) {
 
 @Preview(name = "Converter – 7 digits, narrow, large font", widthDp = 320, fontScale = 1.5f)
 @Composable
-private fun LargeAmountPreview() = PlanYourTripTheme {
+internal fun LargeAmountPreview() = PlanYourTripTheme {
     CurrencyCard(
         state = CurrencyCardState.Rate("EUR", BigDecimal("3.4408"), LocalDate.of(2026, 10, 2)),
         actions = CurrencyCardActions(onChooseCurrency = {}, onRetry = {}),
@@ -453,7 +455,7 @@ private fun LargeAmountPreview() = PlanYourTripTheme {
 
 @Preview(name = "Converter – JPY from shekels")
 @Composable
-private fun JpyPreview() = PlanYourTripTheme {
+internal fun JpyPreview() = PlanYourTripTheme {
     CurrencyCard(
         state = CurrencyCardState.Rate("JPY", BigDecimal("0.01944"), LocalDate.of(2026, 10, 2)),
         actions = CurrencyCardActions(onChooseCurrency = {}, onRetry = {}),
@@ -464,7 +466,7 @@ private fun JpyPreview() = PlanYourTripTheme {
 
 @Preview(name = "Rate per shekel – ARS, narrow, large font", widthDp = 320, fontScale = 1.5f)
 @Composable
-private fun ArsPreview() = PlanYourTripTheme {
+internal fun ArsPreview() = PlanYourTripTheme {
     CurrencyCard(
         state = CurrencyCardState.Rate("ARS", BigDecimal("0.00201808201485"), LocalDate.of(2026, 10, 12)),
         actions = CurrencyCardActions(onChooseCurrency = {}, onRetry = {}),
@@ -472,3 +474,6 @@ private fun ArsPreview() = PlanYourTripTheme {
         modifier = Modifier.padding(Dimens.ScreenPadding),
     )
 }
+
+/** The round swap button between the two amounts. */
+private val SwapButtonSize = 36.dp

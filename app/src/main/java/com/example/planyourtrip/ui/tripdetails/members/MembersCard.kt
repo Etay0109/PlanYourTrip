@@ -47,8 +47,10 @@ import com.example.planyourtrip.data.trip.TravelerColor
 import com.example.planyourtrip.ui.common.components.Pill
 import com.example.planyourtrip.ui.common.split.Person
 import com.example.planyourtrip.ui.theme.Dimens
+import com.example.planyourtrip.ui.theme.IconSize
 import com.example.planyourtrip.ui.theme.minFitTextScale
 import com.example.planyourtrip.ui.theme.PlanYourTripTheme
+import com.example.planyourtrip.ui.theme.Spacing
 import com.example.planyourtrip.ui.tripdetails.components.TravelerAvatar
 import com.example.planyourtrip.ui.tripdetails.components.personName
 
@@ -78,16 +80,16 @@ fun MembersCard(
         onClick = onShowMembers,
         shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shadowElevation = 1.dp,
+        shadowElevation = Dimens.CardElevation,
         modifier = modifier
             .fillMaxWidth()
             .semantics { contentDescription = cardDescription },
     ) {
-        Column(Modifier.padding(start = 20.dp, end = 16.dp, top = 16.dp, bottom = 20.dp)) {
+        Column(Modifier.padding(start = Spacing.xl, end = Spacing.l, top = Spacing.l, bottom = Spacing.xl)) {
             MembersCardTitleRow(count, countText, state.isOwner, onInvite)
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(Spacing.m))
             Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.m),
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState()),
@@ -178,9 +180,9 @@ private fun MembersCardTitleRow(count: Int, countText: String, isOwner: Boolean,
 private data class TitleRowLayout(val compactInvite: Boolean, val titleStyle: TextStyle)
 
 /** Gaps and paddings of the title row (they decide when "Invite" turns into an icon). */
-private val TitleGap = 10.dp
-private val InviteGap = 8.dp
-private val PillPadding = 28.dp
+private val TitleGap = Spacing.sPlus
+private val InviteGap = Spacing.s
+private val PillPadding = Spacing.xxlPlus
 /** The button's horizontal padding (2 × 16), icon (18) and icon gap (8), plus a little slack. */
 private val InviteButtonExtra = 66.dp
 
@@ -198,7 +200,7 @@ private fun InviteIconButton(onClick: () -> Unit) {
         Icon(
             painterResource(R.drawable.ic_person_add),
             contentDescription = stringResource(R.string.members_invite),
-            modifier = Modifier.size(20.dp),
+            modifier = Modifier.size(IconSize.m),
         )
     }
 }
@@ -213,11 +215,11 @@ internal fun InviteButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
             containerColor = MaterialTheme.colorScheme.primaryContainer,
             contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
         ),
-        contentPadding = PaddingValues(horizontal = 16.dp),
+        contentPadding = PaddingValues(horizontal = Spacing.l),
         modifier = modifier,
     ) {
-        Icon(painterResource(R.drawable.ic_person_add), contentDescription = null, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(8.dp))
+        Icon(painterResource(R.drawable.ic_person_add), contentDescription = null, modifier = Modifier.size(IconSize.s))
+        Spacer(Modifier.width(Spacing.s))
         Text(stringResource(R.string.members_invite))
     }
 }
@@ -231,7 +233,7 @@ private fun MemberAvatarItem(member: MemberEntry) {
         modifier = Modifier.widthIn(min = MemberItemWidth),
     ) {
         TravelerAvatar(member.person, Dimens.TravelerAvatarSize)
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(Spacing.s))
         Text(
             text = personName(member.person),
             style = MaterialTheme.typography.bodyMedium,
@@ -242,7 +244,7 @@ private fun MemberAvatarItem(member: MemberEntry) {
             modifier = Modifier.widthIn(max = MemberItemWidth),
         )
         if (member.isOwner) {
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(Spacing.xs))
             OwnerPill()
         }
     }
@@ -272,16 +274,16 @@ internal val previewMembers = MembersState(
 
 @Preview(showBackground = true)
 @Composable
-private fun MembersCardPreview() {
+internal fun MembersCardPreview() {
     PlanYourTripTheme(darkTheme = false) {
-        MembersCard(previewMembers, onShowMembers = {}, onInvite = {}, modifier = Modifier.padding(20.dp))
+        MembersCard(previewMembers, onShowMembers = {}, onInvite = {}, modifier = Modifier.padding(Spacing.xl))
     }
 }
 
 @Preview(showBackground = true, widthDp = 320, fontScale = 1.5f)
 @Composable
-private fun MembersCardNarrowPreview() {
+internal fun MembersCardNarrowPreview() {
     PlanYourTripTheme(darkTheme = true) {
-        MembersCard(previewMembers, onShowMembers = {}, onInvite = {}, modifier = Modifier.padding(20.dp))
+        MembersCard(previewMembers, onShowMembers = {}, onInvite = {}, modifier = Modifier.padding(Spacing.xl))
     }
 }

@@ -90,3 +90,9 @@ the connection returns), `firstName`/`initials`/`greetingName`, `TripColor`, and
   trip keeping my budget, Packing deletes recorded as `PACKING`, and two accounts holding the same shared trip.
   `SharedTripRoomTest` (androidTest) covers member documents (replaced as a whole, per account, cascade),
   `tripOwners` and `removeTrips` (items, pending changes and tombstones of that trip and account only).
+- **Screenshots** (androidTest `ui/ScreenshotBaselineTest`): renders every `@Preview` (they are `internal` for this)
+  at its preview width, height and font scale, with animations frozen at 2 s, and saves `files/screenshots/<name>.png`
+  (dialogs are captured from their own window). Identical bitmaps give identical PNG files, so a refactor that must
+  not change the UI is checked by pulling the folder before and after and comparing sha256 sums. Run it with
+  `am instrument -w -e class com.example.planyourtrip.ui.ScreenshotBaselineTest …` (same setup as the other device
+  tests); a new `@Preview` needs a line in its list.

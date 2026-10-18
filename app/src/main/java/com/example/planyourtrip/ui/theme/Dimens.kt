@@ -100,6 +100,59 @@ object Dimens {
 
     /** Font scales above this get the same stacked layouts as narrow screens. */
     const val LargeFontScale = 1.2f
+
+    /** The brand mark of the empty Home and "Trip not found" screens, and its icon. */
+    val EmptyStateMarkSize = 96.dp
+    val EmptyStateMarkIconSize = 44.dp
+
+    /** The soft shadow of the white cards (`Surface(shadowElevation = …)`). */
+    val CardElevation = 1.dp
+
+    /** Thin outlines: card and chip borders, the hero's overlay rings. */
+    val Hairline = 1.dp
+
+    /** The ring of the small loading spinners inside buttons and cards. */
+    val ProgressStroke = 2.dp
+
+    /** The rounded progress bars (budget spent, checklist done, plan days). */
+    val ProgressBarHeight = 10.dp
+
+    /** Status and legend dots (trip header, countdown, chart legend). */
+    val Dot = 8.dp
+    val DotSmall = 6.dp
+    val DotLarge = 10.dp
+}
+
+/**
+ * The spacing scale: padding, gaps between items and `Spacer`s. The 4dp grid (xs, s, m, l, xl, xxl, xxxl) plus the
+ * half steps the design uses between them (xxs, xsPlus, sPlus, mPlus, lPlus, xlPlus, xxlPlus).
+ */
+object Spacing {
+    val xxs = 2.dp
+    val xs = 4.dp
+    val xsPlus = 6.dp
+    val s = 8.dp
+    val sPlus = 10.dp
+    val m = 12.dp
+    val mPlus = 14.dp
+    val l = 16.dp
+    val lPlus = 18.dp
+    val xl = 20.dp
+    val xlPlus = 22.dp
+    val xxl = 24.dp
+    val xxlPlus = 28.dp
+    val xxxl = 32.dp
+}
+
+/** Icon sizes (also the small loading spinners, which take the place of an icon). */
+object IconSize {
+    val xxs = 14.dp
+    val xs = 16.dp
+    val s = 18.dp
+    val m = 20.dp
+    val l = 22.dp
+    val xl = 24.dp
+    val xxl = 28.dp
 }
 
 /** True when the user's font scale is above [Dimens.LargeFontScale]: layouts then stack like on narrow screens. */

@@ -59,7 +59,14 @@ Reference: `design/home_screen.png`. Match it closely when adding or changing sc
   `TravelerAvatarSize` 56dp / `TravelerAvatarSmallSize` 32dp / `TravelerAvatarTinySize` 18dp / `TravelerAvatarChipSize` 18dp (traveler avatars).
   Responsive breakpoints: `CompactScreenWidth` 360dp (home badge, expense currency selector, Map card pill icon),
   `NarrowContentWidth` 300dp (header status pill, converter rate pill, category chart) and `LargeFontScale` 1.2
-  (`isLargeFontScale()`). Add a value there instead of repeating a number in several files.
+  (`isLargeFontScale()`). Shared tokens: `CardElevation` 1dp (card shadow), `Hairline` 1dp (borders),
+  `ProgressStroke` 2dp (small spinners), `ProgressBarHeight` 10dp, `Dot` / `DotSmall` / `DotLarge` 8 / 6 / 10dp,
+  `EmptyStateMarkSize` / `EmptyStateMarkIconSize` 96 / 44dp. Add a value there instead of repeating a number in
+  several files; a size used by one file only is a named `private val` at the end of that file.
+- **Spacing scale** (`Spacing` in `Dimens.kt`): `xxs` 2, `xs` 4, `xsPlus` 6, `s` 8, `sPlus` 10, `m` 12, `mPlus` 14,
+  `l` 16, `lPlus` 18, `xl` 20, `xlPlus` 22, `xxl` 24, `xxlPlus` 28, `xxxl` 32dp — for padding, `spacedBy` and
+  `Spacer`s. **Icon sizes** (`IconSize`): `xxs` 14, `xs` 16, `s` 18, `m` 20, `l` 22, `xl` 24, `xxl` 28dp (also the
+  small spinners). Screens never write a raw `N.dp` outside a named constant (`0.dp` is fine).
 - **Spacing:** 16dp between cards, 16–24dp inside cards. The home list has an extra 104dp bottom padding so the FAB
   never covers the last card.
 - **Reuse the shared components** before writing new UI: `PrimaryButton` (pill button with optional loading

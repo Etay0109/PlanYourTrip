@@ -115,7 +115,9 @@ import com.example.planyourtrip.data.auth.AuthError
 import com.example.planyourtrip.ui.theme.AuthHeadlineStyle
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
+import com.example.planyourtrip.ui.theme.IconSize
 import com.example.planyourtrip.ui.theme.PlanYourTripTheme
+import com.example.planyourtrip.ui.theme.Spacing
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 
@@ -255,12 +257,12 @@ fun AuthContent(
                         .bringIntoViewRequester(sheetRequester)
                         .onGloballyPositioned { layout.sheet = it }
                         .navigationBarsPadding()
-                        .padding(horizontal = 24.dp, vertical = 28.dp),
+                        .padding(horizontal = Spacing.xxl, vertical = Spacing.xxlPlus),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Column(
-                        modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                        modifier = Modifier.widthIn(max = FormMaxWidth).fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(Spacing.mPlus),
                     ) {
                         if (isSignUp) {
                             AuthTextField(
@@ -321,7 +323,7 @@ fun AuthContent(
                             )
                         }
 
-                        Spacer(Modifier.height(6.dp))
+                        Spacer(Modifier.height(Spacing.xsPlus))
                         AuthButton(
                             text = stringResource(
                                 if (isSignUp) R.string.auth_button_sign_up else R.string.auth_button_sign_in
@@ -330,7 +332,7 @@ fun AuthContent(
                             onClick = onSubmit,
                             modifier = Modifier.onGloballyPositioned { layout.button = it },
                         )
-                        Spacer(Modifier.height(4.dp))
+                        Spacer(Modifier.height(Spacing.xs))
                         SwitchModeLine(
                             isSignUp = isSignUp,
                             onClick = {
@@ -414,17 +416,17 @@ private fun AuthHeroContent(isSignUp: Boolean, minHeight: Dp, modifier: Modifier
                 .align(Alignment.BottomStart)
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = Dimens.AuthSheetCorner + 28.dp),
+                .padding(start = Spacing.xxl, end = Spacing.xxl, top = Spacing.xxl, bottom = Dimens.AuthSheetCorner + Spacing.xxlPlus),
         ) {
             AuthAppIcon()
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(Spacing.xl))
             Text(
                 text = stringResource(if (isSignUp) R.string.auth_headline_sign_up else R.string.auth_headline_sign_in),
                 style = AuthHeadlineStyle,
                 color = colors.onAuthHero,
                 modifier = Modifier.semantics { heading() },
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(Spacing.s))
             Text(
                 text = stringResource(if (isSignUp) R.string.auth_subtitle_sign_up else R.string.auth_subtitle_sign_in),
                 style = MaterialTheme.typography.bodyLarge,
@@ -444,7 +446,7 @@ private fun AuthAppIcon() {
     Box(
         modifier = Modifier
             .size(Dimens.AuthAppIconSize)
-            .shadow(elevation = 10.dp, shape = shape)
+            .shadow(elevation = AppIconElevation, shape = shape)
             .clip(shape)
             .background(colorResource(R.color.ic_launcher_background)),
         contentAlignment = Alignment.Center,
@@ -513,7 +515,7 @@ private fun AuthTextField(
                 Column {
                     if (strength != null) {
                         PasswordStrengthBar(strength)
-                        Spacer(Modifier.height(6.dp))
+                        Spacer(Modifier.height(Spacing.xsPlus))
                     }
                     // The field itself carries the error for TalkBack, so this line isn't read a second time.
                     if (errorText != null) Text(errorText, Modifier.clearAndSetSemantics {})
@@ -591,14 +593,14 @@ private fun AuthTextField(
 @Composable
 private fun PasswordStrengthBar(strength: Int) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 2.dp).clearAndSetSemantics {},
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier.fillMaxWidth().padding(top = Spacing.xxs).clearAndSetSemantics {},
+        horizontalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
     ) {
         repeat(AuthValidator.STRENGTH_SEGMENTS) { index ->
             Box(
                 Modifier
                     .weight(1f)
-                    .height(4.dp)
+                    .height(StrengthBarHeight)
                     .clip(CircleShape)
                     .background(
                         if (index < strength) MaterialTheme.colorScheme.primary
@@ -615,7 +617,7 @@ private fun AuthButton(text: String, loading: Boolean, onClick: () -> Unit, modi
     Button(
         onClick = { if (!loading) onClick() },
         shape = CircleShape,
-        elevation = ButtonDefaults.buttonElevation(defaultElevation = 6.dp, pressedElevation = 2.dp),
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = ButtonElevation, pressedElevation = ButtonPressedElevation),
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = Dimens.AuthFieldHeight)
@@ -623,14 +625,14 @@ private fun AuthButton(text: String, loading: Boolean, onClick: () -> Unit, modi
     ) {
         if (loading) {
             CircularProgressIndicator(
-                modifier = Modifier.size(22.dp),
+                modifier = Modifier.size(IconSize.l),
                 color = LocalContentColor.current,
-                strokeWidth = 2.dp,
+                strokeWidth = Dimens.ProgressStroke,
             )
         } else {
             Text(text, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-            Spacer(Modifier.width(8.dp))
-            Icon(painterResource(R.drawable.ic_arrow_forward), contentDescription = null, Modifier.size(20.dp))
+            Spacer(Modifier.width(Spacing.s))
+            Icon(painterResource(R.drawable.ic_arrow_forward), contentDescription = null, Modifier.size(IconSize.m))
         }
     }
 }
@@ -657,7 +659,7 @@ private fun SwitchModeLine(isSignUp: Boolean, onClick: () -> Unit) {
                 .minimumInteractiveComponentSize()
                 .clip(MaterialTheme.shapes.small)
                 .clickable(role = Role.Button, onClick = onClick)
-                .padding(horizontal = 6.dp, vertical = 4.dp),
+                .padding(horizontal = Spacing.xsPlus, vertical = Spacing.xs),
         )
     }
 }
@@ -724,19 +726,19 @@ private fun AuthPreview(state: AuthUiState, darkTheme: Boolean = false) {
 
 @Preview(showBackground = true, widthDp = 412, heightDp = 915, name = "Sign In")
 @Composable
-private fun AuthSignInPreview() {
+internal fun AuthSignInPreview() {
     AuthPreview(AuthUiState(email = "traveler@example", emailError = FieldError.INVALID_EMAIL))
 }
 
 @Preview(showBackground = true, widthDp = 412, heightDp = 915, name = "Sign Up")
 @Composable
-private fun AuthSignUpPreview() {
+internal fun AuthSignUpPreview() {
     AuthPreview(AuthUiState(mode = AuthMode.SIGN_UP, fullName = "Alex Morgan", password = "travel2026"))
 }
 
 @Preview(showBackground = true, widthDp = 412, heightDp = 915, name = "Sign Up, dark")
 @Composable
-private fun AuthSignUpDarkPreview() {
+internal fun AuthSignUpDarkPreview() {
     AuthPreview(
         AuthUiState(mode = AuthMode.SIGN_UP, password = "short", passwordError = FieldError.PASSWORD_TOO_SHORT),
         darkTheme = true,
@@ -745,7 +747,7 @@ private fun AuthSignUpDarkPreview() {
 
 @Preview(showBackground = true, widthDp = 320, heightDp = 640, fontScale = 1.5f, name = "Sign Up, 320dp x1.5")
 @Composable
-private fun AuthSignUpSmallPreview() {
+internal fun AuthSignUpSmallPreview() {
     AuthPreview(
         AuthUiState(
             mode = AuthMode.SIGN_UP,
@@ -756,3 +758,16 @@ private fun AuthSignUpSmallPreview() {
         ),
     )
 }
+
+/** On wide screens (tablets, landscape) the form stops growing at this width. */
+private val FormMaxWidth = 480.dp
+
+/** The app icon's shadow on the hero. */
+private val AppIconElevation = 10.dp
+
+/** The password strength segments. */
+private val StrengthBarHeight = 4.dp
+
+/** The primary button's shadow, at rest and pressed. */
+private val ButtonElevation = 6.dp
+private val ButtonPressedElevation = 2.dp

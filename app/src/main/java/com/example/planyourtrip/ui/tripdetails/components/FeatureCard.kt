@@ -13,7 +13,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
+import com.example.planyourtrip.ui.theme.Dimens
+import com.example.planyourtrip.ui.theme.Spacing
 
 /**
  * Small Overview card (Map, Daily plan): icon chip, title and a short status line (at most [subtitleMaxLines]),
@@ -33,18 +34,18 @@ fun FeatureCard(
         onClick = onClick,
         shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shadowElevation = 1.dp,
+        shadowElevation = Dimens.CardElevation,
         modifier = modifier,
     ) {
-        Column(Modifier.fillMaxWidth().padding(20.dp)) {
+        Column(Modifier.fillMaxWidth().padding(Spacing.xl)) {
             IconChip(icon)
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(Spacing.l))
             Text(
                 text = title,
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onSurface,
             )
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(Spacing.xs))
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodyLarge,
@@ -53,7 +54,7 @@ fun FeatureCard(
                 overflow = TextOverflow.Ellipsis,
             )
             if (content != null) {
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(Spacing.l))
                 content()
             }
         }

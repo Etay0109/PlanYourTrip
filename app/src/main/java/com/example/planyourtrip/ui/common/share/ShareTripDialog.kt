@@ -23,12 +23,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.planyourtrip.R
 import com.example.planyourtrip.ui.common.components.PrimaryButton
 import com.example.planyourtrip.ui.theme.PlanYourTripTheme
+import com.example.planyourtrip.ui.theme.Spacing
 
 /**
  * Shows the share dialog of [viewModel] and opens the Android share sheet once the PDF is ready. Screens add
@@ -84,7 +84,7 @@ fun ShareTripDialog(
                             role = Role.Switch,
                             onValueChange = onIncludeCostsChange,
                         )
-                        .padding(vertical = 8.dp),
+                        .padding(vertical = Spacing.s),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f)) {
@@ -99,7 +99,7 @@ fun ShareTripDialog(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    Spacer(Modifier.width(12.dp))
+                    Spacer(Modifier.width(Spacing.m))
                     // The whole row toggles; the switch only shows the value.
                     Switch(checked = state.includeCosts, onCheckedChange = null, enabled = !state.isCreating)
                 }
@@ -108,7 +108,7 @@ fun ShareTripDialog(
                         text = stringResource(R.string.share_failed),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(top = 8.dp),
+                        modifier = Modifier.padding(top = Spacing.s),
                     )
                 }
             }
@@ -130,7 +130,7 @@ fun ShareTripDialog(
 
 @Preview
 @Composable
-private fun ShareTripDialogPreview() {
+internal fun ShareTripDialogPreview() {
     PlanYourTripTheme(darkTheme = false) {
         ShareTripDialog(ShareDialogState(tripId = 1), onIncludeCostsChange = {}, onCreate = {}, onDismiss = {})
     }
@@ -138,7 +138,7 @@ private fun ShareTripDialogPreview() {
 
 @Preview
 @Composable
-private fun ShareTripDialogFailedPreview() {
+internal fun ShareTripDialogFailedPreview() {
     PlanYourTripTheme(darkTheme = false) {
         ShareTripDialog(
             ShareDialogState(tripId = 1, includeCosts = false, failed = true),

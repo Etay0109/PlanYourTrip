@@ -25,6 +25,7 @@ import com.example.planyourtrip.data.trip.ChecklistKind
 import com.example.planyourtrip.ui.common.components.Pill
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
+import com.example.planyourtrip.ui.theme.Spacing
 import java.time.LocalDate
 
 /** What the Prep tab can do; the screen wires these to [PrepViewModel] (previews use [None]). */
@@ -67,7 +68,7 @@ fun LazyListScope.prepTab(state: PrepUiState, actions: PrepActions) {
     if (state !is PrepUiState.Loaded) return
     item(key = "prep_progress") {
         PrepProgressCard(
-            state.progress, state.message, Modifier.padding(horizontal = Dimens.ScreenPadding).padding(top = 8.dp),
+            state.progress, state.message, Modifier.padding(horizontal = Dimens.ScreenPadding).padding(top = Spacing.s),
         )
     }
     item(key = "prep_documents") { DocumentsSection(state.documents, actions) }
@@ -80,17 +81,17 @@ fun PrepProgressCard(progress: PrepProgress, message: ProgressMessage, modifier:
     Surface(
         shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shadowElevation = 1.dp,
+        shadowElevation = Dimens.CardElevation,
         modifier = modifier.fillMaxWidth(),
     ) {
-        Column(Modifier.padding(24.dp)) {
+        Column(Modifier.padding(Spacing.xxl)) {
             if (message == ProgressMessage.Empty) {
                 Text(
                     text = stringResource(R.string.prep_empty_title),
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(Spacing.xsPlus))
                 Text(
                     text = stringResource(R.string.prep_empty_body),
                     style = MaterialTheme.typography.bodyLarge,
@@ -105,14 +106,14 @@ fun PrepProgressCard(progress: PrepProgress, message: ProgressMessage, modifier:
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.weight(1f),
                 )
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(Spacing.m))
                 Pill(
                     text = stringResource(R.string.prep_progress_percent, progress.percent),
                     container = MaterialTheme.colorScheme.primaryContainer,
                     content = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
             }
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(Spacing.xl))
             LinearProgressIndicator(
                 progress = { progress.fraction },
                 color = MaterialTheme.colorScheme.primary,
@@ -120,9 +121,9 @@ fun PrepProgressCard(progress: PrepProgress, message: ProgressMessage, modifier:
                 strokeCap = StrokeCap.Round,
                 gapSize = 0.dp,
                 drawStopIndicator = {},
-                modifier = Modifier.fillMaxWidth().height(10.dp),
+                modifier = Modifier.fillMaxWidth().height(Dimens.ProgressBarHeight),
             )
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(Spacing.mPlus))
             Text(
                 text = when (message) {
                     ProgressMessage.AllDone -> stringResource(R.string.prep_all_done)
@@ -148,7 +149,7 @@ internal fun PrepSectionTitle(
     Row(
         modifier = modifier.fillMaxWidth().padding(horizontal = Dimens.ScreenPadding),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sPlus),
     ) {
         Text(text = title, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurface)
         trailing()

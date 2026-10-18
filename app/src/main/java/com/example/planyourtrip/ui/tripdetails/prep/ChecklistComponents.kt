@@ -60,6 +60,8 @@ import com.example.planyourtrip.ui.common.components.DatePickerPopup
 import com.example.planyourtrip.ui.common.errorSupportingText
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
+import com.example.planyourtrip.ui.theme.IconSize
+import com.example.planyourtrip.ui.theme.Spacing
 
 /**
  * "Checklist", the two list chips with their counts, and a card with the selected list: one row per item in the
@@ -70,13 +72,13 @@ import com.example.planyourtrip.ui.theme.ExtendedTheme
 internal fun ChecklistSection(state: PrepUiState.Loaded, actions: PrepActions) {
     var selected by rememberSaveable { mutableStateOf(ChecklistKind.BEFORE_TRIP) }
     val list = state.checklist(selected)
-    Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+    Column(Modifier.fillMaxWidth().padding(top = Spacing.s)) {
         PrepSectionTitle(stringResource(R.string.prep_checklist))
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(Spacing.m))
         FlowRow(
             modifier = Modifier.padding(horizontal = Dimens.ScreenPadding),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sPlus),
+            verticalArrangement = Arrangement.spacedBy(Spacing.s),
         ) {
             ChecklistKind.entries.forEach { kind ->
                 val count = state.checklist(kind).count
@@ -87,19 +89,19 @@ internal fun ChecklistSection(state: PrepUiState.Loaded, actions: PrepActions) {
                 )
             }
         }
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(Spacing.l))
         Surface(
             shape = MaterialTheme.shapes.extraLarge,
             color = MaterialTheme.colorScheme.surfaceContainerLow,
-            shadowElevation = 1.dp,
+            shadowElevation = Dimens.CardElevation,
             modifier = Modifier.fillMaxWidth().padding(horizontal = Dimens.ScreenPadding),
         ) {
-            Column(Modifier.padding(vertical = 8.dp)) {
+            Column(Modifier.padding(vertical = Spacing.s)) {
                 if (list.rows.isEmpty()) {
                     EmptyList(onAddSuggested = { actions.onAddSuggested(selected) })
                     HorizontalDivider(
                         color = MaterialTheme.colorScheme.outlineVariant,
-                        modifier = Modifier.padding(horizontal = 20.dp),
+                        modifier = Modifier.padding(horizontal = Spacing.xl),
                     )
                 }
                 list.rows.forEach { row ->
@@ -128,10 +130,10 @@ private fun ListChip(text: String, selected: Boolean, onClick: () -> Unit) {
         onClick = onClick,
         shape = CircleShape,
         color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerLowest,
-        border = if (selected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        border = if (selected) null else BorderStroke(Dimens.Hairline, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier.heightIn(min = Dimens.TouchTarget),
     ) {
-        Box(Modifier.padding(horizontal = 18.dp, vertical = 12.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.padding(horizontal = Spacing.lPlus, vertical = Spacing.m), contentAlignment = Alignment.Center) {
             Text(
                 text = text,
                 style = MaterialTheme.typography.labelLarge,
@@ -144,13 +146,13 @@ private fun ListChip(text: String, selected: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun EmptyList(onAddSuggested: () -> Unit) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp)) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = Spacing.xl, vertical = Spacing.m)) {
         Text(
             text = stringResource(R.string.prep_list_empty),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(Spacing.m))
         OutlinedButton(onClick = onAddSuggested, modifier = Modifier.heightIn(min = Dimens.TouchTarget)) {
             Text(stringResource(R.string.prep_add_suggested), style = MaterialTheme.typography.labelLarge)
         }
@@ -178,12 +180,12 @@ private fun ChecklistRow(row: ChecklistRowState, hasDueDates: Boolean, actions: 
                     onClick = { actions.onToggle(row.id) },
                 )
                 .semantics { stateDescription = doneLabel }
-                .heightIn(min = 56.dp)
-                .padding(horizontal = 20.dp, vertical = 10.dp),
+                .heightIn(min = RowMinHeight)
+                .padding(horizontal = Spacing.xl, vertical = Spacing.sPlus),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             CheckCircle(row.checked)
-            Spacer(Modifier.width(16.dp))
+            Spacer(Modifier.width(Spacing.l))
             Text(
                 text = row.text,
                 style = MaterialTheme.typography.bodyLarge.copy(
@@ -193,7 +195,7 @@ private fun ChecklistRow(row: ChecklistRowState, hasDueDates: Boolean, actions: 
                 modifier = Modifier.weight(1f),
             )
             row.dueDate?.let { due ->
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(Spacing.m))
                 val overdue = row.dueState == DueState.OVERDUE
                 val date = TripFormatting.dayMonth(due)
                 val spoken = stringResource(if (overdue) R.string.prep_item_overdue else R.string.prep_item_due, date)
@@ -284,7 +286,7 @@ private fun CheckCircle(checked: Boolean) {
                 painter = painterResource(R.drawable.ic_check),
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.size(16.dp),
+                modifier = Modifier.size(IconSize.xs),
             )
         }
     }
@@ -298,7 +300,7 @@ private fun CheckCircle(checked: Boolean) {
 private fun AddItemRow(kind: ChecklistKind, onAdd: (ChecklistKind, String) -> Boolean) {
     var text by rememberSaveable(kind) { mutableStateOf("") }
     Row(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 20.dp, vertical = 10.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(min = RowMinHeight).padding(horizontal = Spacing.xl, vertical = Spacing.sPlus),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
@@ -307,7 +309,7 @@ private fun AddItemRow(kind: ChecklistKind, onAdd: (ChecklistKind, String) -> Bo
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(Dimens.ChecklistCheckSize),
         )
-        Spacer(Modifier.width(16.dp))
+        Spacer(Modifier.width(Spacing.l))
         val placeholder = stringResource(R.string.prep_add_item)
         BasicTextField(
             value = text,
@@ -370,3 +372,6 @@ fun EditItemTextDialog(
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
+
+/** A checklist row and the "Add item…" row. */
+private val RowMinHeight = 56.dp

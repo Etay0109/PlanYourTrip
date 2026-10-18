@@ -41,7 +41,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.planyourtrip.R
@@ -55,6 +54,7 @@ import com.example.planyourtrip.ui.common.currencyFlag
 import com.example.planyourtrip.ui.common.errorSupportingText
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.PlanYourTripTheme
+import com.example.planyourtrip.ui.theme.Spacing
 import java.time.LocalDate
 
 @Composable
@@ -125,8 +125,8 @@ fun TripFormContent(
                 .padding(innerPadding)
                 .imePadding()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = Dimens.ScreenPadding, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(horizontal = Dimens.ScreenPadding, vertical = Spacing.l),
+            verticalArrangement = Arrangement.spacedBy(Spacing.s),
         ) {
             DestinationFieldWithSuggestions(
                 isSearching = state.isSearching,
@@ -184,7 +184,7 @@ fun TripFormContent(
                 onClear = onClearCurrency,
             )
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(Spacing.l))
 
             PrimaryButton(
                 text = stringResource(if (state.isEditing) R.string.edit_trip_save else R.string.new_trip_save),
@@ -244,7 +244,7 @@ private fun CurrencyField(code: String?, name: String?, onClick: () -> Unit, onC
                 Icon(
                     painterResource(R.drawable.ic_expand_more),
                     contentDescription = null,
-                    modifier = Modifier.padding(end = 12.dp),
+                    modifier = Modifier.padding(end = Spacing.m),
                 )
             }
         },
@@ -265,7 +265,7 @@ private fun TripFieldError.messageRes(): Int = when (this) {
 
 @Preview(showBackground = true)
 @Composable
-private fun TripFormPreview() {
+internal fun TripFormPreview() {
     PlanYourTripTheme(darkTheme = false) {
         TripFormContent(
             state = TripFormUiState(
@@ -283,7 +283,7 @@ private fun TripFormPreview() {
 
 @Preview(showBackground = true)
 @Composable
-private fun TripFormSuggestionsPreview() {
+internal fun TripFormSuggestionsPreview() {
     PlanYourTripTheme(darkTheme = false) {
         TripFormContent(
             state = TripFormUiState(
@@ -302,7 +302,7 @@ private fun TripFormSuggestionsPreview() {
 
 @Preview(showBackground = true, widthDp = 320, fontScale = 1.5f)
 @Composable
-private fun TripFormCurrencyPreview() {
+internal fun TripFormCurrencyPreview() {
     PlanYourTripTheme(darkTheme = false) {
         TripFormContent(
             state = TripFormUiState(

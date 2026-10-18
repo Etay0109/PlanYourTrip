@@ -43,6 +43,8 @@ import com.example.planyourtrip.ui.common.labelRes
 import com.example.planyourtrip.ui.theme.TintedColor
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.ExtendedTheme
+import com.example.planyourtrip.ui.theme.IconSize
+import com.example.planyourtrip.ui.theme.Spacing
 
 /** Width of the timeline rail (dot + vertical line) left of the activity cards. */
 private val RailWidth = 32.dp
@@ -60,8 +62,8 @@ fun TimelineRow(
     dotColor: Color,
     modifier: Modifier = Modifier,
     dotBackground: Color = MaterialTheme.colorScheme.background,
-    dotTop: Dp = 30.dp,
-    bottomGap: Dp = 16.dp,
+    dotTop: Dp = DefaultDotTop,
+    bottomGap: Dp = Spacing.l,
     content: @Composable () -> Unit,
 ) {
     val lineColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
@@ -73,21 +75,21 @@ fun TimelineRow(
                 .drawBehind {
                     val x = size.width / 2
                     val dotY = dotTop.toPx()
-                    val stroke = 2.dp.toPx()
+                    val stroke = RailStroke.toPx()
                     if (!isFirst) drawLine(lineColor, Offset(x, 0f), Offset(x, dotY), stroke)
                     if (!isLast) drawLine(lineColor, Offset(x, dotY), Offset(x, size.height), stroke)
                     // Ring dot: filled background, then a ring and a center in the type color.
-                    drawCircle(dotBackground, radius = 11.dp.toPx(), center = Offset(x, dotY))
+                    drawCircle(dotBackground, radius = DotHaloRadius.toPx(), center = Offset(x, dotY))
                     drawCircle(
                         dotColor,
-                        radius = 10.dp.toPx(),
+                        radius = DotRingRadius.toPx(),
                         center = Offset(x, dotY),
-                        style = Stroke(2.dp.toPx()),
+                        style = Stroke(RailStroke.toPx()),
                     )
-                    drawCircle(dotColor, radius = 5.dp.toPx(), center = Offset(x, dotY))
+                    drawCircle(dotColor, radius = DotCenterRadius.toPx(), center = Offset(x, dotY))
                 },
         )
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(Spacing.m))
         Box(
             Modifier
                 .weight(1f)
@@ -117,10 +119,10 @@ fun ActivityCard(
         onClick = onClick,
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shadowElevation = 1.dp,
+        shadowElevation = Dimens.CardElevation,
         modifier = modifier.fillMaxWidth(),
     ) {
-        Column(Modifier.padding(20.dp)) {
+        Column(Modifier.padding(Spacing.xl)) {
             Row(verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f)) {
                     val timeLine = listOfNotNull(
@@ -133,7 +135,7 @@ fun ActivityCard(
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.primary,
                         )
-                        Spacer(Modifier.height(4.dp))
+                        Spacer(Modifier.height(Spacing.xs))
                     }
                     Text(
                         text = activity.title,
@@ -143,17 +145,17 @@ fun ActivityCard(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(Spacing.m))
                 ActivityTypeIcon(activity, typeColor)
             }
             activity.note?.let { note ->
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(Spacing.m))
                 NoteBox(note, activity)
             }
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(Spacing.m))
             FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.s),
+                verticalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
                 itemVerticalAlignment = Alignment.CenterVertically,
             ) {
                 TagPill(stringResource(activity.type.labelRes()), typeColor.container, typeColor.content)
@@ -175,14 +177,14 @@ fun ActivityCard(
                         color = muted,
                         modifier = Modifier
                             .weight(1f)
-                            .padding(top = 8.dp, bottom = if (onOpenInMaps == null) 0.dp else 8.dp),
+                            .padding(top = Spacing.s, bottom = if (onOpenInMaps == null) 0.dp else Spacing.s),
                     )
                     if (onOpenInMaps != null) {
                         // Shifted so the icon is centered under the round type icon above (48dp touch target).
                         IconButton(
                             onClick = onOpenInMaps,
                             modifier = Modifier
-                                .padding(start = 4.dp)
+                                .padding(start = Spacing.xs)
                                 .offset(x = (Dimens.TouchTarget - Dimens.CategoryIconSize) / 2),
                         ) {
                             Icon(
@@ -209,7 +211,7 @@ fun CompactActivityCard(activity: TripActivity, onClick: () -> Unit, modifier: M
         color = MaterialTheme.colorScheme.surfaceContainerHighest,
         modifier = modifier.fillMaxWidth(),
     ) {
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
+        Column(Modifier.padding(horizontal = Spacing.l, vertical = Spacing.mPlus)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = activity.startTime?.let { TripFormatting.time(it) }.orEmpty(),
@@ -219,7 +221,7 @@ fun CompactActivityCard(activity: TripActivity, onClick: () -> Unit, modifier: M
                 )
                 TagPill(stringResource(activity.type.labelRes()), typeColor.container, typeColor.content)
             }
-            Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.height(Spacing.xxs))
             Text(
                 text = activity.title,
                 style = MaterialTheme.typography.titleLarge,
@@ -228,17 +230,17 @@ fun CompactActivityCard(activity: TripActivity, onClick: () -> Unit, modifier: M
                 overflow = TextOverflow.Ellipsis,
             )
             activity.note?.let { note ->
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(Spacing.xs))
                 Row(verticalAlignment = Alignment.Top) {
                     Icon(
                         painter = painterResource(activity.type.iconRes()),
                         contentDescription = null,
                         tint = typeColor.content,
                         modifier = Modifier
-                            .padding(top = 2.dp)
-                            .size(16.dp),
+                            .padding(top = Spacing.xxs)
+                            .size(IconSize.xs),
                     )
-                    Spacer(Modifier.width(6.dp))
+                    Spacer(Modifier.width(Spacing.xsPlus))
                     Text(
                         text = note,
                         style = MaterialTheme.typography.bodyMedium,
@@ -264,7 +266,7 @@ private fun ActivityTypeIcon(activity: TripActivity, color: TintedColor) {
             painter = painterResource(activity.type.iconRes()),
             contentDescription = stringResource(activity.type.labelRes()),
             tint = color.content,
-            modifier = Modifier.size(20.dp),
+            modifier = Modifier.size(IconSize.m),
         )
     }
 }
@@ -277,7 +279,7 @@ private fun NoteBox(note: String, activity: TripActivity) {
         modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.shapes.small)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .padding(horizontal = Spacing.m, vertical = Spacing.sPlus),
         verticalAlignment = Alignment.Top,
     ) {
         Icon(
@@ -285,10 +287,10 @@ private fun NoteBox(note: String, activity: TripActivity) {
             contentDescription = null,
             tint = ExtendedTheme.colors.activityType(activity.type).content,
             modifier = Modifier
-                .padding(top = 2.dp)
-                .size(16.dp),
+                .padding(top = Spacing.xxs)
+                .size(IconSize.xs),
         )
-        Spacer(Modifier.width(10.dp))
+        Spacer(Modifier.width(Spacing.sPlus))
         Text(text = note, style = MaterialTheme.typography.bodyMedium, color = muted)
     }
 }
@@ -305,7 +307,7 @@ fun TagPill(
     Row(
         modifier = modifier
             .background(container, CircleShape)
-            .padding(horizontal = 10.dp, vertical = 3.dp),
+            .padding(horizontal = Spacing.sPlus, vertical = TagPaddingVertical),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (leadingIcon != null) {
@@ -313,9 +315,9 @@ fun TagPill(
                 painter = painterResource(leadingIcon),
                 contentDescription = null,
                 tint = content,
-                modifier = Modifier.size(14.dp),
+                modifier = Modifier.size(IconSize.xxs),
             )
-            Spacer(Modifier.width(4.dp))
+            Spacer(Modifier.width(Spacing.xs))
         }
         Text(text = text, style = MaterialTheme.typography.labelSmall, color = content, maxLines = 1)
     }
@@ -326,7 +328,19 @@ fun TagPill(
 fun TitleDot(modifier: Modifier = Modifier) {
     Box(
         modifier
-            .size(10.dp)
+            .size(Dimens.DotLarge)
             .background(MaterialTheme.colorScheme.primary, CircleShape)
     )
 }
+
+/** Where the rail's dot sits, from the top of an activity card. */
+private val DefaultDotTop = 30.dp
+
+/** The rail line and the dot's ring. */
+private val RailStroke = 2.dp
+private val DotHaloRadius = 11.dp
+private val DotRingRadius = 10.dp
+private val DotCenterRadius = 5.dp
+
+/** The small "Booked" tag. */
+private val TagPaddingVertical = 3.dp

@@ -16,8 +16,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.R
+import com.example.planyourtrip.ui.theme.Spacing
 import com.example.planyourtrip.ui.tripdetails.components.BudgetCard
 import com.example.planyourtrip.ui.tripdetails.components.CurrencyCard
 import com.example.planyourtrip.ui.tripdetails.components.CurrencyCardActions
@@ -47,7 +47,7 @@ internal fun LazyListScope.overviewTab(
                 state = members,
                 onShowMembers = memberActions.onShowMembers,
                 onInvite = memberActions.onInvite,
-                modifier = cardPadding.padding(top = 8.dp),
+                modifier = cardPadding.padding(top = Spacing.s),
             )
         }
     }
@@ -56,7 +56,7 @@ internal fun LazyListScope.overviewTab(
             summary = state.summary,
             onSetBudget = onSetBudget,
             onClick = { onTabSelected(TripTab.BUDGET) },
-            modifier = if (state.members == null) cardPadding.padding(top = 8.dp) else cardPadding,
+            modifier = if (state.members == null) cardPadding.padding(top = Spacing.s) else cardPadding,
         )
     }
     if (currencyCard != null) {
@@ -68,7 +68,7 @@ internal fun LazyListScope.overviewTab(
         // Equal-height cards side by side, as in the design.
         Row(
             modifier = cardPadding.height(IntrinsicSize.Min),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.l),
         ) {
             // The map picture fills whatever height the Daily plan card next to it needs.
             FeatureCard(
