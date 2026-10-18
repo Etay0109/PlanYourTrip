@@ -1,7 +1,9 @@
 package com.example.planyourtrip.ui.auth
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
@@ -15,9 +17,17 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
+/**
+ * The typed text stays in the form ([AuthInput]); this keeps the mode (also across process death, in [savedState]),
+ * the field errors and the request.
+ */
+class AuthViewModel(
+    private val repository: AuthRepository,
+    /** Keeps the mode across process death; null (tests) keeps nothing. */
+    private val savedState: SavedStateHandle? = null,
+) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(AuthUiState())
+    private val _uiState = MutableStateFlow(AuthUiState(mode = savedState?.get<AuthMode>(KEY_MODE) ?: AuthMode.SIGN_IN))
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
 
     fun onModeToggle() {
@@ -30,33 +40,34 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
                 confirmError = null,
             )
         }
+        savedState?.set(KEY_MODE, _uiState.value.mode)
     }
 
-    fun onNameChange(value: String) = _uiState.update { it.copy(fullName = value, nameError = null) }
+    // Typing in a field clears its error.
+    fun onNameEdited() = _uiState.update { it.copy(nameError = null) }
 
-    fun onEmailChange(value: String) = _uiState.update { it.copy(email = value, emailError = null) }
+    fun onEmailEdited() = _uiState.update { it.copy(emailError = null) }
 
-    fun onPasswordChange(value: String) = _uiState.update { it.copy(password = value, passwordError = null) }
+    fun onPasswordEdited() = _uiState.update { it.copy(passwordError = null) }
 
-    fun onConfirmChange(value: String) =
-        _uiState.update { it.copy(confirmPassword = value, confirmError = null) }
+    fun onConfirmEdited() = _uiState.update { it.copy(confirmError = null) }
 
     fun onMessageShown() = _uiState.update { it.copy(message = null) }
 
-    fun onSubmit() {
+    fun onSubmit(input: AuthInput) {
         val state = _uiState.value
         if (state.isLoading) return
 
         val validated = when (state.mode) {
             AuthMode.SIGN_IN -> state.copy(
-                emailError = AuthValidator.validateEmail(state.email),
-                passwordError = AuthValidator.validateExistingPassword(state.password),
+                emailError = AuthValidator.validateEmail(input.email),
+                passwordError = AuthValidator.validateExistingPassword(input.password),
             )
             AuthMode.SIGN_UP -> state.copy(
-                nameError = AuthValidator.validateName(state.fullName),
-                emailError = AuthValidator.validateEmail(state.email),
-                passwordError = AuthValidator.validateNewPassword(state.password),
-                confirmError = AuthValidator.validateConfirm(state.password, state.confirmPassword),
+                nameError = AuthValidator.validateName(input.fullName),
+                emailError = AuthValidator.validateEmail(input.email),
+                passwordError = AuthValidator.validateNewPassword(input.password),
+                confirmError = AuthValidator.validateConfirm(input.password, input.confirmPassword),
             )
         }
         val hasErrors = listOf(
@@ -69,11 +80,11 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
 
         // Set synchronously so a second tap in the same frame is ignored.
         _uiState.value = validated.copy(isLoading = true, message = null)
-        val email = validated.email.trim()
+        val email = input.email.trim()
         viewModelScope.launch {
             val result = when (validated.mode) {
-                AuthMode.SIGN_IN -> repository.signIn(email, validated.password)
-                AuthMode.SIGN_UP -> repository.signUp(validated.fullName.trim(), email, validated.password)
+                AuthMode.SIGN_IN -> repository.signIn(email, input.password)
+                AuthMode.SIGN_UP -> repository.signUp(input.fullName.trim(), email, input.password)
             }
             _uiState.update { current ->
                 result.fold(
@@ -85,8 +96,10 @@ class AuthViewModel(private val repository: AuthRepository) : ViewModel() {
     }
 
     companion object {
+        private const val KEY_MODE = "mode"
+
         val Factory: ViewModelProvider.Factory = viewModelFactory {
-            initializer { AuthViewModel(appContainer().authRepository) }
+            initializer { AuthViewModel(appContainer().authRepository, createSavedStateHandle()) }
         }
     }
 }

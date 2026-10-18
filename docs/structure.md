@@ -157,6 +157,7 @@ app/src/main/java/com/example/planyourtrip/
                                #   statusLabel), TripStatus (tripStatus()), Money (agorot format/parse, percent,
                                #   shekels()), PickerDates (DatePicker UTC conversion), ErrorText (errorSupportingText),
                                #   CurrencyPicker (CurrencyPickerState, filterCurrencies, currencyName),
+                               #   SavedFormState (a form's state + its draft in SavedStateHandle),
                                #   TripDays (pure: tripDays, daysInclusive, dayNumber, isWithinTrip, sortActivities,
                                #   activitiesOn),
                                #   CategoryTotals (pure: categoryTotals(amountOf, includeZeroCategories) + CategoryTotal),

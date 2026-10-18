@@ -7,6 +7,10 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -23,13 +27,18 @@ fun BudgetDialog(
     onSave: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    // Typed text is Compose state (starting from the current budget), never read back while typing.
+    var input by rememberSaveable { mutableStateOf(state.input) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.budget_dialog_title)) },
         text = {
             OutlinedTextField(
-                value = state.input,
-                onValueChange = onInputChange,
+                value = input,
+                onValueChange = {
+                    input = it
+                    onInputChange(it)
+                },
                 label = { Text(stringResource(R.string.budget_dialog_label)) },
                 prefix = { Text(stringResource(R.string.currency_symbol)) },
                 singleLine = true,

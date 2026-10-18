@@ -24,7 +24,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,7 +46,9 @@ import com.example.planyourtrip.ui.common.components.CurrencyCodeLabel
 import com.example.planyourtrip.data.currency.ExchangeRate
 import com.example.planyourtrip.data.currency.ILS
 import com.example.planyourtrip.data.trip.ExpenseCategory
+import com.example.planyourtrip.data.trip.TextLimits
 import com.example.planyourtrip.data.trip.TravelerColor
+import com.example.planyourtrip.data.trip.limitTo
 import com.example.planyourtrip.ui.common.TripFormatting
 import com.example.planyourtrip.ui.common.components.DateField
 import com.example.planyourtrip.ui.common.components.EditFormScaffold
@@ -137,9 +141,15 @@ fun ExpenseFormContent(
             null
         },
     ) {
+        // Typed text is Compose state (starting from the loaded or restored value), never read back while typing.
+        var name by rememberSaveable { mutableStateOf(state.name) }
+        var amount by rememberSaveable { mutableStateOf(state.amount) }
         OutlinedTextField(
-            value = state.name,
-            onValueChange = actions.onNameChange,
+            value = name,
+            onValueChange = {
+                name = it.limitTo(TextLimits.EXPENSE_NAME)
+                actions.onNameChange(name)
+            },
             label = { Text(stringResource(R.string.expense_name)) },
             placeholder = { Text(stringResource(R.string.expense_name_placeholder)) },
             singleLine = true,
@@ -153,7 +163,15 @@ fun ExpenseFormContent(
             modifier = Modifier.fillMaxWidth(),
         )
 
-        AmountField(state, actions.onAmountChange, actions.onCurrencyChange)
+        AmountField(
+            state = state,
+            amount = amount,
+            onAmountChange = {
+                amount = it
+                actions.onAmountChange(it)
+            },
+            onCurrencyChange = actions.onCurrencyChange,
+        )
 
         if (state.showSplit) {
             SplitFields(state, actions.onPaidByChange, actions.onSplitToggle, actions.onNotShared)
@@ -262,6 +280,7 @@ private fun PersonChip(person: Person, selected: Boolean, onClick: () -> Unit) {
 @Composable
 private fun AmountField(
     state: ExpenseFormUiState,
+    amount: String,
     onAmountChange: (String) -> Unit,
     onCurrencyChange: (String) -> Unit,
 ) {
@@ -270,12 +289,12 @@ private fun AmountField(
         val stacked = maxWidth < Dimens.CompactScreenWidth || isLargeFontScale()
         if (stacked) {
             Column {
-                AmountTextField(state, onAmountChange, Modifier.fillMaxWidth())
+                AmountTextField(state, amount, onAmountChange, Modifier.fillMaxWidth())
                 CurrencySelector(state, onCurrencyChange, Modifier.padding(top = Spacing.s))
             }
         } else {
             Row(verticalAlignment = Alignment.Top) {
-                AmountTextField(state, onAmountChange, Modifier.weight(1f))
+                AmountTextField(state, amount, onAmountChange, Modifier.weight(1f))
                 CurrencySelector(state, onCurrencyChange, Modifier.padding(start = Spacing.s, top = Spacing.s))
             }
         }
@@ -285,11 +304,16 @@ private fun AmountField(
 
 /** The amount, prefixed with the selected currency's symbol (₪, €, ¥; none when the platform has no symbol). */
 @Composable
-private fun AmountTextField(state: ExpenseFormUiState, onAmountChange: (String) -> Unit, modifier: Modifier) {
+private fun AmountTextField(
+    state: ExpenseFormUiState,
+    amount: String,
+    onAmountChange: (String) -> Unit,
+    modifier: Modifier,
+) {
     val code = state.currencyCode
     val symbol = if (code == ILS) stringResource(R.string.currency_symbol) else CurrencyConversion.currencySymbol(code)
     OutlinedTextField(
-        value = state.amount,
+        value = amount,
         onValueChange = onAmountChange,
         label = { Text(stringResource(R.string.expense_amount)) },
         prefix = symbol?.let { { Text(it) } },

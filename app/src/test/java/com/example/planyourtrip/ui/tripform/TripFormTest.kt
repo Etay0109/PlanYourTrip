@@ -1,5 +1,6 @@
 package com.example.planyourtrip.ui.tripform
 
+import androidx.lifecycle.SavedStateHandle
 import com.example.planyourtrip.FakeAuthRepository
 import com.example.planyourtrip.FakeReminderPrompt
 import com.example.planyourtrip.FakeCurrencyRepository
@@ -266,5 +267,37 @@ class TripFormTest {
         edit.onSave()
         advanceUntilIdle()
         assertEquals(listOf(nov12), prompt.added)
+    }
+
+    // ---------- Process death ----------
+
+    @Test
+    fun newTrip_draftComesBackAfterProcessDeath() = runTest(dispatcher) {
+        val saved = SavedStateHandle()
+        val before = TripFormViewModel(tripId = null, repo, user, currencies, destinations, savedState = saved)
+        before.onDestinationChange("Lisbon")
+        before.onStartDateChange(nov12)
+        before.onEndDateChange(nov17)
+        advanceUntilIdle()
+
+        val after = TripFormViewModel(tripId = null, repo, user, currencies, destinations, savedState = saved).uiState.value
+        assertEquals("Lisbon", after.destination)
+        assertEquals(nov12, after.startDate)
+        assertEquals(nov17, after.endDate)
+    }
+
+    @Test
+    fun edit_restoredDraftWinsOverTheStoredTrip() = runTest(dispatcher) {
+        repo.trips.value = listOf("u1" to Trip(7, "Rome", nov12, nov17, TripColor.MINT))
+        val saved = SavedStateHandle()
+        val before = TripFormViewModel(tripId = 7, repo, user, currencies, destinations, savedState = saved)
+        advanceUntilIdle()
+        before.onDestinationChange("Roma")
+
+        val after = TripFormViewModel(tripId = 7, repo, user, currencies, destinations, savedState = saved)
+        advanceUntilIdle()
+        assertFalse(after.uiState.value.isLoading)
+        assertEquals("Roma", after.uiState.value.destination)
+        assertEquals(nov12, after.uiState.value.startDate)
     }
 }

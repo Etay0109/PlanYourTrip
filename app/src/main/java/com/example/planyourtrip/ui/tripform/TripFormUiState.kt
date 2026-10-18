@@ -10,6 +10,7 @@ data class TripFormUiState(
     val isEditing: Boolean = false,
     /** While editing, true until the trip's current values are loaded into the fields. */
     val isLoading: Boolean = false,
+    /** The typed destination as the ViewModel last got it; the field keeps its own text and starts from this. */
     val destination: String = "",
     /** Places matching the typed destination (empty = no list shown): the built-in table's first, then Photon's. */
     val suggestions: List<PlaceSuggestion> = emptyList(),

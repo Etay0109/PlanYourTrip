@@ -379,6 +379,17 @@ Reference: `design/trip_prep.png`, **with these deliberate differences**: the us
   a currency change clears both fields. Do not route the text through a `StateFlow`: `BasicTextField(String)`
   resets its cursor when it recomposes with a value that lags behind what was typed — this caused the
   "can't type 3+ digits" bug, together with boxes that were too narrow.
+- **The same rule for every text field** (trip, expense and activity forms, Auth, Prep / Split / budget dialogs,
+  currency search): the field shows its own `rememberSaveable` text, starting from the ViewModel's loaded value
+  (edit forms compose their fields only after loading), and sends each change to the ViewModel, which keeps its copy
+  for validation and saving but never feeds it back while typing. Text the ViewModel sets (a picked destination, a
+  newly picked settle-up transfer's full amount) is set in the field by the screen too. Auth sends the values only
+  on submit (`AuthInput`), and its passwords use plain `remember`, so they are never saved.
+- **Process death:** the trip, expense and activity forms keep a draft (text + dates, category, currency, payer and
+  split, picked place, booked, time) in `SavedStateHandle` via `ui/common/SavedFormState`; when editing, a restored
+  draft wins over the stored item. Open dialogs come back too: Prep "Edit text" and the document form, Split's
+  traveler dialog and settle-up sheet (once the trip loads, if the traveler or transfer still exists), the budget
+  dialog, and the Auth mode. Search sheets (currency picker) are not restored.
 - **Amounts are always fully visible:** the code label sits above the amount, and the amount font steps down
   from 24sp to 10sp (`ConverterAmountStyles` in `Type.kt`, picked with `CurrencyConversion.largestFittingSize` +
   `rememberTextMeasurer`) until the whole number fits its box; the line height stays fixed.

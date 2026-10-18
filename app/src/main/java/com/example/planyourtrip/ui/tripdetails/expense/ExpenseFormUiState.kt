@@ -11,6 +11,7 @@ data class ExpenseFormUiState(
     val isEditing: Boolean = false,
     /** True until the trip's currency (and, when editing, the expense) is loaded; the fields stay hidden. */
     val isLoading: Boolean = true,
+    /** The typed name and amount as the ViewModel last got them; the fields keep their own text and start from these. */
     val name: String = "",
     /** Amount as typed in [currencyCode], e.g. "120.50" or "1500". Converted on save. */
     val amount: String = "",

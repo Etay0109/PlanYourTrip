@@ -21,7 +21,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,6 +38,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.planyourtrip.R
 import com.example.planyourtrip.data.trip.ActivityType
+import com.example.planyourtrip.data.trip.TextLimits
+import com.example.planyourtrip.data.trip.limitTo
 import com.example.planyourtrip.ui.common.components.DateField
 import com.example.planyourtrip.ui.common.components.EditFormScaffold
 import com.example.planyourtrip.ui.common.components.FormDelete
@@ -120,9 +124,17 @@ fun ActivityFormContent(
             null
         },
     ) {
+        // Typed text is Compose state (starting from the loaded or restored value), never read back while typing.
+        var title by rememberSaveable { mutableStateOf(state.title) }
+        var location by rememberSaveable { mutableStateOf(state.location) }
+        var cost by rememberSaveable { mutableStateOf(state.cost) }
+        var note by rememberSaveable { mutableStateOf(state.note) }
         OutlinedTextField(
-            value = state.title,
-            onValueChange = actions.onTitleChange,
+            value = title,
+            onValueChange = {
+                title = it.limitTo(TextLimits.ACTIVITY_TITLE)
+                actions.onTitleChange(title)
+            },
             label = { Text(stringResource(R.string.activity_title)) },
             placeholder = { Text(stringResource(R.string.activity_title_placeholder)) },
             singleLine = true,
@@ -171,8 +183,11 @@ fun ActivityFormContent(
         TimeField(time = state.startTime, onTimeChange = actions.onStartTimeChange)
 
         OutlinedTextField(
-            value = state.location,
-            onValueChange = actions.onLocationChange,
+            value = location,
+            onValueChange = {
+                location = it.limitTo(TextLimits.ACTIVITY_LOCATION)
+                actions.onLocationChange(location)
+            },
             label = { Text(stringResource(R.string.activity_location)) },
             placeholder = { Text(stringResource(R.string.activity_location_placeholder)) },
             singleLine = true,
@@ -186,8 +201,11 @@ fun ActivityFormContent(
         )
 
         OutlinedTextField(
-            value = state.cost,
-            onValueChange = actions.onCostChange,
+            value = cost,
+            onValueChange = {
+                cost = it
+                actions.onCostChange(it)
+            },
             label = { Text(stringResource(R.string.activity_cost)) },
             prefix = { Text(stringResource(R.string.currency_symbol)) },
             singleLine = true,
@@ -201,8 +219,11 @@ fun ActivityFormContent(
         BookedRow(booked = state.booked, onBookedChange = actions.onBookedChange)
 
         OutlinedTextField(
-            value = state.note,
-            onValueChange = actions.onNoteChange,
+            value = note,
+            onValueChange = {
+                note = it.limitTo(TextLimits.ACTIVITY_NOTE)
+                actions.onNoteChange(note)
+            },
             label = { Text(stringResource(R.string.activity_note)) },
             minLines = 3,
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),

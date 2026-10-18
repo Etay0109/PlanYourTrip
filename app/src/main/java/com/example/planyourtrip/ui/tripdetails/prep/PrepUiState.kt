@@ -3,6 +3,7 @@ package com.example.planyourtrip.ui.tripdetails.prep
 import com.example.planyourtrip.data.document.DocumentKind
 import com.example.planyourtrip.data.document.DocumentType
 import com.example.planyourtrip.data.trip.ChecklistKind
+import java.io.Serializable
 import java.time.LocalDate
 
 sealed interface PrepUiState {
@@ -53,7 +54,10 @@ data class DocumentCardState(
     val kind: DocumentKind,
 )
 
-/** The add/edit document form. [pickedUri] is set for a new document (the file is copied on Save). */
+/**
+ * The add/edit document form. [pickedUri] is set for a new document (the file is copied on Save). Serializable: an
+ * open form comes back after process death.
+ */
 data class DocumentFormState(
     val documentId: Long? = null,
     val pickedUri: String? = null,
@@ -63,12 +67,12 @@ data class DocumentFormState(
     val detail: String = "",
     val nameError: Boolean = false,
     val isSaving: Boolean = false,
-) {
+) : Serializable {
     val isNew: Boolean get() = documentId == null
 }
 
-/** The "Edit text" dialog of a checklist item. */
-data class EditItemTextState(val itemId: Long, val text: String, val isError: Boolean = false)
+/** The "Edit text" dialog of a checklist item (Serializable: it comes back after process death). */
+data class EditItemTextState(val itemId: Long, val text: String, val isError: Boolean = false) : Serializable
 
 /** Snackbar messages of the Prep tab, mapped to strings by the UI. */
 enum class PrepMessage { FILE_TOO_LARGE, FILE_UNSUPPORTED, FILE_NOT_READABLE, FILE_MISSING }

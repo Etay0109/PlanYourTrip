@@ -1,5 +1,6 @@
 package com.example.planyourtrip.ui.tripdetails.split
 
+import androidx.lifecycle.SavedStateHandle
 import com.example.planyourtrip.FakeAuthRepository
 import com.example.planyourtrip.FakeExpenseRepository
 import com.example.planyourtrip.FakeSettlementRepository
@@ -332,5 +333,38 @@ class SplitViewModelTest {
         assertEquals(SettleAmountError.TOO_MUCH, validateSettleAmount("1.01", 100))
         assertNull(validateSettleAmount("1", 100))
         assertNull(validateSettleAmount("0,5", 100))
+    }
+
+    // ---- Process death ----
+
+    @Test
+    fun openTravelerDialog_comesBackAfterProcessDeath_onceLoaded() = runTest(dispatcher) {
+        val saved = SavedStateHandle()
+        val before = SplitViewModel(1, trips, expenses, travelers, settlements, auth, clock, dispatcher, savedState = saved)
+            .also { it.uiState.launchIn(backgroundScope) }
+        before.onTravelerClick(dana)
+        before.onTravelerNameChange("Dana K")
+
+        val after = SplitViewModel(1, trips, expenses, travelers, settlements, auth, clock, dispatcher, savedState = saved)
+            .also { it.uiState.launchIn(backgroundScope) }
+        val dialog = checkNotNull(after.travelerDialog.value)
+        assertEquals(dana, dialog.editing)
+        assertEquals("Dana K", dialog.name)
+    }
+
+    @Test
+    fun openSettleSheet_comesBackWithItsTransferAndAmount() = runTest(dispatcher) {
+        val saved = SavedStateHandle()
+        val before = SplitViewModel(1, trips, expenses, travelers, settlements, auth, clock, dispatcher, savedState = saved)
+            .also { it.uiState.launchIn(backgroundScope) }
+        before.onSettleUp()
+        before.onSelectTransfer(Transfer("amit", "noa", 6_000))
+        before.onSettleAmountChange("25")
+
+        val after = SplitViewModel(1, trips, expenses, travelers, settlements, auth, clock, dispatcher, savedState = saved)
+            .also { it.uiState.launchIn(backgroundScope) }
+        val sheet = checkNotNull(after.settleSheet.value)
+        assertEquals(Transfer("amit", "noa", 6_000), sheet.selected)
+        assertEquals("25", sheet.amount)
     }
 }

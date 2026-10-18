@@ -96,3 +96,8 @@ the connection returns), `firstName`/`initials`/`greetingName`, `TripColor`, and
   not change the UI is checked by pulling the folder before and after and comparing sha256 sums. Run it with
   `am instrument -w -e class com.example.planyourtrip.ui.ScreenshotBaselineTest …` (same setup as the other device
   tests); a new `@Preview` needs a line in its list.
+- **Typed text and process death:** each form ViewModel test has a "comes back after process death" case (a second
+  ViewModel built with the same `SavedStateHandle`: `TripFormTest`, `ExpenseFormTest`, `ActivityFormTest`,
+  `PrepViewModelTest`, `SplitViewModelTest`, `TripDetailsViewModelTest`, `AuthViewModelTest` for the mode);
+  androidTest `ui/FormTextRestorationTest` (`StateRestorationTester`) proves the trip form's destination, the expense
+  name and amount, and the Auth name and email survive recreation, and that a typed password does not.

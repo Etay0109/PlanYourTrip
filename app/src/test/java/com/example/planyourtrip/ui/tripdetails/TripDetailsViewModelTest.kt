@@ -1,5 +1,6 @@
 package com.example.planyourtrip.ui.tripdetails
 
+import androidx.lifecycle.SavedStateHandle
 import com.example.planyourtrip.FakeActivityRepository
 import com.example.planyourtrip.FakeAuthRepository
 import com.example.planyourtrip.FakeCurrencyRepository
@@ -275,6 +276,20 @@ class TripDetailsViewModelTest {
         vm.onDismissBudget()
         assertNull(vm.budgetDialog.value)
         assertEquals(600_000L, trips.tripsOf("u1").single().budgetAgorot)
+    }
+
+    @Test
+    fun openBudgetDialog_comesBackAfterProcessDeath_withTheTypedAmount() = runTest(dispatcher) {
+        val saved = SavedStateHandle()
+        fun vmWith(handle: SavedStateHandle) = TripDetailsViewModel(
+            1, trips, expenses, travelers, activities, auth, currencies, clock, dispatcher, deleted, savedState = handle,
+        )
+        val before = vmWith(saved)
+        before.uiState.launchIn(backgroundScope)
+        before.onEditBudget()
+        before.onBudgetInputChange("4500")
+
+        assertEquals(BudgetDialogState(input = "4500"), vmWith(saved).budgetDialog.value)
     }
 
     // ---------- Currency card ----------

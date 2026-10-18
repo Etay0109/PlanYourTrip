@@ -53,10 +53,10 @@ fun AuthScreen(
     AuthContent(
         state = state,
         onModeToggle = viewModel::onModeToggle,
-        onNameChange = viewModel::onNameChange,
-        onEmailChange = viewModel::onEmailChange,
-        onPasswordChange = viewModel::onPasswordChange,
-        onConfirmChange = viewModel::onConfirmChange,
+        onNameEdited = viewModel::onNameEdited,
+        onEmailEdited = viewModel::onEmailEdited,
+        onPasswordEdited = viewModel::onPasswordEdited,
+        onConfirmEdited = viewModel::onConfirmEdited,
         onSubmit = viewModel::onSubmit,
         onMessageShown = viewModel::onMessageShown,
     )
@@ -72,12 +72,14 @@ fun AuthScreen(
 fun AuthContent(
     state: AuthUiState,
     onModeToggle: () -> Unit,
-    onNameChange: (String) -> Unit,
-    onEmailChange: (String) -> Unit,
-    onPasswordChange: (String) -> Unit,
-    onConfirmChange: (String) -> Unit,
-    onSubmit: () -> Unit,
+    onNameEdited: () -> Unit,
+    onEmailEdited: () -> Unit,
+    onPasswordEdited: () -> Unit,
+    onConfirmEdited: () -> Unit,
+    onSubmit: (AuthInput) -> Unit,
     onMessageShown: () -> Unit,
+    /** The fields' text when the screen first shows (previews and tests). */
+    initialInput: AuthInput = AuthInput(),
 ) {
     val isSignUp = state.mode == AuthMode.SIGN_UP
     val snackbarHostState = remember { SnackbarHostState() }
@@ -139,12 +141,13 @@ fun AuthContent(
                     AuthForm(
                         state = state,
                         onModeToggle = onModeToggle,
-                        onNameChange = onNameChange,
-                        onEmailChange = onEmailChange,
-                        onPasswordChange = onPasswordChange,
-                        onConfirmChange = onConfirmChange,
+                        onNameEdited = onNameEdited,
+                        onEmailEdited = onEmailEdited,
+                        onPasswordEdited = onPasswordEdited,
+                        onConfirmEdited = onConfirmEdited,
                         onSubmit = onSubmit,
                         focus = focus,
+                        initialInput = initialInput,
                     )
                 }
             }

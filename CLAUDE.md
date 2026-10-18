@@ -112,8 +112,11 @@ tools/hebrew-places/   generator of HebrewPlaceTable.kt (see its README)
 - **Stateful/stateless split.** `XxxScreen` only wires the ViewModel; `XxxContent` takes state + lambdas (previewable,
   UI-testable). Preview sample data lives only in preview functions.
 - **Pure UI state stays in Compose** (password visibility, "date picker open"); everything else in the ViewModel.
-  **Typed text that must keep its cursor** (converter fields, chat input, "Add item…") is Compose state, never routed
-  through a `StateFlow` (that caused the "can't type 3+ digits" bug).
+  **Every text field's text is Compose state** (`rememberSaveable`, starting from the loaded value), updated
+  synchronously and never read back from a `StateFlow` (that caused the "can't type 3+ digits" bug). The ViewModel
+  still gets each change (validation, previews, lookups) or the values on submit (Auth). **Forms survive process
+  death:** form ViewModels keep a `Serializable` draft of their text and choices (and open dialogs) in
+  `SavedStateHandle` through `SavedFormState`; passwords are never saved.
 - **Manual DI.** `AppContainer` owns singletons. Every ViewModel takes dependencies as constructor parameters and has a
   `companion object { val Factory = viewModelFactory { initializer { ... appContainer() ... } } }`; tests pass fakes.
 - **Time and dispatchers are injected** (`java.time.Clock`, `computeDispatcher`), so tests fix "today" and no work

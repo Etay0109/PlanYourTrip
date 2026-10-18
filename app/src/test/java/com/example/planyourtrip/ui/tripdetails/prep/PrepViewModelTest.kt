@@ -1,5 +1,6 @@
 package com.example.planyourtrip.ui.tripdetails.prep
 
+import androidx.lifecycle.SavedStateHandle
 import com.example.planyourtrip.FakeAuthRepository
 import com.example.planyourtrip.FakeChecklistRepository
 import com.example.planyourtrip.FakeDocumentFileStore
@@ -419,5 +420,22 @@ class PrepViewModelTest {
         vm.onViewDocument(id)
         assertNull(vm.pendingView.value)
         assertEquals(PrepMessage.FILE_MISSING, vm.message.value)
+    }
+
+    // ---- Process death ----
+
+    @Test
+    fun openEditTextDialog_comesBackAfterProcessDeath_andAClosedOneDoesNot() = runTest(dispatcher) {
+        val saved = SavedStateHandle()
+        val before = PrepViewModel(1, trips, checklist, documents, files, auth, clock, dispatcher, saved)
+            .also { it.uiState.launchIn(backgroundScope) }
+        before.onEditItemText(charger.id)
+        before.onEditTextChange("Phone charger")
+
+        val after = PrepViewModel(1, trips, checklist, documents, files, auth, clock, dispatcher, saved)
+        assertEquals(EditItemTextState(charger.id, "Phone charger"), after.editText.value)
+
+        after.onDismissEditText()
+        assertNull(PrepViewModel(1, trips, checklist, documents, files, auth, clock, dispatcher, saved).editText.value)
     }
 }

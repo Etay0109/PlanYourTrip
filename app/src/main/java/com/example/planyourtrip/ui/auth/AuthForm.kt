@@ -19,6 +19,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
@@ -94,18 +95,28 @@ internal fun rememberAuthFormFocus(state: AuthUiState): AuthFormFocus {
     return focus
 }
 
-/** The sheet's content: the fields (name and confirmation only for Sign Up), the button and the other mode's link. */
+/**
+ * The sheet's content: the fields (name and confirmation only for Sign Up), the button and the other mode's link.
+ * The typed text is Compose state here, kept when the mode changes; the name and email survive process death
+ * ([rememberSaveable]), the passwords are never saved.
+ */
 @Composable
 internal fun AuthForm(
     state: AuthUiState,
     onModeToggle: () -> Unit,
-    onNameChange: (String) -> Unit,
-    onEmailChange: (String) -> Unit,
-    onPasswordChange: (String) -> Unit,
-    onConfirmChange: (String) -> Unit,
-    onSubmit: () -> Unit,
+    onNameEdited: () -> Unit,
+    onEmailEdited: () -> Unit,
+    onPasswordEdited: () -> Unit,
+    onConfirmEdited: () -> Unit,
+    onSubmit: (AuthInput) -> Unit,
     focus: AuthFormFocus,
+    initialInput: AuthInput = AuthInput(),
 ) {
+    var fullName by rememberSaveable { mutableStateOf(initialInput.fullName) }
+    var email by rememberSaveable { mutableStateOf(initialInput.email) }
+    var password by remember { mutableStateOf(initialInput.password) }
+    var confirmPassword by remember { mutableStateOf(initialInput.confirmPassword) }
+    val submit = { onSubmit(AuthInput(fullName, email, password, confirmPassword)) }
     val isSignUp = state.mode == AuthMode.SIGN_UP
     val focusManager = LocalFocusManager.current
     fun Modifier.field(field: AuthField) = this
@@ -121,8 +132,8 @@ internal fun AuthForm(
     ) {
         if (isSignUp) {
             AuthTextField(
-                value = state.fullName,
-                onValueChange = onNameChange,
+                value = fullName,
+                onValueChange = { fullName = it; onNameEdited() },
                 label = R.string.auth_full_name,
                 icon = R.drawable.ic_person_outline,
                 error = state.nameError,
@@ -134,8 +145,8 @@ internal fun AuthForm(
             )
         }
         AuthTextField(
-            value = state.email,
-            onValueChange = onEmailChange,
+            value = email,
+            onValueChange = { email = it; onEmailEdited() },
             label = R.string.auth_email,
             icon = R.drawable.ic_mail_outline,
             error = state.emailError,
@@ -146,8 +157,8 @@ internal fun AuthForm(
             modifier = Modifier.field(AuthField.EMAIL),
         )
         AuthTextField(
-            value = state.password,
-            onValueChange = onPasswordChange,
+            value = password,
+            onValueChange = { password = it; onPasswordEdited() },
             label = R.string.auth_password,
             icon = R.drawable.ic_lock_outline,
             error = state.passwordError,
@@ -155,16 +166,16 @@ internal fun AuthForm(
                 keyboardType = KeyboardType.Password,
                 imeAction = if (isSignUp) ImeAction.Next else ImeAction.Done,
             ),
-            keyboardActions = KeyboardActions(onDone = { onSubmit() }),
+            keyboardActions = KeyboardActions(onDone = { submit() }),
             isPassword = true,
-            strength = if (isSignUp) AuthValidator.passwordStrength(state.password) else null,
+            strength = if (isSignUp) AuthValidator.passwordStrength(password) else null,
             hint = if (isSignUp) stringResource(R.string.auth_password_hint) else null,
             modifier = Modifier.field(AuthField.PASSWORD),
         )
         if (isSignUp) {
             AuthTextField(
-                value = state.confirmPassword,
-                onValueChange = onConfirmChange,
+                value = confirmPassword,
+                onValueChange = { confirmPassword = it; onConfirmEdited() },
                 label = R.string.auth_confirm_password,
                 icon = R.drawable.ic_lock_outline,
                 error = state.confirmError,
@@ -172,7 +183,7 @@ internal fun AuthForm(
                     keyboardType = KeyboardType.Password,
                     imeAction = ImeAction.Done,
                 ),
-                keyboardActions = KeyboardActions(onDone = { onSubmit() }),
+                keyboardActions = KeyboardActions(onDone = { submit() }),
                 isPassword = true,
                 modifier = Modifier.field(AuthField.CONFIRM),
             )
@@ -184,7 +195,7 @@ internal fun AuthForm(
                 if (isSignUp) R.string.auth_button_sign_up else R.string.auth_button_sign_in
             ),
             loading = state.isLoading,
-            onClick = onSubmit,
+            onClick = submit,
             modifier = Modifier.onGloballyPositioned { focus.layout.button = it },
         )
         Spacer(Modifier.height(Spacing.xs))

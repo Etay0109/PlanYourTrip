@@ -28,6 +28,7 @@ import com.example.planyourtrip.data.trip.TripMemberRepository
 import com.example.planyourtrip.data.trip.TripRepository
 import com.example.planyourtrip.ui.common.CurrencyPickerState
 import com.example.planyourtrip.ui.common.Money
+import com.example.planyourtrip.ui.common.SavedFormState
 import com.example.planyourtrip.ui.common.WhileUiSubscribed
 import com.example.planyourtrip.ui.common.categoryTotals
 import com.example.planyourtrip.ui.common.split.inListOrder
@@ -76,6 +77,8 @@ class TripDetailsViewModel(
     memberRepository: TripMemberRepository = TripMemberRepository.None,
     /** The header's destination photo (this device only). */
     photoRepository: DestinationPhotoRepository = DestinationPhotoRepository.None,
+    /** Keeps an open budget dialog across process death. */
+    savedState: SavedStateHandle? = null,
 ) : ViewModel() {
 
     /**
@@ -163,22 +166,24 @@ class TripDetailsViewModel(
     /** The message went away without "Undo": the delete stays. */
     fun onDeleteMessageDismissed(deleted: DeletedActivity) = deletedActivities.clear(deleted)
 
-    private val _budgetDialog = MutableStateFlow<BudgetDialogState?>(null)
+    private val _budgetDialog = SavedFormState<BudgetDialogState?, BudgetDialogState>(null, savedState, KEY_BUDGET_DIALOG) {
+        it
+    }.also { form -> form.restored?.let { restored -> form.update { restored } } }
 
     /** The open "Set budget" dialog, or null when closed. */
-    val budgetDialog: StateFlow<BudgetDialogState?> = _budgetDialog.asStateFlow()
+    val budgetDialog: StateFlow<BudgetDialogState?> = _budgetDialog.flow
 
     /** Opens the dialog, prefilled with the current budget (empty when none). */
     fun onEditBudget() {
         val current = (uiState.value as? TripDetailsUiState.Loaded)?.trip?.budgetAgorot
-        _budgetDialog.value = BudgetDialogState(input = current?.let(Money::toInput).orEmpty())
+        _budgetDialog.update { BudgetDialogState(input = current?.let(Money::toInput).orEmpty()) }
     }
 
     fun onBudgetInputChange(value: String) =
         _budgetDialog.update { it?.copy(input = value, error = null) }
 
     fun onDismissBudget() {
-        _budgetDialog.value = null
+        _budgetDialog.update { null }
     }
 
     /** Validates (a number greater than zero), stores the budget and closes the dialog. */
@@ -186,12 +191,12 @@ class TripDetailsViewModel(
         val dialog = _budgetDialog.value ?: return
         val error = validateBudget(dialog.input)
         if (error != null) {
-            _budgetDialog.value = dialog.copy(error = error)
+            _budgetDialog.update { dialog.copy(error = error) }
             return
         }
         val ownerId = authRepository.currentUser.value?.uid ?: return
         val agorot = checkNotNull(Money.parseAgorot(dialog.input))
-        _budgetDialog.value = null
+        _budgetDialog.update { null }
         viewModelScope.launch { tripRepository.setBudget(tripId, ownerId, agorot) }
     }
 
@@ -339,6 +344,8 @@ class TripDetailsViewModel(
     }
 
     companion object {
+        private const val KEY_BUDGET_DIALOG = "budgetDialog"
+
         /** Null when [input] is a valid budget: a number of shekels greater than zero. */
         fun validateBudget(input: String): BudgetFieldError? {
             if (input.isBlank()) return BudgetFieldError.EMPTY
@@ -361,6 +368,7 @@ class TripDetailsViewModel(
                     deletedActivities = container.deletedActivities,
                     memberRepository = container.tripMemberRepository,
                     photoRepository = container.destinationPhotoRepository,
+                    savedState = handle,
                 )
             }
         }

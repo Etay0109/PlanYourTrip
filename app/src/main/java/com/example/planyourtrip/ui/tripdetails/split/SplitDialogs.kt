@@ -30,6 +30,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -44,6 +47,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.planyourtrip.R
 import com.example.planyourtrip.data.trip.Settlement
+import com.example.planyourtrip.data.trip.TextLimits
+import com.example.planyourtrip.data.trip.limitTo
 import com.example.planyourtrip.ui.common.TripFormatting
 import com.example.planyourtrip.ui.common.components.ConfirmDeleteDialog
 import com.example.planyourtrip.ui.common.components.PrimaryButton
@@ -112,6 +117,8 @@ fun TravelerDialog(
     onDismiss: () -> Unit,
 ) {
     val editing = state.editing
+    // Typed text is Compose state (starting from the traveler's name), never read back while typing.
+    var name by rememberSaveable { mutableStateOf(state.name) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -120,8 +127,11 @@ fun TravelerDialog(
         text = {
             Column {
                 OutlinedTextField(
-                    value = state.name,
-                    onValueChange = onNameChange,
+                    value = name,
+                    onValueChange = {
+                        name = it.limitTo(TextLimits.TRAVELER_NAME)
+                        onNameChange(name)
+                    },
                     label = { Text(stringResource(R.string.traveler_name)) },
                     placeholder = { Text(stringResource(R.string.traveler_name_placeholder)) },
                     singleLine = true,
@@ -271,10 +281,15 @@ private fun TransfersPage(
         }
     }
     val selected = sheet.selected ?: return
+    // Typed text is Compose state; picking another transfer starts it again at that transfer's full amount.
+    var amount by rememberSaveable(selected) { mutableStateOf(sheet.amount) }
     Spacer(Modifier.height(Spacing.l))
     OutlinedTextField(
-        value = sheet.amount,
-        onValueChange = onAmountChange,
+        value = amount,
+        onValueChange = {
+            amount = it
+            onAmountChange(it)
+        },
         label = { Text(stringResource(R.string.settle_amount)) },
         prefix = { Text(stringResource(R.string.currency_symbol)) },
         singleLine = true,

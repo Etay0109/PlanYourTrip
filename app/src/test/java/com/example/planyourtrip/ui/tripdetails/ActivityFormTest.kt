@@ -1,5 +1,6 @@
 package com.example.planyourtrip.ui.tripdetails
 
+import androidx.lifecycle.SavedStateHandle
 import com.example.planyourtrip.FakeActivityRepository
 import com.example.planyourtrip.FakeAuthRepository
 import com.example.planyourtrip.FakeTripRepository
@@ -246,5 +247,28 @@ class ActivityFormTest {
         vm.onSave()
         advanceUntilIdle()
         assertEquals("Da Enzo al 29, Trastevere", repo.activities.value.last().location)
+    }
+
+    // ---------- Process death ----------
+
+    @Test
+    fun edit_draftComesBackAfterProcessDeath_overTheStoredActivity() = runTest(dispatcher) {
+        val saved = SavedStateHandle()
+        val before = ActivityFormViewModel(1, 5, null, repo, trips, auth, clock, deleted, savedState = saved)
+        advanceUntilIdle()
+        val type = ActivityType.entries.first { it != ActivityType.ACTIVITY }
+        before.onTitleChange("Colosseum at night")
+        before.onTypeChange(type)
+        before.onBookedChange(false)
+        before.onNoteChange("Bring water")
+
+        val after = ActivityFormViewModel(1, 5, null, repo, trips, auth, clock, deleted, savedState = saved)
+        advanceUntilIdle()
+        val s = after.uiState.value
+        assertEquals("Colosseum at night", s.title)
+        assertEquals(type, s.type)
+        assertFalse(s.booked)
+        assertEquals("Bring water", s.note)
+        assertEquals("Piazza del Colosseo", s.location)
     }
 }

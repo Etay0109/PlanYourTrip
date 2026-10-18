@@ -28,6 +28,7 @@ import com.example.planyourtrip.data.trip.DeletedChecklistItem
 import com.example.planyourtrip.data.trip.TextLimits
 import com.example.planyourtrip.data.trip.TripRepository
 import com.example.planyourtrip.data.trip.limitTo
+import com.example.planyourtrip.ui.common.SavedFormState
 import com.example.planyourtrip.ui.common.WhileUiSubscribed
 import com.example.planyourtrip.ui.navigation.TripDetails
 import kotlinx.coroutines.CancellationException
@@ -62,6 +63,8 @@ class PrepViewModel(
     private val clock: Clock,
     /** Where the progress and rows are computed; tests pass their test dispatcher. */
     computeDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    /** Keeps an open dialog (edit text, document form) across process death. */
+    savedState: SavedStateHandle? = null,
 ) : ViewModel() {
 
     val uiState: StateFlow<PrepUiState> = authRepository.currentUser
@@ -138,14 +141,15 @@ class PrepViewModel(
         }
     }
 
-    private val _editText = MutableStateFlow<EditItemTextState?>(null)
+    private val _editText = SavedFormState<EditItemTextState?, EditItemTextState>(null, savedState, KEY_EDIT_TEXT) { it }
+        .also { form -> form.restored?.let { restored -> form.update { restored } } }
 
     /** The open "Edit text" dialog, or null. */
-    val editText: StateFlow<EditItemTextState?> = _editText.asStateFlow()
+    val editText: StateFlow<EditItemTextState?> = _editText.flow
 
     fun onEditItemText(id: Long) {
         val row = loaded()?.let { it.beforeTrip.rows + it.packing.rows }?.firstOrNull { it.id == id } ?: return
-        _editText.value = EditItemTextState(id, row.text)
+        _editText.update { EditItemTextState(id, row.text) }
     }
 
     fun onEditTextChange(text: String) =
@@ -154,16 +158,16 @@ class PrepViewModel(
     fun onSaveItemText() {
         val edit = _editText.value ?: return
         if (edit.text.isBlank()) {
-            _editText.value = edit.copy(isError = true)
+            _editText.update { edit.copy(isError = true) }
             return
         }
         val owner = ownerId ?: return
-        _editText.value = null
+        _editText.update { null }
         viewModelScope.launch { checklistRepository.updateText(edit.itemId, owner, edit.text) }
     }
 
     fun onDismissEditText() {
-        _editText.value = null
+        _editText.update { null }
     }
 
     /** Sets ([date]) or clears (null) the due date of a "Before the trip" item. */
@@ -198,10 +202,13 @@ class PrepViewModel(
 
     // ---- Documents ----
 
-    private val _documentForm = MutableStateFlow<DocumentFormState?>(null)
+    private val _documentForm = SavedFormState<DocumentFormState?, DocumentFormState>(
+        null, savedState, KEY_DOCUMENT_FORM,
+    ) { it?.copy(isSaving = false) }
+        .also { form -> form.restored?.let { restored -> form.update { restored } } }
 
     /** The open add/edit document form, or null. */
-    val documentForm: StateFlow<DocumentFormState?> = _documentForm.asStateFlow()
+    val documentForm: StateFlow<DocumentFormState?> = _documentForm.flow
 
     private val _message = MutableStateFlow<PrepMessage?>(null)
 
@@ -228,11 +235,13 @@ class PrepViewModel(
             when (checkPickedFile(picked.mimeType, picked.sizeBytes)) {
                 DocumentFileError.UNSUPPORTED_TYPE -> _message.value = PrepMessage.FILE_UNSUPPORTED
                 DocumentFileError.TOO_LARGE -> _message.value = PrepMessage.FILE_TOO_LARGE
-                null -> _documentForm.value = DocumentFormState(
-                    pickedUri = uri,
-                    mimeType = picked.mimeType,
-                    name = defaultDocumentName(picked.displayName),
-                )
+                null -> _documentForm.update {
+                    DocumentFormState(
+                        pickedUri = uri,
+                        mimeType = picked.mimeType,
+                        name = defaultDocumentName(picked.displayName),
+                    )
+                }
             }
         }
     }
@@ -240,12 +249,14 @@ class PrepViewModel(
     /** The card menu's "Edit": the same form, prefilled (name, type, detail line). */
     fun onEditDocument(id: Long) {
         val document = loaded()?.documents?.firstOrNull { it.id == id } ?: return
-        _documentForm.value = DocumentFormState(
-            documentId = id,
-            name = document.name,
-            type = document.type,
-            detail = document.detail.orEmpty(),
-        )
+        _documentForm.update {
+            DocumentFormState(
+                documentId = id,
+                name = document.name,
+                type = document.type,
+                detail = document.detail.orEmpty(),
+            )
+        }
     }
 
     fun onDocumentNameChange(name: String) = _documentForm.update { it?.copy(name = name, nameError = false) }
@@ -257,7 +268,7 @@ class PrepViewModel(
 
     fun onDismissDocumentForm() {
         if (_documentForm.value?.isSaving == true) return
-        _documentForm.value = null
+        _documentForm.update { null }
     }
 
     /** Validates the name, then copies the file (new document) or stores the changes. Double taps save once. */
@@ -265,17 +276,17 @@ class PrepViewModel(
         val form = _documentForm.value ?: return
         if (form.isSaving) return
         if (form.name.isBlank()) {
-            _documentForm.value = form.copy(nameError = true)
+            _documentForm.update { form.copy(nameError = true) }
             return
         }
         val owner = ownerId ?: return
-        _documentForm.value = form.copy(isSaving = true)
+        _documentForm.update { form.copy(isSaving = true) }
         val input = DocumentInput(form.name, form.type, form.detail)
         viewModelScope.launch {
             val documentId = form.documentId
             if (documentId != null) {
                 documentRepository.updateDocument(documentId, owner, input)
-                _documentForm.value = null
+                _documentForm.update { null }
                 return@launch
             }
             try {
@@ -291,7 +302,7 @@ class PrepViewModel(
                 _message.value = PrepMessage.FILE_NOT_READABLE
             }
             // On a file error the form closes too: the file itself is the problem, so picking again is the way on.
-            _documentForm.value = null
+            _documentForm.update { null }
         }
     }
 
@@ -339,6 +350,9 @@ class PrepViewModel(
     private fun loaded(): PrepUiState.Loaded? = uiState.value as? PrepUiState.Loaded
 
     companion object {
+        private const val KEY_EDIT_TEXT = "prepEditText"
+        private const val KEY_DOCUMENT_FORM = "prepDocumentForm"
+
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val handle: SavedStateHandle = createSavedStateHandle()
@@ -351,6 +365,7 @@ class PrepViewModel(
                     fileStore = container.documentFileStore,
                     authRepository = container.authRepository,
                     clock = container.clock,
+                    savedState = handle,
                 )
             }
         }

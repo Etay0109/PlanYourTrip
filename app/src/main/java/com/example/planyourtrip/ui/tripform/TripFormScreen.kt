@@ -26,8 +26,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,6 +47,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.planyourtrip.R
 import com.example.planyourtrip.data.place.PlaceSuggestion
+import com.example.planyourtrip.data.trip.TextLimits
+import com.example.planyourtrip.data.trip.limitTo
 import com.example.planyourtrip.ui.common.components.BackTopAppBar
 import com.example.planyourtrip.ui.common.components.CurrencyPickerSheet
 import com.example.planyourtrip.ui.common.components.DateField
@@ -119,6 +123,8 @@ fun TripFormContent(
     ) { innerPadding ->
         // Editing: wait for the trip's values so the fields never flash empty.
         if (state.isLoading) return@Scaffold
+        // Typed text is Compose state (starting from the loaded or restored value), never read back while typing.
+        var destination by rememberSaveable { mutableStateOf(state.destination) }
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -133,6 +139,7 @@ fun TripFormContent(
                 suggestions = state.suggestions,
                 needsInternet = state.searchNeedsInternet,
                 onPick = { suggestion ->
+                    destination = suggestion.label
                     onSuggestionPicked(suggestion)
                     // Closes the keyboard; the field shows the whole picked name.
                     focusManager.clearFocus()
@@ -141,8 +148,11 @@ fun TripFormContent(
                 modifier = Modifier.onPlaced { fieldBottom = it.positionInParent().y + it.size.height },
             ) {
                 OutlinedTextField(
-                    value = state.destination,
-                    onValueChange = onDestinationChange,
+                    value = destination,
+                    onValueChange = {
+                        destination = it.limitTo(TextLimits.DESTINATION)
+                        onDestinationChange(destination)
+                    },
                     label = { Text(stringResource(R.string.new_trip_destination)) },
                     placeholder = { Text(stringResource(R.string.new_trip_destination_placeholder)) },
                     singleLine = true,

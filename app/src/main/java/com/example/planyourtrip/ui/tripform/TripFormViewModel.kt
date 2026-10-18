@@ -23,16 +23,15 @@ import com.example.planyourtrip.data.trip.TripRepository
 import com.example.planyourtrip.data.trip.limitTo
 import com.example.planyourtrip.data.trip.place
 import com.example.planyourtrip.ui.common.CurrencyPickerState
+import com.example.planyourtrip.ui.common.SavedFormState
 import com.example.planyourtrip.ui.common.currencyName
 import com.example.planyourtrip.ui.navigation.TripForm
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.Serializable
 import java.time.LocalDate
 
 /** New trip when [tripId] is null; otherwise edits destination, dates, currency and place of that trip. */
@@ -48,6 +47,8 @@ class TripFormViewModel(
     private val reminderPrompt: ReminderPrompt = ReminderPrompt.None,
     /** Whether a failed lookup was for lack of internet (then the form says so); null = unknown, never said. */
     private val network: NetworkMonitor? = null,
+    /** Keeps the form's draft across process death. */
+    savedState: SavedStateHandle? = null,
 ) : ViewModel() {
 
     /** The running destination lookup; a new keystroke cancels it (and its request). */
@@ -57,11 +58,13 @@ class TripFormViewModel(
     /** The service's currencies, once loaded (used for names). */
     private var currencies: List<Currency> = emptyList()
 
-    private val _uiState = MutableStateFlow(TripFormUiState(isEditing = tripId != null, isLoading = tripId != null))
-    val uiState: StateFlow<TripFormUiState> = _uiState.asStateFlow()
+    private val form = SavedFormState(
+        TripFormUiState(isEditing = tripId != null, isLoading = tripId != null), savedState, KEY_DRAFT,
+    ) { if (it.isLoading) null else TripFormDraft.of(it) }
+    val uiState: StateFlow<TripFormUiState> = form.flow
 
     init {
-        if (tripId != null) loadTrip(tripId)
+        if (tripId != null) loadTrip(tripId) else form.restored?.let { draft -> form.update { draft.applyTo(it) } }
     }
 
     /** Fills the fields once with the trip's current values (only the owner's trips). */
@@ -69,18 +72,23 @@ class TripFormViewModel(
         val ownerId = authRepository.currentUser.value?.uid ?: return
         viewModelScope.launch {
             val trip = repository.observeTrip(id, ownerId).first()
-            _uiState.update {
-                if (trip == null) it.copy(isLoading = false)
-                else it.copy(
-                    isLoading = false,
-                    destination = trip.destination,
-                    // Kept while the text stays as it is.
-                    place = trip.place.takeIf { p -> p != TripPlace.NONE },
-                    startDate = trip.startDate,
-                    endDate = trip.endDate,
-                    currencyCode = trip.currencyCode,
-                    currencyName = trip.currencyCode?.let { code -> currencyName(code, currencies) },
-                )
+            val restored = form.restored
+            form.update {
+                when {
+                    // After process death the form comes back as the user left it.
+                    restored != null -> restored.applyTo(it.copy(isLoading = false))
+                    trip == null -> it.copy(isLoading = false)
+                    else -> it.copy(
+                        isLoading = false,
+                        destination = trip.destination,
+                        // Kept while the text stays as it is.
+                        place = trip.place.takeIf { p -> p != TripPlace.NONE },
+                        startDate = trip.startDate,
+                        endDate = trip.endDate,
+                        currencyCode = trip.currencyCode,
+                        currencyName = trip.currencyCode?.let { code -> currencyName(code, currencies) },
+                    )
+                }
             }
         }
     }
@@ -92,8 +100,8 @@ class TripFormViewModel(
      */
     fun onDestinationChange(text: String) {
         val value = text.limitTo(TextLimits.DESTINATION)
-        val changed = value != _uiState.value.destination
-        _uiState.update {
+        val changed = value != form.value.destination
+        form.update {
             it.copy(
                 destination = value,
                 destinationError = null,
@@ -104,20 +112,20 @@ class TripFormViewModel(
         if (!changed) return
         lookup?.cancel()
         if (value.trim().length < DestinationSuggestions.MIN_QUERY_LENGTH) {
-            _uiState.update { it.copy(suggestions = emptyList(), isSearching = false) }
+            form.update { it.copy(suggestions = emptyList(), isSearching = false) }
             return
         }
         // A search already showing keeps its bar through the pause (no flicker); it ends with the new answer.
         val instant = destinations.instant(value)
-        _uiState.update { it.copy(suggestions = instant) }
+        form.update { it.copy(suggestions = instant) }
         lookup = viewModelScope.launch {
             delay(LOOKUP_DELAY_MILLIS)
-            _uiState.update { if (it.destination == value) it.copy(isSearching = true) else it }
+            form.update { if (it.destination == value) it.copy(isSearching = true) else it }
             val remote = destinations.remote(value)
             // A slow answer for older text is never shown; a failed one leaves the instant rows. Only when there are
             // none and the device is offline does the form say that more places need the internet.
             val offline = network?.isOnline?.value == false
-            _uiState.update {
+            form.update {
                 if (it.destination != value) it
                 else it.copy(
                     suggestions = DestinationSuggestions.merge(instant, remote.orEmpty()),
@@ -131,7 +139,7 @@ class TripFormViewModel(
     /** Picking fills "London, United Kingdom", remembers the country and coordinates, and may preselect a currency. */
     fun onSuggestionPicked(suggestion: PlaceSuggestion) {
         lookup?.cancel()
-        _uiState.update {
+        form.update {
             it.copy(
                 destination = suggestion.label,
                 destinationError = null,
@@ -147,7 +155,7 @@ class TripFormViewModel(
     /** The field lost focus: the list and the bar close (the text and a picked place stay). */
     fun onSuggestionsDismissed() {
         lookup?.cancel()
-        _uiState.update { it.copy(suggestions = emptyList(), isSearching = false, searchNeedsInternet = false) }
+        form.update { it.copy(suggestions = emptyList(), isSearching = false, searchNeedsInternet = false) }
     }
 
     /**
@@ -155,7 +163,7 @@ class TripFormViewModel(
      * a currency preselected for an earlier pick follows the new pick. Editing a trip never changes its currency.
      */
     private fun preselectCurrency(countryCode: String?) {
-        val state = _uiState.value
+        val state = form.value
         if (state.isEditing || (state.currencyCode != null && !state.currencyPreselected)) return
         preselection?.cancel()
         preselection = viewModelScope.launch {
@@ -163,7 +171,7 @@ class TripFormViewModel(
             val list = if (code != null) currencyRepository.currencies() else null
             if (list != null) currencies = list
             val offered = code != null && list.orEmpty().any { it.code == code }
-            _uiState.update {
+            form.update {
                 when {
                     // The user chose a currency in the meantime.
                     it.currencyCode != null && !it.currencyPreselected -> it
@@ -181,36 +189,36 @@ class TripFormViewModel(
 
     // Changing either date clears both date errors, since END_BEFORE_START depends on both.
     fun onStartDateChange(date: LocalDate) =
-        _uiState.update { it.copy(startDate = date, startError = null, endError = null) }
+        form.update { it.copy(startDate = date, startError = null, endError = null) }
 
     fun onEndDateChange(date: LocalDate) =
-        _uiState.update { it.copy(endDate = date, startError = null, endError = null) }
+        form.update { it.copy(endDate = date, startError = null, endError = null) }
 
     /** Opens the searchable currency list (nothing preselected for a new trip). */
     fun onChooseCurrency() {
-        _uiState.update { it.copy(currencyPicker = CurrencyPickerState(selectedCode = it.currencyCode)) }
+        form.update { it.copy(currencyPicker = CurrencyPickerState(selectedCode = it.currencyCode)) }
         loadCurrencies()
     }
 
     fun onRetryCurrencies() = loadCurrencies()
 
     private fun loadCurrencies() {
-        _uiState.update { it.copy(currencyPicker = it.currencyPicker?.loading()) }
+        form.update { it.copy(currencyPicker = it.currencyPicker?.loading()) }
         viewModelScope.launch {
             val list = currencyRepository.currencies()
             if (list != null) currencies = list
-            _uiState.update { it.copy(currencyPicker = it.currencyPicker?.loaded(list)) }
+            form.update { it.copy(currencyPicker = it.currencyPicker?.loaded(list)) }
         }
     }
 
     fun onCurrencyQueryChange(query: String) =
-        _uiState.update { it.copy(currencyPicker = it.currencyPicker?.withQuery(query)) }
+        form.update { it.copy(currencyPicker = it.currencyPicker?.withQuery(query)) }
 
-    fun onDismissCurrencyPicker() = _uiState.update { it.copy(currencyPicker = null) }
+    fun onDismissCurrencyPicker() = form.update { it.copy(currencyPicker = null) }
 
     fun onCurrencySelected(code: String) {
         preselection?.cancel()
-        _uiState.update {
+        form.update {
             it.copy(
                 currencyCode = code, currencyName = currencyName(code, currencies), currencyPicker = null,
                 currencyPreselected = false,
@@ -221,11 +229,11 @@ class TripFormViewModel(
     /** The currency is optional: the clear icon removes it. */
     fun onClearCurrency() {
         preselection?.cancel()
-        _uiState.update { it.copy(currencyCode = null, currencyName = null, currencyPreselected = false) }
+        form.update { it.copy(currencyCode = null, currencyName = null, currencyPreselected = false) }
     }
 
     fun onSave() {
-        val state = _uiState.value
+        val state = form.value
         if (state.isLoading || state.isSaving || state.saved) return
 
         val validated = state.copy(
@@ -233,7 +241,7 @@ class TripFormViewModel(
             startError = TripValidator.validateStart(state.startDate),
             endError = TripValidator.validateEnd(state.startDate, state.endDate),
         )
-        _uiState.value = validated
+        form.update { validated }
         if (validated.destinationError != null || validated.startError != null || validated.endError != null) return
 
         // Behind Login there is always a user; without one there is nobody to own the trip.
@@ -244,7 +252,7 @@ class TripFormViewModel(
         // Free text (nothing picked, or edited since) is saved without a country or coordinates.
         val place = validated.place ?: TripPlace.NONE
         lookup?.cancel()
-        _uiState.update {
+        form.update {
             it.copy(isSaving = true, suggestions = emptyList(), isSearching = false, searchNeedsInternet = false)
         }
         viewModelScope.launch {
@@ -255,13 +263,15 @@ class TripFormViewModel(
             } else {
                 repository.updateTrip(tripId, ownerId, destination, start, end, currency, place)
             }
-            _uiState.update { it.copy(isSaving = false, saved = true) }
+            form.update { it.copy(isSaving = false, saved = true) }
         }
     }
 
     companion object {
         /** The pause after the last keystroke before the text is looked up. */
         const val LOOKUP_DELAY_MILLIS = 300L
+
+        private const val KEY_DRAFT = "tripFormDraft"
 
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
@@ -275,8 +285,48 @@ class TripFormViewModel(
                     destinations = container.destinationSuggestions,
                     reminderPrompt = container.reminderPermissionPrompt,
                     network = container.networkMonitor,
+                    savedState = handle,
                 )
             }
         }
+    }
+}
+
+/** What the user entered and chose in the trip form, kept across process death (see [SavedFormState]). */
+private data class TripFormDraft(
+    val destination: String,
+    val countryCode: String?,
+    val latitude: Double?,
+    val longitude: Double?,
+    val hasPlace: Boolean,
+    val startDate: LocalDate?,
+    val endDate: LocalDate?,
+    val currencyCode: String?,
+    val currencyName: String?,
+    val currencyPreselected: Boolean,
+) : Serializable {
+    fun applyTo(state: TripFormUiState) = state.copy(
+        destination = destination,
+        place = if (hasPlace) TripPlace(countryCode, latitude, longitude) else null,
+        startDate = startDate,
+        endDate = endDate,
+        currencyCode = currencyCode,
+        currencyName = currencyName,
+        currencyPreselected = currencyPreselected,
+    )
+
+    companion object {
+        fun of(state: TripFormUiState) = TripFormDraft(
+            destination = state.destination,
+            countryCode = state.place?.countryCode,
+            latitude = state.place?.latitude,
+            longitude = state.place?.longitude,
+            hasPlace = state.place != null,
+            startDate = state.startDate,
+            endDate = state.endDate,
+            currencyCode = state.currencyCode,
+            currencyName = state.currencyName,
+            currencyPreselected = state.currencyPreselected,
+        )
     }
 }

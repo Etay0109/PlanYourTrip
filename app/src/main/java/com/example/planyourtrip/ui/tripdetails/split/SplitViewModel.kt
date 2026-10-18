@@ -24,6 +24,7 @@ import com.example.planyourtrip.data.trip.TripMemberRepository
 import com.example.planyourtrip.data.trip.TripRepository
 import com.example.planyourtrip.data.trip.limitTo
 import com.example.planyourtrip.ui.common.Money
+import com.example.planyourtrip.ui.common.SavedFormState
 import com.example.planyourtrip.ui.common.WhileUiSubscribed
 import com.example.planyourtrip.ui.common.split.MergeSuggestion
 import com.example.planyourtrip.ui.common.split.Transfer
@@ -36,6 +37,7 @@ import com.example.planyourtrip.ui.common.split.simplifyTransfers
 import com.example.planyourtrip.ui.common.split.travelerOrder
 import com.example.planyourtrip.ui.common.split.validateTravelerName
 import com.example.planyourtrip.ui.navigation.TripDetails
+import java.io.Serializable
 import java.time.Clock
 import java.time.LocalDate
 import kotlinx.coroutines.CoroutineDispatcher
@@ -45,6 +47,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
@@ -72,6 +76,8 @@ class SplitViewModel(
     memberRepository: TripMemberRepository = TripMemberRepository.None,
     /** The "Merge with the traveler?" suggestions answered "Keep separate" (this device only). */
     private val suggestionStore: MergeSuggestionStore = InMemoryMergeSuggestionStore(),
+    /** Keeps an open traveler dialog or settle-up sheet across process death. */
+    savedState: SavedStateHandle? = null,
 ) : ViewModel() {
 
     /** The latest expenses and settlements, for the "can't be removed" check when a traveler is tapped. */
@@ -158,24 +164,28 @@ class SplitViewModel(
 
     // ---- Travelers ----
 
-    private val _travelerDialog = MutableStateFlow<TravelerDialogState?>(null)
+    private val _travelerDialog = SavedFormState<TravelerDialogState?, TravelerDialogDraft>(
+        null, savedState, KEY_TRAVELER_DIALOG,
+    ) { dialog -> dialog?.let { TravelerDialogDraft(it.editing?.uuid, it.name) } }
 
     /** The open add / edit traveler dialog, or null. */
-    val travelerDialog: StateFlow<TravelerDialogState?> = _travelerDialog.asStateFlow()
+    val travelerDialog: StateFlow<TravelerDialogState?> = _travelerDialog.flow
 
     /** "+ Add": an empty name dialog. */
     fun onAddTraveler() {
         if (loaded() == null) return
-        _travelerDialog.value = TravelerDialogState()
+        _travelerDialog.update { TravelerDialogState() }
     }
 
     /** A traveler's avatar: rename or remove ("You" is never passed here). */
     fun onTravelerClick(traveler: Traveler) {
-        _travelerDialog.value = TravelerDialogState(
-            editing = traveler,
-            name = traveler.name,
-            removeBlocked = isTravelerUsed(traveler.uuid, expenses, settlements),
-        )
+        _travelerDialog.update {
+            TravelerDialogState(
+                editing = traveler,
+                name = traveler.name,
+                removeBlocked = isTravelerUsed(traveler.uuid, expenses, settlements),
+            )
+        }
     }
 
     fun onTravelerNameChange(name: String) =
@@ -183,7 +193,7 @@ class SplitViewModel(
 
     fun onDismissTravelerDialog() {
         if (_travelerDialog.value?.isSaving == true) return
-        _travelerDialog.value = null
+        _travelerDialog.update { null }
     }
 
     /** Adds or renames: the name must not be blank, "You" or another traveler's name. */
@@ -194,10 +204,10 @@ class SplitViewModel(
         val travelers = loaded()?.travelers ?: return
         val error = validateTravelerName(dialog.name, travelers, editingKey = dialog.editing?.uuid)
         if (error != null) {
-            _travelerDialog.value = dialog.copy(error = error)
+            _travelerDialog.update { dialog.copy(error = error) }
             return
         }
-        _travelerDialog.value = dialog.copy(isSaving = true)
+        _travelerDialog.update { dialog.copy(isSaving = true) }
         viewModelScope.launch {
             val editing = dialog.editing
             if (editing == null) {
@@ -205,7 +215,7 @@ class SplitViewModel(
             } else {
                 travelerRepository.renameTraveler(editing.id, owner, dialog.name)
             }
-            _travelerDialog.value = null
+            _travelerDialog.update { null }
         }
     }
 
@@ -215,28 +225,71 @@ class SplitViewModel(
         val traveler = dialog.editing ?: return
         if (dialog.isSaving || dialog.removeBlocked) return
         val owner = ownerId ?: return
-        _travelerDialog.value = dialog.copy(isSaving = true)
+        _travelerDialog.update { dialog.copy(isSaving = true) }
         viewModelScope.launch {
             when (travelerRepository.removeTraveler(traveler.id, owner)) {
                 // Used on another screen in the meantime: keep the dialog open and explain.
                 RemoveTravelerResult.IN_USE ->
-                    _travelerDialog.value = dialog.copy(isSaving = false, removeBlocked = true)
-                RemoveTravelerResult.REMOVED, RemoveTravelerResult.NOT_FOUND -> _travelerDialog.value = null
+                    _travelerDialog.update { dialog.copy(isSaving = false, removeBlocked = true) }
+                RemoveTravelerResult.REMOVED, RemoveTravelerResult.NOT_FOUND -> _travelerDialog.update { null }
             }
         }
     }
 
     // ---- Settle up ----
 
-    private val _settleSheet = MutableStateFlow<SettleSheetState?>(null)
+    private val _settleSheet = SavedFormState<SettleSheetState?, SettleSheetDraft>(
+        null, savedState, KEY_SETTLE_SHEET,
+    ) { sheet -> sheet?.let { SettleSheetDraft(it.page, it.selected?.fromKey, it.selected?.toKey, it.amount) } }
 
     /** The open "Settle up" sheet, or null. */
-    val settleSheet: StateFlow<SettleSheetState?> = _settleSheet.asStateFlow()
+    val settleSheet: StateFlow<SettleSheetState?> = _settleSheet.flow
+
+    init {
+        restoreDialogs()
+    }
+
+    /**
+     * After process death: the traveler dialog or settle-up sheet that was open comes back once the trip is loaded,
+     * as long as its traveler (or transfer) still exists.
+     */
+    private fun restoreDialogs() {
+        val travelerDraft = _travelerDialog.restored
+        val settleDraft = _settleSheet.restored
+        if (travelerDraft == null && settleDraft == null) return
+        viewModelScope.launch {
+            val state = uiState.filterIsInstance<SplitUiState.Loaded>().first()
+            if (travelerDraft != null && _travelerDialog.value == null) {
+                val editing = travelerDraft.editingUuid?.let { uuid -> state.travelers.firstOrNull { it.uuid == uuid } }
+                if (travelerDraft.editingUuid == null || editing != null) {
+                    _travelerDialog.update {
+                        TravelerDialogState(
+                            editing = editing,
+                            name = travelerDraft.name,
+                            removeBlocked = editing != null && isTravelerUsed(editing.uuid, expenses, settlements),
+                        )
+                    }
+                }
+            }
+            if (settleDraft != null && _settleSheet.value == null) {
+                val transfer = state.transfers.firstOrNull {
+                    it.fromKey == settleDraft.fromKey && it.toKey == settleDraft.toKey
+                }
+                _settleSheet.update {
+                    SettleSheetState(
+                        page = settleDraft.page,
+                        selected = transfer,
+                        amount = if (transfer != null) settleDraft.amount else "",
+                    )
+                }
+            }
+        }
+    }
 
     /** "Settle up": the open transfers; with only one, it is picked already. */
     fun onSettleUp() {
         val transfers = loaded()?.transfers ?: return
-        _settleSheet.value = transfers.singleOrNull()?.let(::selection) ?: SettleSheetState()
+        _settleSheet.update { transfers.singleOrNull()?.let(::selection) ?: SettleSheetState() }
     }
 
     /** "History" link (in the sheet, or in the card when everything is settled). */
@@ -255,7 +308,7 @@ class SplitViewModel(
 
     fun onDismissSettle() {
         if (_settleSheet.value?.isSaving == true) return
-        _settleSheet.value = null
+        _settleSheet.update { null }
     }
 
     /** "Mark as paid": saves who paid whom, how much (≤ the open amount; less = partial) and today's date. */
@@ -266,16 +319,16 @@ class SplitViewModel(
         val owner = ownerId ?: return
         val error = validateSettleAmount(sheet.amount, transfer.amountAgorot)
         if (error != null) {
-            _settleSheet.value = sheet.copy(error = error)
+            _settleSheet.update { sheet.copy(error = error) }
             return
         }
         val agorot = checkNotNull(Money.parseAgorot(sheet.amount))
-        _settleSheet.value = sheet.copy(isSaving = true)
+        _settleSheet.update { sheet.copy(isSaving = true) }
         viewModelScope.launch {
             settlementRepository.addSettlement(
                 tripId, owner, transfer.fromKey, transfer.toKey, agorot, LocalDate.now(clock),
             )
-            _settleSheet.value = null
+            _settleSheet.update { null }
         }
     }
 
@@ -306,6 +359,9 @@ class SplitViewModel(
     }
 
     companion object {
+        private const val KEY_TRAVELER_DIALOG = "splitTravelerDialog"
+        private const val KEY_SETTLE_SHEET = "splitSettleSheet"
+
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val handle: SavedStateHandle = createSavedStateHandle()
@@ -320,6 +376,7 @@ class SplitViewModel(
                     clock = container.clock,
                     memberRepository = container.tripMemberRepository,
                     suggestionStore = container.mergeSuggestionStore,
+                    savedState = handle,
                 )
             }
         }
@@ -335,3 +392,14 @@ fun validateSettleAmount(input: String, openAgorot: Long): SettleAmountError? {
         else -> null
     }
 }
+
+/** An open traveler dialog, kept across process death: the edited traveler (null = adding) and the typed name. */
+private data class TravelerDialogDraft(val editingUuid: String?, val name: String) : Serializable
+
+/** An open settle-up sheet, kept across process death: its page, the picked transfer and the typed amount. */
+private data class SettleSheetDraft(
+    val page: SettlePage,
+    val fromKey: String?,
+    val toKey: String?,
+    val amount: String,
+) : Serializable

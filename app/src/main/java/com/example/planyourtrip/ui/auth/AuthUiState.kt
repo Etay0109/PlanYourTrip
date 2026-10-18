@@ -10,12 +10,19 @@ sealed interface AuthMessage {
     data class Failure(val error: AuthError) : AuthMessage
 }
 
-data class AuthUiState(
-    val mode: AuthMode = AuthMode.SIGN_IN,
+/**
+ * What the user typed. It lives in the form as Compose state (so typing never round-trips through a StateFlow) and
+ * reaches [AuthViewModel] only on submit.
+ */
+data class AuthInput(
     val fullName: String = "",
     val email: String = "",
     val password: String = "",
     val confirmPassword: String = "",
+)
+
+data class AuthUiState(
+    val mode: AuthMode = AuthMode.SIGN_IN,
     val nameError: FieldError? = null,
     val emailError: FieldError? = null,
     val passwordError: FieldError? = null,

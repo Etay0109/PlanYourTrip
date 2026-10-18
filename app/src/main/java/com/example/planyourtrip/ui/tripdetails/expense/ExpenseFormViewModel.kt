@@ -1,5 +1,6 @@
 package com.example.planyourtrip.ui.tripdetails.expense
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.createSavedStateHandle
@@ -21,18 +22,17 @@ import com.example.planyourtrip.data.trip.TravelerRepository
 import com.example.planyourtrip.data.trip.TripMemberRepository
 import com.example.planyourtrip.data.trip.TripRepository
 import com.example.planyourtrip.data.trip.limitTo
+import com.example.planyourtrip.ui.common.SavedFormState
 import com.example.planyourtrip.ui.common.split.Person
 import com.example.planyourtrip.ui.common.split.inListOrder
 import com.example.planyourtrip.ui.common.split.personOf
 import com.example.planyourtrip.ui.common.split.travelerOrder
 import com.example.planyourtrip.ui.navigation.ExpenseForm
+import java.io.Serializable
 import java.time.Clock
 import java.time.LocalDate
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
@@ -51,12 +51,14 @@ class ExpenseFormViewModel(
     private val travelerRepository: TravelerRepository,
     /** Names of the trip's other members (shared trips). */
     private val memberRepository: TripMemberRepository = TripMemberRepository.None,
+    /** Keeps the form's draft across process death. */
+    savedState: SavedStateHandle? = null,
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(
-        ExpenseFormUiState(isEditing = expenseId != null, date = LocalDate.now(clock))
-    )
-    val uiState: StateFlow<ExpenseFormUiState> = _uiState.asStateFlow()
+    private val form = SavedFormState(
+        ExpenseFormUiState(isEditing = expenseId != null, date = LocalDate.now(clock)), savedState, KEY_DRAFT,
+    ) { if (it.isLoading) null else ExpenseDraft.of(it) }
+    val uiState: StateFlow<ExpenseFormUiState> = form.flow
 
     /** The edited expense as loaded, so an unchanged amount keeps its stored rate. */
     private var stored: Expense? = null
@@ -83,7 +85,8 @@ class ExpenseFormViewModel(
             val people = keys.map { personOf(it, ownerId, travelers, memberIds, members) }.sortedBy { it !is Person.You }
             // Editing keeps the expense's own currency even if the trip currency changed since.
             val foreignCode = expense?.original?.currencyCode ?: trip?.currencyCode?.takeIf { it != ILS }
-            _uiState.update { state ->
+            val restored = form.restored
+            form.update { state ->
                 val base = state.copy(
                     isLoading = false,
                     tripEnd = trip?.endDate,
@@ -114,6 +117,9 @@ class ExpenseFormViewModel(
                         paidBy = expense.paidBy,
                         splitBetween = inListOrder(expense.splitBetween, order),
                     )
+                }.let { loaded ->
+                    // After process death the form comes back as the user left it.
+                    restored?.applyTo(loaded) ?: loaded
                 }.withPreview()
             }
             if (foreignCode != null) watchRate(foreignCode)
@@ -125,7 +131,7 @@ class ExpenseFormViewModel(
         viewModelScope.launch {
             currencyRepository.observeRate(code).collect { rate ->
                 if (rate != null) {
-                    _uiState.update { it.copy(foreignRate = ForeignRateState.Available(rate)).withPreview() }
+                    form.update { it.copy(foreignRate = ForeignRateState.Available(rate)).withPreview() }
                 }
             }
         }
@@ -136,7 +142,7 @@ class ExpenseFormViewModel(
             if (!ok && cached == null) {
                 // An expense already entered in this currency keeps it (and its stored rate) while unchanged.
                 val keepsStoredRate = stored?.original?.currencyCode == code
-                _uiState.update {
+                form.update {
                     if (keepsStoredRate) {
                         it.copy(foreignRate = ForeignRateState.Unavailable)
                     } else {
@@ -159,30 +165,30 @@ class ExpenseFormViewModel(
     }
 
     fun onNameChange(value: String) =
-        _uiState.update { it.copy(name = value.limitTo(TextLimits.EXPENSE_NAME), nameError = null) }
+        form.update { it.copy(name = value.limitTo(TextLimits.EXPENSE_NAME), nameError = null) }
 
     fun onAmountChange(value: String) =
-        _uiState.update { it.copy(amount = value, amountError = null).withPreview() }
+        form.update { it.copy(amount = value, amountError = null).withPreview() }
 
     /** ILS or the foreign currency; the typed amount is kept and now means that currency. */
-    fun onCurrencyChange(code: String) = _uiState.update { state ->
+    fun onCurrencyChange(code: String) = form.update { state ->
         val allowed = code == ILS || (code == state.foreignCode && state.foreignEnabled)
         if (!allowed) state else state.copy(currencyCode = code, amountError = null).withPreview()
     }
 
-    fun onCategoryChange(category: ExpenseCategory) = _uiState.update { it.copy(category = category) }
+    fun onCategoryChange(category: ExpenseCategory) = form.update { it.copy(category = category) }
 
-    fun onDateChange(date: LocalDate) = _uiState.update { it.copy(date = date, dateError = null) }
+    fun onDateChange(date: LocalDate) = form.update { it.copy(date = date, dateError = null) }
 
     /** "Paid by". A "Not shared" expense stays not shared: its split moves to the new payer. */
-    fun onPaidByChange(key: String) = _uiState.update { state ->
+    fun onPaidByChange(key: String) = form.update { state ->
         if (state.people.none { it.key == key }) return@update state
         val split = if (state.isNotShared) listOf(key) else state.splitBetween
         state.copy(paidBy = key, splitBetween = split, splitError = null)
     }
 
     /** Adds or removes one person from "Split between". */
-    fun onSplitToggle(key: String) = _uiState.update { state ->
+    fun onSplitToggle(key: String) = form.update { state ->
         val order = state.order.ifEmpty { state.people.map { it.key } }
         if (key !in order) return@update state
         val split = if (key in state.splitBetween) state.splitBetween - key else state.splitBetween + key
@@ -190,10 +196,10 @@ class ExpenseFormViewModel(
     }
 
     /** "Not shared": the split becomes the payer only. */
-    fun onNotShared() = _uiState.update { it.copy(splitBetween = listOf(it.paidBy), splitError = null) }
+    fun onNotShared() = form.update { it.copy(splitBetween = listOf(it.paidBy), splitError = null) }
 
     fun onSave() {
-        val state = _uiState.value
+        val state = form.value
         if (state.isBusy) return
 
         val rate = (state.foreignRate as? ForeignRateState.Available)?.rate
@@ -204,7 +210,7 @@ class ExpenseFormViewModel(
             dateError = ExpenseValidator.validateDate(state.date, state.tripEnd),
             splitError = ExpenseValidator.validateSplit(state.splitBetween),
         )
-        _uiState.value = validated
+        form.update { validated }
         val invalid = validated.nameError != null || validated.dateError != null || validated.splitError != null
         if (invalid || amount !is AmountResult.Ok) return
 
@@ -218,35 +224,38 @@ class ExpenseFormViewModel(
             paidBy = validated.paidBy,
             splitBetween = validated.splitBetween,
         )
-        _uiState.update { it.copy(isSaving = true) }
+        form.update { it.copy(isSaving = true) }
         viewModelScope.launch {
             if (expenseId == null) {
                 repository.addExpense(tripId, ownerId, input)
             } else {
                 repository.updateExpense(expenseId, ownerId, input)
             }
-            _uiState.update { it.copy(isSaving = false, done = true) }
+            form.update { it.copy(isSaving = false, done = true) }
         }
     }
 
     /** Deletes the edited expense. The confirmation dialog is shown by the screen before this is called. */
     fun onDelete() {
         val id = expenseId ?: return
-        if (_uiState.value.isBusy) return
+        if (form.value.isBusy) return
         val ownerId = authRepository.currentUser.value?.uid ?: return
-        _uiState.update { it.copy(isSaving = true) }
+        form.update { it.copy(isSaving = true) }
         viewModelScope.launch {
             repository.deleteExpense(id, ownerId)
-            _uiState.update { it.copy(isSaving = false, done = true) }
+            form.update { it.copy(isSaving = false, done = true) }
         }
     }
 
     private val ExpenseFormUiState.isBusy: Boolean get() = isLoading || isSaving || done
 
     companion object {
+        private const val KEY_DRAFT = "expenseDraft"
+
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
-                val route = createSavedStateHandle().toRoute<ExpenseForm>()
+                val handle = createSavedStateHandle()
+                val route = handle.toRoute<ExpenseForm>()
                 val container = appContainer()
                 ExpenseFormViewModel(
                     tripId = route.tripId,
@@ -258,8 +267,47 @@ class ExpenseFormViewModel(
                     clock = container.clock,
                     travelerRepository = container.travelerRepository,
                     memberRepository = container.tripMemberRepository,
+                    savedState = handle,
                 )
             }
         }
+    }
+}
+
+/** What the user entered and chose in the expense form, kept across process death (see [SavedFormState]). */
+private data class ExpenseDraft(
+    val name: String,
+    val amount: String,
+    val currencyCode: String,
+    val category: ExpenseCategory,
+    val date: LocalDate,
+    val paidBy: String,
+    val splitBetween: List<String>,
+) : Serializable {
+    /** Only what still applies: a currency or person the form no longer offers is left as loaded. */
+    fun applyTo(state: ExpenseFormUiState): ExpenseFormUiState {
+        val keys = state.people.map { it.key }
+        val currencyOk = currencyCode == ILS || (currencyCode == state.foreignCode && state.foreignEnabled)
+        return state.copy(
+            name = name,
+            amount = amount,
+            currencyCode = if (currencyOk) currencyCode else state.currencyCode,
+            category = category,
+            date = date,
+            paidBy = if (paidBy in keys) paidBy else state.paidBy,
+            splitBetween = splitBetween.filter { it in keys },
+        )
+    }
+
+    companion object {
+        fun of(state: ExpenseFormUiState) = ExpenseDraft(
+            name = state.name,
+            amount = state.amount,
+            currencyCode = state.currencyCode,
+            category = state.category,
+            date = state.date,
+            paidBy = state.paidBy,
+            splitBetween = ArrayList(state.splitBetween),
+        )
     }
 }

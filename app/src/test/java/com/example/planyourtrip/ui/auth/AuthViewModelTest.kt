@@ -1,5 +1,6 @@
 package com.example.planyourtrip.ui.auth
 
+import androidx.lifecycle.SavedStateHandle
 import com.example.planyourtrip.FakeAuthRepository
 import com.example.planyourtrip.data.auth.AuthError
 import kotlinx.coroutines.Dispatchers
@@ -24,6 +25,9 @@ class AuthViewModelTest {
     private lateinit var repo: FakeAuthRepository
     private lateinit var vm: AuthViewModel
 
+    /** What the form holds; it reaches the ViewModel only on submit. */
+    private var input = AuthInput()
+
     @Before
     fun setUp() {
         Dispatchers.setMain(dispatcher)
@@ -38,7 +42,7 @@ class AuthViewModelTest {
 
     @Test
     fun signIn_emptyFields_showsErrorsAndSkipsRepository() = runTest(dispatcher) {
-        vm.onSubmit()
+        vm.onSubmit(input)
         advanceUntilIdle()
 
         val state = vm.uiState.value
@@ -49,9 +53,9 @@ class AuthViewModelTest {
 
     @Test
     fun signIn_validInput_callsRepository() = runTest(dispatcher) {
-        vm.onEmailChange(" user@example.com ")
-        vm.onPasswordChange("short")
-        vm.onSubmit()
+        input = input.copy(email = " user@example.com ")
+        input = input.copy(password = "short")
+        vm.onSubmit(input)
         advanceUntilIdle()
 
         assertEquals(listOf("signIn:user@example.com"), repo.calls)
@@ -61,8 +65,8 @@ class AuthViewModelTest {
 
     @Test
     fun invalidInput_doesNotAuthenticate() = runTest(dispatcher) {
-        vm.onEmailChange("bad")
-        vm.onSubmit()
+        input = input.copy(email = "bad")
+        vm.onSubmit(input)
         advanceUntilIdle()
 
         assertFalse(vm.uiState.value.isAuthenticated)
@@ -71,10 +75,10 @@ class AuthViewModelTest {
     @Test
     fun signUp_invalidInput_showsAllErrors() = runTest(dispatcher) {
         vm.onModeToggle()
-        vm.onEmailChange("bad-email")
-        vm.onPasswordChange("1234567")
-        vm.onConfirmChange("different")
-        vm.onSubmit()
+        input = input.copy(email = "bad-email")
+        input = input.copy(password = "1234567")
+        input = input.copy(confirmPassword = "different")
+        vm.onSubmit(input)
         advanceUntilIdle()
 
         val state = vm.uiState.value
@@ -88,35 +92,34 @@ class AuthViewModelTest {
     @Test
     fun signUp_validInput_callsRepository() = runTest(dispatcher) {
         vm.onModeToggle()
-        vm.onNameChange("Dana Levi")
-        vm.onEmailChange("dana@example.com")
-        vm.onPasswordChange("12345678")
-        vm.onConfirmChange("12345678")
-        vm.onSubmit()
+        input = input.copy(fullName = "Dana Levi")
+        input = input.copy(email = "dana@example.com")
+        input = input.copy(password = "12345678")
+        input = input.copy(confirmPassword = "12345678")
+        vm.onSubmit(input)
         advanceUntilIdle()
 
         assertEquals(listOf("signUp:Dana Levi:dana@example.com"), repo.calls)
     }
 
     @Test
-    fun modeToggle_clearsErrorsAndKeepsEmail() {
-        vm.onEmailChange("x")
-        vm.onSubmit()
+    fun modeToggle_clearsErrors() {
+        input = input.copy(email = "x")
+        vm.onSubmit(input)
         assertEquals(FieldError.INVALID_EMAIL, vm.uiState.value.emailError)
 
         vm.onModeToggle()
 
         val state = vm.uiState.value
         assertEquals(AuthMode.SIGN_UP, state.mode)
-        assertEquals("x", state.email)
         assertNull(state.emailError)
         assertNull(state.passwordError)
     }
 
     @Test
     fun editingField_clearsItsError() {
-        vm.onSubmit()
-        vm.onEmailChange("a")
+        vm.onSubmit(input)
+        vm.onEmailEdited()
         val state = vm.uiState.value
         assertNull(state.emailError)
         assertEquals(FieldError.EMPTY_PASSWORD, state.passwordError)
@@ -125,23 +128,23 @@ class AuthViewModelTest {
     // ---- Backend errors and double taps ----
 
     private fun fillValidSignIn() {
-        vm.onEmailChange("user@example.com")
-        vm.onPasswordChange("password1")
+        input = input.copy(email = "user@example.com")
+        input = input.copy(password = "password1")
     }
 
     private fun fillValidSignUp() {
         vm.onModeToggle()
-        vm.onNameChange("Dana Levi")
-        vm.onEmailChange("dana@example.com")
-        vm.onPasswordChange("12345678")
-        vm.onConfirmChange("12345678")
+        input = input.copy(fullName = "Dana Levi")
+        input = input.copy(email = "dana@example.com")
+        input = input.copy(password = "12345678")
+        input = input.copy(confirmPassword = "12345678")
     }
 
     @Test
     fun signIn_wrongCredentials_showsErrorUnderPassword() = runTest(dispatcher) {
         repo.nextSignInError = AuthError.INVALID_CREDENTIALS
         fillValidSignIn()
-        vm.onSubmit()
+        vm.onSubmit(input)
         advanceUntilIdle()
 
         val s = vm.uiState.value
@@ -155,7 +158,7 @@ class AuthViewModelTest {
     fun signUp_emailInUse_showsErrorUnderEmail() = runTest(dispatcher) {
         repo.nextSignUpError = AuthError.EMAIL_IN_USE
         fillValidSignUp()
-        vm.onSubmit()
+        vm.onSubmit(input)
         advanceUntilIdle()
 
         assertEquals(FieldError.EMAIL_IN_USE, vm.uiState.value.emailError)
@@ -166,7 +169,7 @@ class AuthViewModelTest {
     fun signUp_weakPassword_showsErrorUnderPassword() = runTest(dispatcher) {
         repo.nextSignUpError = AuthError.WEAK_PASSWORD
         fillValidSignUp()
-        vm.onSubmit()
+        vm.onSubmit(input)
         advanceUntilIdle()
 
         assertEquals(FieldError.WEAK_PASSWORD, vm.uiState.value.passwordError)
@@ -177,7 +180,7 @@ class AuthViewModelTest {
         listOf(AuthError.NO_CONNECTION, AuthError.TOO_MANY_REQUESTS, AuthError.UNKNOWN).forEach { error ->
             repo.nextSignInError = error
             fillValidSignIn()
-            vm.onSubmit()
+            vm.onSubmit(input)
             advanceUntilIdle()
 
             val s = vm.uiState.value
@@ -193,9 +196,9 @@ class AuthViewModelTest {
     @Test
     fun submit_isIgnoredWhileLoading() = runTest(dispatcher) {
         fillValidSignIn()
-        vm.onSubmit()
+        vm.onSubmit(input)
         assertTrue(vm.uiState.value.isLoading)
-        vm.onSubmit() // second tap before the first request finishes
+        vm.onSubmit(input) // second tap before the first request finishes
         advanceUntilIdle()
 
         assertEquals(listOf("signIn:user@example.com"), repo.calls)
@@ -204,7 +207,7 @@ class AuthViewModelTest {
     @Test
     fun signUp_emptyFields_everyFieldGetsItsMessage() = runTest(dispatcher) {
         vm.onModeToggle()
-        vm.onSubmit()
+        vm.onSubmit(input)
         advanceUntilIdle()
 
         val state = vm.uiState.value
@@ -218,8 +221,8 @@ class AuthViewModelTest {
     @Test
     fun signUp_passwordTypedButNotConfirmed_stillSaysTheyDontMatch() {
         vm.onModeToggle()
-        vm.onPasswordChange("12345678")
-        vm.onSubmit()
+        input = input.copy(password = "12345678")
+        vm.onSubmit(input)
 
         assertEquals(FieldError.PASSWORDS_DONT_MATCH, vm.uiState.value.confirmError)
         assertNull(vm.uiState.value.passwordError)
@@ -228,31 +231,38 @@ class AuthViewModelTest {
     @Test
     fun failedSubmit_countsUp_validSubmitDoesNot() = runTest(dispatcher) {
         assertEquals(0, vm.uiState.value.failedSubmits)
-        vm.onSubmit()
+        vm.onSubmit(input)
         assertEquals(1, vm.uiState.value.failedSubmits)
-        vm.onSubmit() // same errors again: a new value, so focus moves again
+        vm.onSubmit(input) // same errors again: a new value, so focus moves again
         assertEquals(2, vm.uiState.value.failedSubmits)
 
         fillValidSignIn()
-        vm.onSubmit()
+        vm.onSubmit(input)
         advanceUntilIdle()
         assertEquals(2, vm.uiState.value.failedSubmits)
         assertTrue(vm.uiState.value.isAuthenticated)
     }
 
     @Test
-    fun switchingBack_keepsEmailAndClearsErrors() {
+    fun switchingBack_clearsErrors() {
         vm.onModeToggle() // the bottom link: Sign In -> Sign Up
-        vm.onEmailChange("dana@example.com")
-        vm.onSubmit()
+        input = input.copy(email = "dana@example.com")
+        vm.onSubmit(input)
         assertEquals(FieldError.EMPTY_NAME, vm.uiState.value.nameError)
 
         vm.onModeToggle() // "Sign in"
         val state = vm.uiState.value
         assertEquals(AuthMode.SIGN_IN, state.mode)
-        assertEquals("dana@example.com", state.email)
         assertNull(state.nameError)
         assertNull(state.passwordError)
         assertNull(state.confirmError)
+    }
+
+    @Test
+    fun mode_survivesProcessDeath() {
+        val saved = SavedStateHandle()
+        AuthViewModel(repo, saved).onModeToggle()
+
+        assertEquals(AuthMode.SIGN_UP, AuthViewModel(repo, saved).uiState.value.mode)
     }
 }

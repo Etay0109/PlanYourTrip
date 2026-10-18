@@ -315,6 +315,9 @@ fun DocumentFormDialog(
     onSave: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    // Typed text is Compose state (starting from the file's or document's name), never read back while typing.
+    var name by rememberSaveable { mutableStateOf(state.name) }
+    var detail by rememberSaveable { mutableStateOf(state.detail) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -327,8 +330,11 @@ fun DocumentFormDialog(
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 OutlinedTextField(
-                    value = state.name,
-                    onValueChange = onNameChange,
+                    value = name,
+                    onValueChange = {
+                        name = it
+                        onNameChange(it)
+                    },
                     label = { Text(stringResource(R.string.prep_document_name)) },
                     isError = state.nameError,
                     supportingText = errorSupportingText(R.string.prep_document_name_empty.takeIf { state.nameError }),
@@ -364,8 +370,11 @@ fun DocumentFormDialog(
                 }
                 Spacer(Modifier.height(Spacing.m))
                 OutlinedTextField(
-                    value = state.detail,
-                    onValueChange = onDetailChange,
+                    value = detail,
+                    onValueChange = {
+                        detail = it
+                        onDetailChange(it)
+                    },
                     label = { Text(stringResource(R.string.prep_document_detail)) },
                     placeholder = { Text(stringResource(R.string.prep_document_detail_hint)) },
                     singleLine = true,

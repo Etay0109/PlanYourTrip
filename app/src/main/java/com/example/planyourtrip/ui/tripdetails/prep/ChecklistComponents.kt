@@ -348,13 +348,18 @@ fun EditItemTextDialog(
     onSave: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    // Typed text is Compose state (starting from the item's text), never read back while typing.
+    var text by rememberSaveable { mutableStateOf(state.text) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.prep_item_edit_text)) },
         text = {
             OutlinedTextField(
-                value = state.text,
-                onValueChange = onTextChange,
+                value = text,
+                onValueChange = {
+                    text = it.limitTo(TextLimits.CHECKLIST_TEXT)
+                    onTextChange(text)
+                },
                 label = { Text(stringResource(R.string.prep_item_text)) },
                 isError = state.isError,
                 supportingText = errorSupportingText(R.string.prep_item_text_empty.takeIf { state.isError }),

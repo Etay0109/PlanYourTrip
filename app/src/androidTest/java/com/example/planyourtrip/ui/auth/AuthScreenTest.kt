@@ -89,10 +89,10 @@ class AuthScreenTest {
                     AuthContent(
                         state = state,
                         onModeToggle = viewModel::onModeToggle,
-                        onNameChange = viewModel::onNameChange,
-                        onEmailChange = viewModel::onEmailChange,
-                        onPasswordChange = viewModel::onPasswordChange,
-                        onConfirmChange = viewModel::onConfirmChange,
+                        onNameEdited = viewModel::onNameEdited,
+                        onEmailEdited = viewModel::onEmailEdited,
+                        onPasswordEdited = viewModel::onPasswordEdited,
+                        onConfirmEdited = viewModel::onConfirmEdited,
                         onSubmit = viewModel::onSubmit,
                         onMessageShown = viewModel::onMessageShown,
                     )

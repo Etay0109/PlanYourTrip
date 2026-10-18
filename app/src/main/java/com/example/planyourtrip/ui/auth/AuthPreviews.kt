@@ -5,12 +5,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.example.planyourtrip.ui.theme.PlanYourTripTheme
 
 @Composable
-private fun AuthPreview(state: AuthUiState, darkTheme: Boolean = false) {
+private fun AuthPreview(state: AuthUiState, darkTheme: Boolean = false, input: AuthInput = AuthInput()) {
     PlanYourTripTheme(darkTheme = darkTheme) {
         AuthContent(
             state = state,
-            onModeToggle = {}, onNameChange = {}, onEmailChange = {}, onPasswordChange = {},
-            onConfirmChange = {}, onSubmit = {}, onMessageShown = {},
+            onModeToggle = {}, onNameEdited = {}, onEmailEdited = {}, onPasswordEdited = {},
+            onConfirmEdited = {}, onSubmit = {}, onMessageShown = {},
+            initialInput = input,
         )
     }
 }
@@ -18,21 +19,25 @@ private fun AuthPreview(state: AuthUiState, darkTheme: Boolean = false) {
 @Preview(showBackground = true, widthDp = 412, heightDp = 915, name = "Sign In")
 @Composable
 internal fun AuthSignInPreview() {
-    AuthPreview(AuthUiState(email = "traveler@example", emailError = FieldError.INVALID_EMAIL))
+    AuthPreview(AuthUiState(emailError = FieldError.INVALID_EMAIL), input = AuthInput(email = "traveler@example"))
 }
 
 @Preview(showBackground = true, widthDp = 412, heightDp = 915, name = "Sign Up")
 @Composable
 internal fun AuthSignUpPreview() {
-    AuthPreview(AuthUiState(mode = AuthMode.SIGN_UP, fullName = "Alex Morgan", password = "travel2026"))
+    AuthPreview(
+        AuthUiState(mode = AuthMode.SIGN_UP),
+        input = AuthInput(fullName = "Alex Morgan", password = "travel2026"),
+    )
 }
 
 @Preview(showBackground = true, widthDp = 412, heightDp = 915, name = "Sign Up, dark")
 @Composable
 internal fun AuthSignUpDarkPreview() {
     AuthPreview(
-        AuthUiState(mode = AuthMode.SIGN_UP, password = "short", passwordError = FieldError.PASSWORD_TOO_SHORT),
+        AuthUiState(mode = AuthMode.SIGN_UP, passwordError = FieldError.PASSWORD_TOO_SHORT),
         darkTheme = true,
+        input = AuthInput(password = "short"),
     )
 }
 

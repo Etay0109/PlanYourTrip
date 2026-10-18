@@ -8,6 +8,7 @@ import com.example.planyourtrip.ui.common.CategoryTotal
 import com.example.planyourtrip.ui.common.TripStatus
 import com.example.planyourtrip.ui.tripdetails.components.ExpenseSplitInfo
 import com.example.planyourtrip.ui.tripdetails.members.MembersState
+import java.io.Serializable
 import java.math.BigDecimal
 import java.time.LocalDate
 
@@ -85,10 +86,11 @@ data class OverviewDayState(
 enum class BudgetFieldError { EMPTY, INVALID }
 
 /** The "Set budget" dialog while it is open. */
+/** The budget dialog: the typed amount as the ViewModel last got it (Serializable: it comes back after process death). */
 data class BudgetDialogState(
     val input: String,
     val error: BudgetFieldError? = null,
-)
+) : Serializable
 
 /** The currency card on the Overview tab. */
 sealed interface CurrencyCardState {

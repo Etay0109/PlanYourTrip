@@ -1,5 +1,6 @@
 package com.example.planyourtrip.ui.tripdetails
 
+import androidx.lifecycle.SavedStateHandle
 import com.example.planyourtrip.FakeAuthRepository
 import com.example.planyourtrip.FakeCurrencyRepository
 import com.example.planyourtrip.FakeExpenseRepository
@@ -563,5 +564,27 @@ class ExpenseFormTest {
         assertTrue(s.showSplit)
         assertEquals(listOf(Person.You(ME), Person.Removed("gone")), s.people)
         assertEquals("gone", s.paidBy)
+    }
+
+    // ---------- Process death ----------
+
+    @Test
+    fun edit_draftComesBackAfterProcessDeath_overTheStoredExpense() = runTest(dispatcher) {
+        repo.expenses.value = listOf(dinner)
+        val saved = SavedStateHandle()
+        val before = ExpenseFormViewModel(1, dinner.id, repo, trips, currencies, auth, clock, travelers, savedState = saved)
+        advanceUntilIdle()
+        val category = ExpenseCategory.entries.first { it != dinner.category }
+        before.onNameChange("Dinner at Roscioli")
+        before.onAmountChange("99")
+        before.onCategoryChange(category)
+
+        val after = ExpenseFormViewModel(1, dinner.id, repo, trips, currencies, auth, clock, travelers, savedState = saved)
+        advanceUntilIdle()
+        val s = after.uiState.value
+        assertFalse(s.isLoading)
+        assertEquals("Dinner at Roscioli", s.name)
+        assertEquals("99", s.amount)
+        assertEquals(category, s.category)
     }
 }

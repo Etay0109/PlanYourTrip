@@ -9,6 +9,7 @@ data class ActivityFormUiState(
     val isEditing: Boolean = false,
     /** True until the trip (and, when editing, the activity) is loaded; the fields stay hidden until then. */
     val isLoading: Boolean = true,
+    /** The typed texts (title, location, cost, note) as the ViewModel last got them; the fields keep their own text. */
     val title: String = "",
     val type: ActivityType = ActivityType.ACTIVITY,
     /** Null only while loading. */
