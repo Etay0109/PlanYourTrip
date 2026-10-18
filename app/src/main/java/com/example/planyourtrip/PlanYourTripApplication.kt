@@ -18,7 +18,8 @@ class PlanYourTripApplication : Application(), SingletonImageLoader.Factory {
         // Before any Firebase AI request: App Check is enforced for Firebase AI Logic.
         installAppCheck()
         container = AppContainer(this)
-        // Downloads and merges the signed-in account's data now and after every sign in; uploads local changes.
+        // Follows the session: a full sync whenever the app comes to the foreground signed in (not when Android only
+        // starts the process in the background) and after every sign in; uploads local changes.
         container.syncManager.start()
         // Keeps a "trip starts tomorrow" reminder for every future trip of the signed-in account.
         container.tripReminderScheduler.start()

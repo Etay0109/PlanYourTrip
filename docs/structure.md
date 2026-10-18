@@ -55,7 +55,8 @@ app/src/main/java/com/example/planyourtrip/
                                # SyncPaths (pure: the Firestore document of every kind, used by FirestoreCloudStore and
                                # FakeCloudStore),
                                # SyncLocalStore (interface) + RoomSyncLocalStore + SyncDao, DeletionEntity (+ ChildRef),
-                               # NetworkMonitor + AndroidNetworkMonitor, SyncController (+ SignOutResult,
+                               # NetworkMonitor + AndroidNetworkMonitor, ProcessForeground (processInForeground: app in
+                               # the foreground, ProcessLifecycleOwner), SyncController (+ SignOutResult,
                                # LocalChangeListener, TripCleanup), SyncManager, SyncFlags + SharedPreferencesSyncFlags
                                # (per account: the legacy copy's move to shared trips, FullSyncRecord = the last full
                                # sync's result and the time of the last success),

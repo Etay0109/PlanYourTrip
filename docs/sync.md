@@ -91,13 +91,19 @@ of `deleteLegacy` now.
 
 ### SyncManager (app-scoped, `Dispatchers.IO`)
 - **Full sync** (legacy migration if needed, download everything with `fetchAll`, `planMerge`, apply in one Room
-  transaction, upload trips first, mark synced): when the user becomes non-null (sign-in **and** app start,
-  `collectLatest` on the uid, so switching accounts cancels it), whenever `NetworkMonitor.isOnline` goes back to true,
-  and on **pull to refresh** (`SyncController.refresh()`, false when offline or failed).
+  transaction, upload trips first, mark synced): for the signed-in user (`collectLatest` on the uid, so switching
+  accounts cancels it) **every time the app comes to the foreground** (`foreground`, the process lifecycle from
+  `processInForeground` in `ProcessForeground.kt`: an activity started; rotations and quick activity changes don't
+  count) — so a sign-in in the app syncs at once, and a process Android starts in the background for boot, an alarm
+  or WorkManager (trip reminders) does no full sync until the app is opened; whenever `NetworkMonitor.isOnline` goes
+  back to true **while in the foreground** (in the background the next foreground syncs); and on **pull to refresh**
+  (`SyncController.refresh()`, false when offline or failed). Tests leave `foreground` always true.
 - **Quick sync** ~1 s after a local change (conflated channel): only the pending items and their own cloud
   documents (`fetch`), the same `planMerge`, so a newer edit from another device is never overwritten.
 - One sync at a time (`Mutex`); every query uses the current uid only. No network → no cloud call, status OFFLINE.
-  No realtime listener: other devices see changes at their next sign-in, app start, reconnect or pull to refresh.
+  No realtime listener: other devices see changes at their next sign-in, return to the app, reconnect or pull to
+  refresh. Reminders are scheduled from Room as before; a trip date another member changed reaches this phone (and its
+  reminder) at the next app open, not at a background wake-up.
 - Uploads go in chunks of 100 items, sorted by `SyncKind` (trips first); each chunk is marked synced (`markSynced`:
   `pending_sync = 0` / `budget_pending = 0` / drop the tombstone **only if the time is unchanged**, so an edit made
   during the upload stays pending). A failure anywhere throws `CloudUnavailableException` and leaves the rest pending.

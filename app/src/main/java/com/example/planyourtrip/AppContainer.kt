@@ -42,6 +42,7 @@ import com.example.planyourtrip.data.sync.RoomSyncLocalStore
 import com.example.planyourtrip.data.sync.SharedPreferencesSyncFlags
 import com.example.planyourtrip.data.sync.SyncController
 import com.example.planyourtrip.data.sync.SyncManager
+import com.example.planyourtrip.data.sync.processInForeground
 import com.example.planyourtrip.data.trip.ActivityRepository
 import com.example.planyourtrip.data.trip.DeletedActivityStore
 import com.example.planyourtrip.data.trip.AppDatabase
@@ -111,6 +112,7 @@ class AppContainer(context: Context) {
             scope = appScope,
             clock = clock,
             log = { message, error -> AppLog.w("CloudSync", message, error) },
+            foreground = processInForeground(appScope),
         )
     }
 

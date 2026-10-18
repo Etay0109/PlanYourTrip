@@ -183,7 +183,9 @@ Room database `plan_your_trip.db`, `AppDatabase` **version 17**: `trips`, `expen
   Field names live in `SyncDocuments` and must match `firestore.rules`; paths come from `SyncPaths.of`.
 - **Shared** with members: trip details, expenses, travelers, settlements, activities, "Before the trip" checklist.
   **Personal:** budget and Packing list. Every member can edit shared data (trust model).
-- `SyncManager`: **full sync** on sign-in/app start, reconnect and pull to refresh; **quick sync** ~1 s after a local
+- `SyncManager`: **full sync** on sign-in, each time the app comes to the foreground (`ProcessLifecycleOwner`; never
+  for a background-only process start: boot, alarm, WorkManager), reconnect in the foreground and pull to refresh;
+  **quick sync** ~1 s after a local
   change (only pending items). One sync at a time; uploads trips first in chunks; `markSynced` only if unchanged.
 - **Merge** (`planMerge`, pure): match by kind + uuid, newer `updatedAt` wins (ties → cloud / delete), deletes are
   tombstones. Timestamps are device clocks.

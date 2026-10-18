@@ -101,3 +101,7 @@ the connection returns), `firstName`/`initials`/`greetingName`, `TripColor`, and
   `PrepViewModelTest`, `SplitViewModelTest`, `TripDetailsViewModelTest`, `AuthViewModelTest` for the mode);
   androidTest `ui/FormTextRestorationTest` (`StateRestorationTester`) proves the trip form's destination, the expense
   name and amount, and the Auth name and email survive recreation, and that a typed password does not.
+- **Foreground sync** (`SyncForegroundTest`): no full sync while the process runs in the background only, one when
+  the app comes to the foreground and again on every return, a reconnect in the background waits for the foreground,
+  a reconnect in the foreground syncs, a sign-in in the foreground syncs, and a local change is still uploaded in the
+  background (quick sync).

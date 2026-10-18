@@ -35,8 +35,9 @@ import java.time.Clock
  * Keeps the signed-in account's Room data and its cloud copy in step. Room stays the only source for the
  * screens; this class only moves data between Room ([SyncLocalStore]) and the cloud ([CloudStore]).
  *
- * - **Full sync** (download everything, [planMerge], apply here, upload): when an account signs in or the app
- *   starts signed in, and when the connection returns.
+ * - **Full sync** (download everything, [planMerge], apply here, upload): when an account signs in, every time the
+ *   app comes to the foreground ([foreground]; not when Android starts the process in the background for boot, an
+ *   alarm or WorkManager), and when the connection returns while the app is in the foreground.
  * - **Quick sync** after each local change ([onLocalChange]): only the pending items and their cloud versions.
  * - One sync at a time; every sync works on the current account's items only.
  * - After a full sync, documents (on this device only) of trips that no longer exist are removed ([TripCleanup]).
@@ -74,6 +75,11 @@ class SyncManager(
     private val clock: Clock = Clock.systemUTC(),
     /** Warnings (a failed sync and why); the app logs them as "CloudSync", tests ignore them. */
     private val log: (message: String, error: Throwable?) -> Unit = { _, _ -> },
+    /**
+     * Whether the app is in the foreground (the process lifecycle, see `processInForeground`). Full syncs wait for
+     * it; tests leave it always true.
+     */
+    private val foreground: StateFlow<Boolean> = MutableStateFlow(true),
 ) : SyncController, LocalChangeListener {
 
     private val mutex = Mutex()
@@ -147,7 +153,8 @@ class SyncManager(
                 // Cancelled as soon as the account changes or signs out.
                 coroutineScope {
                     launch {
-                        network.isOnline.drop(1).filter { it }.collect { sync(uid, full = true) }
+                        // In the background a reconnect waits: coming to the foreground brings a full sync anyway.
+                        network.isOnline.drop(1).filter { it && foreground.value }.collect { sync(uid, full = true) }
                     }
                     launch {
                         localChanges.receiveAsFlow().collect {
@@ -158,7 +165,8 @@ class SyncManager(
                     launch {
                         fullSyncRequests.receiveAsFlow().collect { sync(uid, full = true) }
                     }
-                    sync(uid, full = true)
+                    // Now if the app is in the foreground (else once it gets there), and every time it comes back.
+                    foreground.filter { it }.collect { sync(uid, full = true) }
                 }
             }
         }
