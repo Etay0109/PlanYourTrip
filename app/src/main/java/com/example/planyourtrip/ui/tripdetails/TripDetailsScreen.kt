@@ -1,22 +1,8 @@
 package com.example.planyourtrip.ui.tripdetails
 
-import android.content.ActivityNotFoundException
-import android.content.Context
-import android.content.Intent
-import androidx.annotation.DrawableRes
-import androidx.annotation.StringRes
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -24,80 +10,49 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.FabPosition
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.planyourtrip.R
-import com.example.planyourtrip.ui.common.shortDestination
-import com.example.planyourtrip.ui.common.components.BackTopAppBar
-import com.example.planyourtrip.ui.common.components.BrandMark
-import com.example.planyourtrip.ui.common.components.CurrencyPickerSheet
+import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.ui.common.components.RefreshBox
-import com.example.planyourtrip.ui.common.delete.DeleteTripHost
 import com.example.planyourtrip.ui.common.delete.DeleteTripViewModel
-import com.example.planyourtrip.ui.common.iconRes
-import com.example.planyourtrip.ui.common.labelRes
 import com.example.planyourtrip.ui.common.refresh.RefreshViewModel
-import com.example.planyourtrip.ui.common.share.ShareTripHost
 import com.example.planyourtrip.ui.common.share.ShareTripViewModel
-import com.example.planyourtrip.ui.theme.Dimens
+import com.example.planyourtrip.ui.theme.Spacing
 import com.example.planyourtrip.ui.tripdetails.components.BudgetDialog
 import com.example.planyourtrip.ui.tripdetails.components.CurrencyCardActions
 import com.example.planyourtrip.ui.tripdetails.components.ItineraryActions
 import com.example.planyourtrip.ui.tripdetails.components.TripHeader
+import com.example.planyourtrip.ui.tripdetails.members.InviteViewModel
+import com.example.planyourtrip.ui.tripdetails.members.MemberActions
 import com.example.planyourtrip.ui.tripdetails.prep.PrepActions
-import com.example.planyourtrip.ui.tripdetails.prep.PrepDialogs
 import com.example.planyourtrip.ui.tripdetails.prep.PrepUiState
 import com.example.planyourtrip.ui.tripdetails.prep.PrepViewModel
 import com.example.planyourtrip.ui.tripdetails.prep.prepTab
 import com.example.planyourtrip.ui.tripdetails.prep.rememberPrepActions
 import com.example.planyourtrip.ui.tripdetails.split.SplitActions
-import com.example.planyourtrip.ui.tripdetails.split.SplitDialogs
 import com.example.planyourtrip.ui.tripdetails.split.SplitUiState
 import com.example.planyourtrip.ui.tripdetails.split.SplitViewModel
-import com.example.planyourtrip.data.trip.Trip
-import com.example.planyourtrip.ui.theme.Spacing
-import com.example.planyourtrip.ui.tripdetails.members.InviteHost
-import com.example.planyourtrip.ui.tripdetails.members.InviteViewModel
-import com.example.planyourtrip.ui.tripdetails.members.MemberActions
 import java.time.LocalDate
-import kotlinx.coroutines.launch
 
 @Composable
 fun TripDetailsScreen(
@@ -123,36 +78,12 @@ fun TripDetailsScreen(
     inviteViewModel: InviteViewModel = viewModel(factory = InviteViewModel.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val deleteState by deleteViewModel.uiState.collectAsStateWithLifecycle()
     val refresh by refreshViewModel.state.collectAsStateWithLifecycle()
     val budgetDialog by viewModel.budgetDialog.collectAsStateWithLifecycle()
     val currencyCard by viewModel.currencyCard.collectAsStateWithLifecycle()
-    val currencyPicker by viewModel.currencyPicker.collectAsStateWithLifecycle()
-    val deletedActivity by viewModel.deletedActivity.collectAsStateWithLifecycle()
     val headerPhoto by viewModel.headerPhoto.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    // "Activity deleted" with "Undo", once per delete; Undo brings the activity back.
-    val deletedMessage = stringResource(R.string.activity_deleted)
-    val undoLabel = stringResource(R.string.action_undo)
-    LaunchedEffect(deletedActivity) {
-        val deleted = deletedActivity ?: return@LaunchedEffect
-        val result = snackbarHostState.showSnackbar(deletedMessage, undoLabel, duration = SnackbarDuration.Long)
-        if (result == SnackbarResult.ActionPerformed) {
-            viewModel.onUndoDelete(deleted)
-        } else {
-            viewModel.onDeleteMessageDismissed(deleted)
-        }
-    }
-    val refreshFailedText = stringResource(R.string.refresh_failed)
-    LaunchedEffect(refresh.failed) {
-        if (!refresh.failed) return@LaunchedEffect
-        // Cleared only after the snackbar: clearing first changes this effect's key, which cancels the snackbar.
-        try {
-            snackbarHostState.showSnackbar(refreshFailedText)
-        } finally {
-            refreshViewModel.onMessageShown()
-        }
-    }
+    TripDetailsSnackbars(viewModel, refreshViewModel, snackbarHostState)
     var selectedTab by rememberSaveable { mutableStateOf(initialTab) }
 
     // Opening the Overview refreshes a rate older than 12 hours; a changed currency is fetched right away.
@@ -162,71 +93,23 @@ fun TripDetailsScreen(
         if (selectedTab == TripTab.OVERVIEW && loaded) viewModel.onOverviewShown()
     }
 
-    // The map card (destination) and the Plan cards (activity location) open Google Maps: the app, or the browser;
-    // nothing at all → a message.
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val noMapsApp = stringResource(R.string.trip_no_maps_app)
-    val openUrl: (String) -> Unit = remember(context, snackbarHostState, noMapsApp) {
-        { url -> if (!openGoogleMaps(context, url)) scope.launch { snackbarHostState.showSnackbar(noMapsApp) } }
-    }
+    val openUrl = rememberOpenMapsUrl(snackbarHostState)
     val destination = (state as? TripDetailsUiState.Loaded)?.trip?.destination.orEmpty()
 
     val prepState by prepViewModel.uiState.collectAsStateWithLifecycle()
     val prepActions = rememberPrepActions(prepViewModel, snackbarHostState)
-
     val splitState by splitViewModel.uiState.collectAsStateWithLifecycle()
-    val splitActions = remember(splitViewModel) {
-        SplitActions(
-            onAddTraveler = splitViewModel::onAddTraveler,
-            onTravelerClick = splitViewModel::onTravelerClick,
-            onSettleUp = splitViewModel::onSettleUp,
-            onShowHistory = splitViewModel::onShowHistory,
-            onMerge = splitViewModel::onMergeSuggestion,
-            onKeepSeparate = splitViewModel::onDismissSuggestion,
-        )
-    }
-
-    val currencyActions = remember(viewModel) {
-        CurrencyCardActions(
-            onChooseCurrency = viewModel::onChooseCurrency,
-            onRetry = viewModel::onRetryRate,
-        )
-    }
-    val itineraryActions = remember(viewModel, onAddActivity, onActivityClick, openUrl, destination) {
-        ItineraryActions(
-            onPlanDaySelected = viewModel::onPlanDaySelected,
-            onOverviewPreviousDay = viewModel::onOverviewPreviousDay,
-            onOverviewNextDay = viewModel::onOverviewNextDay,
-            onSeeFullPlan = {
-                viewModel.onSeeFullPlan()
-                selectedTab = TripTab.PLAN
-            },
-            onAddActivity = onAddActivity,
-            onActivityClick = onActivityClick,
-            onOpenInMaps = { activity ->
-                activity.location?.let { openUrl(googleMapsActivityUrl(it, destination)) }
-            },
-        )
-    }
-    val budgetActions = remember(viewModel, onAddExpense, onExpenseClick) {
-        BudgetActions(
-            onEditBudget = viewModel::onEditBudget,
-            onBudgetInputChange = viewModel::onBudgetInputChange,
-            onSaveBudget = viewModel::onSaveBudget,
-            onDismissBudget = viewModel::onDismissBudget,
-            onAddExpense = onAddExpense,
-            onExpenseClick = onExpenseClick,
-        )
-    }
     TripDetailsContent(
         state = state,
         selectedTab = selectedTab,
         budgetDialog = budgetDialog,
         currencyCard = currencyCard,
-        currencyActions = currencyActions,
-        itineraryActions = itineraryActions,
-        budgetActions = budgetActions,
+        currencyActions = rememberCurrencyActions(viewModel),
+        itineraryActions = rememberItineraryActions(
+            viewModel, onAddActivity, onActivityClick, openUrl, destination,
+            onSeeFullPlan = { selectedTab = TripTab.PLAN },
+        ),
+        budgetActions = rememberBudgetActions(viewModel, onAddExpense, onExpenseClick),
         onTabSelected = { selectedTab = it },
         onBack = onBack,
         onEditTrip = onEditTrip,
@@ -241,49 +124,24 @@ fun TripDetailsScreen(
         prep = prepState,
         prepActions = prepActions,
         split = splitState,
-        splitActions = splitActions,
+        splitActions = rememberSplitActions(splitViewModel),
         isRefreshing = refresh.isRefreshing,
         onRefresh = refreshViewModel::onRefresh,
         headerPhotoUrl = headerPhoto?.cardUrl,
     )
 
-    currencyPicker?.let { picker ->
-        CurrencyPickerSheet(
-            state = picker,
-            onQueryChange = viewModel::onCurrencyQueryChange,
-            onSelect = viewModel::onCurrencySelected,
-            onRetry = viewModel::onRetryCurrencies,
-            onDismiss = viewModel::onDismissCurrencyPicker,
-        )
-    }
-    ShareTripHost(shareViewModel)
-    // Confirmed here, deleted (or left) on Home (the trip screen would otherwise show "not found" for a moment).
-    DeleteTripHost(
-        deleteViewModel,
-        onConfirm = {
-            val leave = deleteState.dialog?.leave == true
-            deleteViewModel.takeConfirmed()?.let { id -> if (leave) onTripLeft(id) else onTripDeleted(id) }
-        },
-    )
-    val loadedTrip = (state as? TripDetailsUiState.Loaded)?.trip
-    InviteHost(
-        viewModel = inviteViewModel,
-        members = (state as? TripDetailsUiState.Loaded)?.members,
-        // "Invite to London" and the shared message use the short name ("London, United Kingdom" → "London").
-        destination = loadedTrip?.let { shortDestination(it.destination, it.countryCode) }.orEmpty(),
+    TripDetailsOverlays(
+        state = state,
+        viewModel = viewModel,
+        shareViewModel = shareViewModel,
+        deleteViewModel = deleteViewModel,
+        inviteViewModel = inviteViewModel,
+        prepViewModel = prepViewModel,
+        splitViewModel = splitViewModel,
         snackbarHostState = snackbarHostState,
-        onLeave = { loadedTrip?.let(deleteViewModel::onRemoveTrip) },
+        onTripDeleted = onTripDeleted,
+        onTripLeft = onTripLeft,
     )
-    PrepDialogs(prepViewModel)
-    SplitDialogs(splitViewModel)
-}
-
-/** Opens a Google Maps [url]; false when no app (not even a browser) can open it. */
-private fun openGoogleMaps(context: Context, url: String): Boolean = try {
-    context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()))
-    true
-} catch (e: ActivityNotFoundException) {
-    false
 }
 
 @Composable
@@ -407,168 +265,3 @@ fun TripDetailsContent(
         )
     }
 }
-
-/** The lazy key of the header, the first item on every tab (the status bar shade follows it). */
-private const val HEADER_KEY = "header"
-
-/**
- * Fixed behind the status bar (it doesn't scroll): the screen's background color, fading out just below the bar.
- * Invisible while the list is at the top (the header's photo or gradient shows as before); it fades in over the first
- * [Dimens.TripStatusBarFade] of scrolling, so neither the header's buttons and title nor the cards run into the clock
- * and icons. The icons follow the system theme (dark in light mode, light in dark mode), so they are readable on the
- * background in both.
- */
-@Composable
-private fun BoxScope.StatusBarShade(listState: LazyListState) {
-    val density = LocalDensity.current
-    val statusBarPx = WindowInsets.statusBars.getTop(density)
-    if (statusBarPx == 0) return
-    val fadePx = with(density) { Dimens.TripStatusBarFade.toPx() }
-    val visibility by remember(listState, fadePx) {
-        derivedStateOf {
-            val header = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == HEADER_KEY }
-            if (header == null) {
-                1f
-            } else {
-                (-header.offset / fadePx).coerceIn(0f, 1f)
-            }
-        }
-    }
-    val color = MaterialTheme.colorScheme.background
-    val statusBar = with(density) { statusBarPx.toDp() }
-    val height = statusBar + Dimens.TripStatusBarFade
-    Box(
-        Modifier
-            .align(Alignment.TopCenter)
-            .fillMaxWidth()
-            .height(height)
-            .graphicsLayer { alpha = visibility }
-            .background(Brush.verticalGradient(0f to color, statusBar / height to color, 1f to Color.Transparent)),
-    )
-}
-
-/** Side padding of the trip screen's cards. */
-internal val cardPadding = Modifier.padding(horizontal = Dimens.ScreenPadding)
-
-/** Centered icon, title and body text (empty states). */
-@Composable
-internal fun EmptyMessage(@DrawableRes icon: Int, title: String, body: String) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = Dimens.ScreenPadding + Spacing.m, vertical = Spacing.xxxl),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Icon(
-            painter = painterResource(icon),
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(EmptyIconSize),
-        )
-        Spacer(Modifier.height(Spacing.l))
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onBackground,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.height(Spacing.s))
-        Text(
-            text = body,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
-    }
-}
-
-/** A Material floating action button. */
-private val FabSize = 56.dp
-
-/**
- * Bottom list padding on every tab: the buttons' height (56dp, the round sparkle and the "+ Add expense" pill alike),
- * the Scaffold's 16dp gap above the navigation bar, and 24dp of air, so the last card can scroll fully above them.
- */
-private val FabClearance = FabSize + Spacing.l + Spacing.xxl
-
-/** Round button with a sparkle that opens the trip assistant. */
-@Composable
-private fun AssistantFab(onClick: () -> Unit) {
-    FloatingActionButton(
-        onClick = onClick,
-        shape = CircleShape,
-        containerColor = MaterialTheme.colorScheme.secondary,
-        contentColor = MaterialTheme.colorScheme.onSecondary,
-    ) {
-        Icon(painterResource(R.drawable.ic_sparkle), contentDescription = stringResource(R.string.assistant_open))
-    }
-}
-
-@Composable
-private fun TripNavigationBar(selected: TripTab, onSelect: (TripTab) -> Unit) {
-    NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
-        TripTab.entries.forEach { tab ->
-            NavigationBarItem(
-                selected = tab == selected,
-                onClick = { onSelect(tab) },
-                icon = { Icon(painterResource(tab.iconRes()), contentDescription = null) },
-                label = { Text(stringResource(tab.labelRes()), maxLines = 1) },
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = MaterialTheme.colorScheme.primary,
-                    selectedTextColor = MaterialTheme.colorScheme.primary,
-                    indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                ),
-            )
-        }
-    }
-}
-
-@DrawableRes
-private fun TripTab.iconRes(): Int = when (this) {
-    TripTab.OVERVIEW -> R.drawable.ic_dashboard
-    TripTab.BUDGET -> R.drawable.ic_payments
-    TripTab.PREP -> R.drawable.ic_checklist
-    TripTab.PLAN -> R.drawable.ic_calendar
-}
-
-@StringRes
-private fun TripTab.labelRes(): Int = when (this) {
-    TripTab.OVERVIEW -> R.string.trip_tab_overview
-    TripTab.BUDGET -> R.string.trip_tab_budget
-    TripTab.PREP -> R.string.trip_tab_prep
-    TripTab.PLAN -> R.string.trip_tab_plan
-}
-
-@Composable
-private fun NotFound(onBack: () -> Unit) {
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = { BackTopAppBar(onBack = onBack) },
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(Dimens.ScreenPadding),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Spacer(Modifier.height(NotFoundTopGap))
-            BrandMark(size = Dimens.EmptyStateMarkSize, iconSize = Dimens.EmptyStateMarkIconSize)
-            Spacer(Modifier.height(Spacing.xxl))
-            Text(
-                text = stringResource(R.string.trip_not_found),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
-        }
-    }
-}
-
-/** The icon above an empty tab's message. */
-private val EmptyIconSize = 40.dp
-
-/** "Trip not found": space above the brand mark. */
-private val NotFoundTopGap = 48.dp

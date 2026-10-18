@@ -95,16 +95,21 @@ app/src/main/java/com/example/planyourtrip/
                                # LastExit (exitKind + lastExitLine pure, readLastExit: the previous process's exit)
   data/user/                   # CurrentUser (AuthUser.greetingName()), UserNames (firstName()/initials())
   ui/navigation/               # Routes.kt (type-safe routes), AppNavHost.kt, SessionViewModel
-  ui/auth/                     # AuthScreen (hero, sheet, fields, strength bar), AuthViewModel, AuthUiState,
-                               # AuthValidator (+ passwordStrength)
+  ui/auth/                     # AuthScreen (AuthScreen + AuthContent: scaffold, hero, sheet), AuthForm (the fields,
+                               # button and mode link; AuthFormFocus: focus on errors, scrolling above the keyboard),
+                               # AuthHero (photo, gradient, app icon, status bar scrim and icons), AuthFields
+                               # (AuthTextField, strength bar, AuthButton, SwitchModeLine, error texts), AuthPreviews,
+                               # AuthViewModel, AuthUiState, AuthValidator (+ passwordStrength)
   ui/home/                     # HomeScreen, HomeViewModel, HomeUiState, TripGrouping,
                                # join/ (JoinTripViewModel, JoinUiState (+ CodeLookup, JoinError), JoinTripSheet),
                                # components/ (NextTripCard, TripCards: upcoming + past list cards,
                                # SwipeToDeleteBox: swipe left → red "Delete" area)
   ui/tripform/                 # TripFormScreen/ViewModel/UiState, TripValidator, DestinationSuggestionList — new trip
                                # AND edit trip
-  ui/tripdetails/              # the trip area: TripDetailsScreen (scaffold, header, nav bar, FABs; EmptyMessage,
-                               # cardPadding), OverviewTab / BudgetTab (+ BudgetActions, AddExpenseFab) / PlanTab (the
+  ui/tripdetails/              # the trip area: TripDetailsScreen (wiring + TripDetailsContent: scaffold, tabs),
+                               # TripDetailsActions (remember…Actions), TripDetailsEffects (snackbars, Google Maps
+                               # links), TripDetailsOverlays (sheets and dialogs), TripDetailsChrome (nav bar, FABs,
+                               # status bar shade, "not found"), TripDetailsCommon (EmptyMessage, cardPadding), OverviewTab / BudgetTab (+ BudgetActions, AddExpenseFab) / PlanTab (the
                                # tabs' LazyListScope builders), TripDetailsPreviews (all previews), TripDetailsViewModel
                                # (+ expenseSplits: each row's ExpenseSplitInfo),
                                # TripDetailsUiState (+ TripTab, BudgetDialogState, CurrencyCardState, ItineraryState,
@@ -128,8 +133,9 @@ app/src/main/java/com/example/planyourtrip/
                                # PrepHost (rememberPrepActions: file picker, viewer, snackbars; PrepDialogs)),
                                # members/ (MembersState (pure: membersState, MemberEntry), MembersCard (+ MemberActions,
                                # InviteButton, OwnerPill), InviteViewModel, InviteUiState (+ MembersSheetMode,
-                               # InviteCodeState, InviteMessage), InviteSheet (InviteHost, code card, members list,
-                               # remove dialog, share intent)),
+                               # InviteCodeState, InviteMessage), InviteSheet (InviteHost, InviteSheetContent), InviteCodeSection
+                               # (code card, share intent), MembersList (member rows, remove dialog),
+                               # InviteSheetPreviews),
                                # split/ (SplitViewModel (+ validateSettleAmount), SplitUiState (+ TravelerDialogState,
                                # SettleSheetState, SettlePage, SettleAmountError), SplitComponents (SplitActions,
                                # TravelersSection, WhoOwesWhomCard, TransferRow), SplitDialogs (TravelerDialog,
@@ -137,7 +143,8 @@ app/src/main/java/com/example/planyourtrip/
                                # expense/ (ExpenseFormScreen/ViewModel/UiState (+ ForeignRateState), ExpenseValidator,
                                # ExpenseCurrency (pure: per-currency parsing, conversion to agorot, save rule)),
                                # activity/ (ActivityFormScreen/ViewModel/UiState, ActivityValidator),
-                               # assistant/ (AssistantScreen, AssistantViewModel, AssistantUiState (+ ChatMessage,
+                               # assistant/ (AssistantScreen, AssistantMessages (bubbles, typing, error), AssistantInputBar,
+                               # AssistantPreviews, AssistantViewModel, AssistantUiState (+ ChatMessage,
                                # PlanCardState, AddStatus), SuggestedPlanCard, AssistantContext (pure: buildTripContext,
                                # AssistantChip + suggestionChips, chatHistory, planCard), Suggestions (pure:
                                # suggestionInputs))

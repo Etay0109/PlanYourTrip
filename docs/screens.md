@@ -103,7 +103,7 @@ splitting").
   circle (→ `TripForm(tripId)`), three-dots circle (`TripMoreMenu` → "Share trip", "Delete trip"), destination (`headlineLarge`,
   ≤ 3 lines, the country's flag before it when the trip has a `countryCode`: `DestinationTitle`), dates with length. Below 300dp content width or
   above font scale 1.2 the status pill moves to its own line under the buttons.
-- **Status bar shade** (`StatusBarShade` in `TripDetailsScreen`, every tab): fixed behind the status bar, the
+- **Status bar shade** (`StatusBarShade` in `TripDetailsChrome`, every tab): fixed behind the status bar, the
   `background` color fading out `Dimens.TripStatusBarFade` (16dp) below it. Invisible while the list is at the top (the
   header looks as before); it fades in over the first 16dp of scrolling (the header item's offset), so the header's
   buttons and title and the cards never run into the clock. The status bar icons follow the system theme, so they read
@@ -121,7 +121,7 @@ splitting").
   network, no tiles, the same offline. **Tapping anywhere** opens `googleMapsSearchUrl(destination)` =
   `https://www.google.com/maps/search/?api=1&query=` + the trimmed destination percent-encoded as UTF-8 (spaces `%20`)
   with `ACTION_VIEW`: the Google Maps app when installed, else the browser; `ActivityNotFoundException` → snackbar
-  "No maps app found" (`openGoogleMaps` in `TripDetailsScreen`, shared with the Plan cards' "Open in Maps").
+  "No maps app found" (`openGoogleMaps` in `TripDetailsEffects`, shared with the Plan cards' "Open in Maps").
 - **Budget:** see "Budget tab and expense splitting" below.
 - `TripDetailsUiState`: `Loading` (nothing drawn) / `NotFound` (not the user's trip or deleted) / `Loaded`.
 - **Budget dialog** state lives in the ViewModel (`budgetDialog: BudgetDialogState?`): prefilled with the current
