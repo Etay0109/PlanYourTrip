@@ -53,6 +53,8 @@ import com.example.planyourtrip.ui.theme.PlanYourTripTheme
 import com.example.planyourtrip.ui.theme.Spacing
 import com.example.planyourtrip.ui.tripdetails.components.TravelerAvatar
 import com.example.planyourtrip.ui.tripdetails.components.personName
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.unit.Density
 
 /** What the "Traveling together" card can do: open the members list, or (owner) the invite sheet. */
 class MemberActions(val onShowMembers: () -> Unit, val onInvite: () -> Unit) {
@@ -118,34 +120,10 @@ private fun MembersCardTitleRow(count: Int, countText: String, isOwner: Boolean,
         val available = constraints.maxWidth
         val minScale = minFitTextScale(density.fontScale)
         val layout = remember(title, inviteLabel, count, isOwner, titleStyle, available, density) {
-            fun width(text: String, style: TextStyle) =
-                measurer.measure(text, style, maxLines = 1, softWrap = false).size.width
-            with(density) {
-                val pill = width(count.toString(), pillStyle) + PillPadding.roundToPx()
-                val fixed = TitleGap.roundToPx() + pill
-                val fullInvite = if (isOwner) {
-                    InviteGap.roundToPx() + width(inviteLabel, inviteStyle) + InviteButtonExtra.roundToPx()
-                } else {
-                    0
-                }
-                val iconInvite = if (isOwner) InviteGap.roundToPx() + Dimens.TouchTarget.roundToPx() else 0
-                val titleWidth = width(title, titleStyle)
-                when {
-                    titleWidth + fixed + fullInvite <= available -> TitleRowLayout(compactInvite = false, titleStyle)
-                    else -> {
-                        // Shrink the title only as much as needed (see minFitTextScale).
-                        val room = available - fixed - iconInvite
-                        // Text width doesn't scale exactly with the size: check it and step down until it fits.
-                        fun scaled(scale: Float) = titleStyle.copy(fontSize = titleStyle.fontSize * scale)
-                        var scale = (room.toFloat() / titleWidth).coerceIn(minScale, 1f)
-                        while (scale > minScale && width(title, scaled(scale)) > room) {
-                            scale = (scale - 0.02f).coerceAtLeast(minScale)
-                        }
-                        val style = if (scale < 1f) scaled(scale) else titleStyle
-                        TitleRowLayout(compactInvite = isOwner, style)
-                    }
-                }
-            }
+            titleRowLayout(
+                measurer, density, title, inviteLabel, count, isOwner, titleStyle, pillStyle, inviteStyle, available,
+                minScale,
+            )
         }
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.heightIn(min = Dimens.TouchTarget)) {
             // Title and count stay together on the left; "Invite" sits at the right edge.
@@ -178,6 +156,53 @@ private fun MembersCardTitleRow(count: Int, countText: String, isOwner: Boolean,
 }
 
 private data class TitleRowLayout(val compactInvite: Boolean, val titleStyle: TextStyle)
+
+/**
+ * Whether the title, the count and the full "Invite" button fit in [available] px; otherwise "Invite" becomes the
+ * icon button and the title shrinks only as much as needed (not below [minScale], see [minFitTextScale]).
+ */
+private fun titleRowLayout(
+    measurer: TextMeasurer,
+    density: Density,
+    title: String,
+    inviteLabel: String,
+    count: Int,
+    isOwner: Boolean,
+    titleStyle: TextStyle,
+    pillStyle: TextStyle,
+    inviteStyle: TextStyle,
+    available: Int,
+    minScale: Float,
+): TitleRowLayout {
+    fun width(text: String, style: TextStyle) =
+        measurer.measure(text, style, maxLines = 1, softWrap = false).size.width
+    return with(density) {
+        val pill = width(count.toString(), pillStyle) + PillPadding.roundToPx()
+        val fixed = TitleGap.roundToPx() + pill
+        val fullInvite = if (isOwner) {
+            InviteGap.roundToPx() + width(inviteLabel, inviteStyle) + InviteButtonExtra.roundToPx()
+        } else {
+            0
+        }
+        val iconInvite = if (isOwner) InviteGap.roundToPx() + Dimens.TouchTarget.roundToPx() else 0
+        val titleWidth = width(title, titleStyle)
+        when {
+            titleWidth + fixed + fullInvite <= available -> TitleRowLayout(compactInvite = false, titleStyle)
+            else -> {
+                // Shrink the title only as much as needed (see minFitTextScale).
+                val room = available - fixed - iconInvite
+                // Text width doesn't scale exactly with the size: check it and step down until it fits.
+                fun scaled(scale: Float) = titleStyle.copy(fontSize = titleStyle.fontSize * scale)
+                var scale = (room.toFloat() / titleWidth).coerceIn(minScale, 1f)
+                while (scale > minScale && width(title, scaled(scale)) > room) {
+                    scale = (scale - 0.02f).coerceAtLeast(minScale)
+                }
+                val style = if (scale < 1f) scaled(scale) else titleStyle
+                TitleRowLayout(compactInvite = isOwner, style)
+            }
+        }
+    }
+}
 
 /** Gaps and paddings of the title row (they decide when "Invite" turns into an icon). */
 private val TitleGap = Spacing.sPlus

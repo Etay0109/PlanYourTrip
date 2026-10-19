@@ -60,6 +60,14 @@ internal class AuthFormFocus {
     val layout = AuthLayout()
     val sheetRequester = BringIntoViewRequester()
     var focusedField by mutableStateOf<AuthField?>(null)
+
+    /** Makes this the [field]'s input: focus requests, the focused field, and its place for keyboard scrolling. */
+    fun Modifier.authField(field: AuthField): Modifier = this
+        .focusRequester(requesters.getValue(field))
+        .onFocusChanged {
+            if (it.isFocused) focusedField = field else if (focusedField == field) focusedField = null
+        }
+        .onGloballyPositioned { layout.fields[field] = it }
 }
 
 /**
@@ -119,12 +127,7 @@ internal fun AuthForm(
     val submit = { onSubmit(AuthInput(fullName, email, password, confirmPassword)) }
     val isSignUp = state.mode == AuthMode.SIGN_UP
     val focusManager = LocalFocusManager.current
-    fun Modifier.field(field: AuthField) = this
-        .focusRequester(focus.requesters.getValue(field))
-        .onFocusChanged {
-            if (it.isFocused) focus.focusedField = field else if (focus.focusedField == field) focus.focusedField = null
-        }
-        .onGloballyPositioned { focus.layout.fields[field] = it }
+    fun Modifier.field(field: AuthField): Modifier = with(focus) { authField(field) }
 
     Column(
         modifier = Modifier.widthIn(max = FormMaxWidth).fillMaxWidth(),
@@ -190,23 +193,38 @@ internal fun AuthForm(
         }
 
         Spacer(Modifier.height(Spacing.xsPlus))
-        AuthButton(
-            text = stringResource(
-                if (isSignUp) R.string.auth_button_sign_up else R.string.auth_button_sign_in
-            ),
-            loading = state.isLoading,
-            onClick = submit,
-            modifier = Modifier.onGloballyPositioned { focus.layout.button = it },
-        )
-        Spacer(Modifier.height(Spacing.xs))
-        SwitchModeLine(
+        AuthFormButtons(
             isSignUp = isSignUp,
-            onClick = {
+            loading = state.isLoading,
+            onSubmit = submit,
+            onModeToggle = {
                 focusManager.clearFocus()
                 onModeToggle()
             },
+            focus = focus,
         )
     }
+}
+
+/** "Sign in" / "Create account", then the line that switches to the other mode. */
+@Composable
+private fun AuthFormButtons(
+    isSignUp: Boolean,
+    loading: Boolean,
+    onSubmit: () -> Unit,
+    onModeToggle: () -> Unit,
+    focus: AuthFormFocus,
+) {
+    AuthButton(
+        text = stringResource(
+            if (isSignUp) R.string.auth_button_sign_up else R.string.auth_button_sign_in
+        ),
+        loading = loading,
+        onClick = onSubmit,
+        modifier = Modifier.onGloballyPositioned { focus.layout.button = it },
+    )
+    Spacer(Modifier.height(Spacing.xs))
+    SwitchModeLine(isSignUp = isSignUp, onClick = onModeToggle)
 }
 
 /** Long enough for the keyboard's resize to finish before scrolling the focused field into view. */

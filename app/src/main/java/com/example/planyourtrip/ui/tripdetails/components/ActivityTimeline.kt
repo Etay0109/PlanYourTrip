@@ -103,7 +103,6 @@ fun TimelineRow(
  * "Open in Maps" button ([onOpenInMaps], shown only when the activity has a location). When [showDate] is set
  * (activities outside the trip dates), the date is shown before the time.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ActivityCard(
     activity: TripActivity,
@@ -114,7 +113,6 @@ fun ActivityCard(
     onOpenInMaps: (() -> Unit)? = null,
 ) {
     val typeColor = ExtendedTheme.colors.activityType(activity.type)
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
     Surface(
         onClick = onClick,
         shape = MaterialTheme.shapes.large,
@@ -125,25 +123,7 @@ fun ActivityCard(
         Column(Modifier.padding(Spacing.xl)) {
             Row(verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f)) {
-                    val timeLine = listOfNotNull(
-                        TripFormatting.date(activity.date).takeIf { showDate },
-                        activity.startTime?.let { TripFormatting.time(it) },
-                    ).joinToString(" · ")
-                    if (timeLine.isNotEmpty()) {
-                        Text(
-                            text = timeLine,
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                        Spacer(Modifier.height(Spacing.xs))
-                    }
-                    Text(
-                        text = activity.title,
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 3,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    TimeAndTitle(activity, showDate)
                 }
                 Spacer(Modifier.width(Spacing.m))
                 ActivityTypeIcon(activity, typeColor)
@@ -153,48 +133,85 @@ fun ActivityCard(
                 NoteBox(note, activity)
             }
             Spacer(Modifier.height(Spacing.m))
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(Spacing.s),
-                verticalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
-                itemVerticalAlignment = Alignment.CenterVertically,
-            ) {
-                TagPill(stringResource(activity.type.labelRes()), typeColor.container, typeColor.content)
-                if (activity.booked) {
-                    // Neutral with a check, so it never reads as a second type label.
-                    TagPill(
-                        stringResource(R.string.itinerary_booked),
-                        MaterialTheme.colorScheme.surfaceContainerHighest,
-                        MaterialTheme.colorScheme.onSurface,
-                        leadingIcon = R.drawable.ic_check,
-                    )
-                }
-            }
+            ActivityTags(activity, typeColor)
             activity.location?.takeIf { it.isNotBlank() }?.let { location ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = location,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = muted,
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(top = Spacing.s, bottom = if (onOpenInMaps == null) 0.dp else Spacing.s),
-                    )
-                    if (onOpenInMaps != null) {
-                        // Shifted so the icon is centered under the round type icon above (48dp touch target).
-                        IconButton(
-                            onClick = onOpenInMaps,
-                            modifier = Modifier
-                                .padding(start = Spacing.xs)
-                                .offset(x = (Dimens.TouchTarget - Dimens.CategoryIconSize) / 2),
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_map),
-                                contentDescription = stringResource(R.string.itinerary_open_in_maps),
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                    }
-                }
+                LocationRow(location, onOpenInMaps)
+            }
+        }
+    }
+}
+
+/** "Thu 12 Nov · 09:30" (the date only outside the trip dates; nothing without a time), then the title. */
+@Composable
+private fun TimeAndTitle(activity: TripActivity, showDate: Boolean) {
+    val timeLine = listOfNotNull(
+        TripFormatting.date(activity.date).takeIf { showDate },
+        activity.startTime?.let { TripFormatting.time(it) },
+    ).joinToString(" · ")
+    if (timeLine.isNotEmpty()) {
+        Text(
+            text = timeLine,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Spacer(Modifier.height(Spacing.xs))
+    }
+    Text(
+        text = activity.title,
+        style = MaterialTheme.typography.titleLarge,
+        color = MaterialTheme.colorScheme.onSurface,
+        maxLines = 3,
+        overflow = TextOverflow.Ellipsis,
+    )
+}
+
+/** The type pill and, when booked, a neutral "✓ Booked" pill. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ActivityTags(activity: TripActivity, typeColor: TintedColor) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(Spacing.s),
+        verticalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
+        itemVerticalAlignment = Alignment.CenterVertically,
+    ) {
+        TagPill(stringResource(activity.type.labelRes()), typeColor.container, typeColor.content)
+        if (activity.booked) {
+            // Neutral with a check, so it never reads as a second type label.
+            TagPill(
+                stringResource(R.string.itinerary_booked),
+                MaterialTheme.colorScheme.surfaceContainerHighest,
+                MaterialTheme.colorScheme.onSurface,
+                leadingIcon = R.drawable.ic_check,
+            )
+        }
+    }
+}
+
+/** The location, with "Open in Maps" ([onOpenInMaps]) lined up under the round type icon. */
+@Composable
+private fun LocationRow(location: String, onOpenInMaps: (() -> Unit)?) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = location,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .weight(1f)
+                .padding(top = Spacing.s, bottom = if (onOpenInMaps == null) 0.dp else Spacing.s),
+        )
+        if (onOpenInMaps != null) {
+            // Shifted so the icon is centered under the round type icon above (48dp touch target).
+            IconButton(
+                onClick = onOpenInMaps,
+                modifier = Modifier
+                    .padding(start = Spacing.xs)
+                    .offset(x = (Dimens.TouchTarget - Dimens.CategoryIconSize) / 2),
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_map),
+                    contentDescription = stringResource(R.string.itinerary_open_in_maps),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
             }
         }
     }

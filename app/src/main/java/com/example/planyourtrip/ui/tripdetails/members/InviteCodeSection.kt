@@ -53,7 +53,6 @@ import com.example.planyourtrip.ui.theme.IconSize
 import com.example.planyourtrip.ui.theme.Spacing
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun CodeSection(code: InviteCodeState, destination: String, actions: InviteSheetActions) {
     when (code) {
@@ -63,43 +62,7 @@ internal fun CodeSection(code: InviteCodeState, destination: String, actions: In
                 .heightIn(min = CodeLoadingMinHeight),
             contentAlignment = Alignment.Center,
         ) { CircularProgressIndicator() }
-        is InviteCodeState.Ready -> {
-            CodeCard(code.invite)
-            Spacer(Modifier.height(Spacing.xl))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.s), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
-                InfoPill(R.drawable.ic_schedule, stringResource(R.string.invite_expires, TripFormatting.dayMonth(code.expiresOn)))
-                InfoPill(R.drawable.ic_shield, stringResource(R.string.invite_works_once))
-            }
-            Spacer(Modifier.height(Spacing.xxl))
-            val context = LocalContext.current
-            val message = stringResource(
-                R.string.invite_share_message,
-                destination,
-                InviteCode.forMessage(code.invite.code),
-                TripFormatting.dayMonth(code.expiresOn),
-            )
-            val chooserTitle = stringResource(R.string.invite_share)
-            PrimaryButton(
-                text = stringResource(R.string.invite_share),
-                onClick = { shareText(context, message, chooserTitle) },
-                leadingIcon = R.drawable.ic_share,
-                enabled = !code.isCancelling,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            TextButton(
-                onClick = actions.onCancelCode,
-                enabled = !code.isCancelling,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(Dimens.TouchTarget),
-            ) {
-                if (code.isCancelling) {
-                    CircularProgressIndicator(Modifier.size(IconSize.s), strokeWidth = Dimens.ProgressStroke)
-                } else {
-                    Text(stringResource(R.string.invite_cancel), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        }
+        is InviteCodeState.Ready -> ReadyCode(code, destination, actions)
         InviteCodeState.Cancelled -> StatusWithAction(
             text = stringResource(R.string.invite_cancelled),
             action = stringResource(R.string.invite_new_code),
@@ -115,6 +78,47 @@ internal fun CodeSection(code: InviteCodeState, destination: String, actions: In
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+/** The code card, when it expires and that it works once, then "Share invite" and "Cancel code". */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ReadyCode(code: InviteCodeState.Ready, destination: String, actions: InviteSheetActions) {
+    CodeCard(code.invite)
+    Spacer(Modifier.height(Spacing.xl))
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.s), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
+        InfoPill(R.drawable.ic_schedule, stringResource(R.string.invite_expires, TripFormatting.dayMonth(code.expiresOn)))
+        InfoPill(R.drawable.ic_shield, stringResource(R.string.invite_works_once))
+    }
+    Spacer(Modifier.height(Spacing.xxl))
+    val context = LocalContext.current
+    val message = stringResource(
+        R.string.invite_share_message,
+        destination,
+        InviteCode.forMessage(code.invite.code),
+        TripFormatting.dayMonth(code.expiresOn),
+    )
+    val chooserTitle = stringResource(R.string.invite_share)
+    PrimaryButton(
+        text = stringResource(R.string.invite_share),
+        onClick = { shareText(context, message, chooserTitle) },
+        leadingIcon = R.drawable.ic_share,
+        enabled = !code.isCancelling,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    TextButton(
+        onClick = actions.onCancelCode,
+        enabled = !code.isCancelling,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(Dimens.TouchTarget),
+    ) {
+        if (code.isCancelling) {
+            CircularProgressIndicator(Modifier.size(IconSize.s), strokeWidth = Dimens.ProgressStroke)
+        } else {
+            Text(stringResource(R.string.invite_cancel), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 

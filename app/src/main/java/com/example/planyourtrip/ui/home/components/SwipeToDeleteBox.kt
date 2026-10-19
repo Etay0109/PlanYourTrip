@@ -10,6 +10,7 @@ import androidx.compose.foundation.gestures.anchoredDraggable
 import androidx.compose.foundation.gestures.animateTo
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.offset
@@ -89,35 +90,7 @@ fun SwipeToDeleteBox(
             },
     ) {
         val offset = if (state.offset.isNaN()) 0f else state.offset
-        if (offset < 0f) {
-            Box(
-                Modifier
-                    .matchParentSize()
-                    .clip(shape)
-                    .background(ExtendedTheme.colors.swipeDelete),
-            ) {
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .width(Dimens.SwipeRevealWidth)
-                        .fillMaxHeight()
-                        .clickable(role = Role.Button, onClickLabel = deleteLabel) { currentOnDelete() },
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Icon(
-                        painter = painterResource(if (leave) R.drawable.ic_logout else R.drawable.ic_delete),
-                        contentDescription = null,
-                        tint = ExtendedTheme.colors.onSwipeDelete,
-                    )
-                    Text(
-                        text = stringResource(if (leave) R.string.action_leave else R.string.action_delete),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = ExtendedTheme.colors.onSwipeDelete,
-                    )
-                }
-            }
-        }
+        if (offset < 0f) SwipeDeleteArea(shape, leave, deleteLabel, onClick = { currentOnDelete() })
         Box(
             Modifier
                 .offset { IntOffset(offset.roundToInt(), 0) }
@@ -131,6 +104,38 @@ fun SwipeToDeleteBox(
                 ),
         ) {
             content()
+        }
+    }
+}
+
+/** The red area uncovered behind the card: trash (or leave) icon and "Delete" / "Leave"; tapping it asks. */
+@Composable
+private fun BoxScope.SwipeDeleteArea(shape: Shape, leave: Boolean, deleteLabel: String, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .matchParentSize()
+            .clip(shape)
+            .background(ExtendedTheme.colors.swipeDelete),
+    ) {
+        Column(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .width(Dimens.SwipeRevealWidth)
+                .fillMaxHeight()
+                .clickable(role = Role.Button, onClickLabel = deleteLabel) { onClick() },
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Icon(
+                painter = painterResource(if (leave) R.drawable.ic_logout else R.drawable.ic_delete),
+                contentDescription = null,
+                tint = ExtendedTheme.colors.onSwipeDelete,
+            )
+            Text(
+                text = stringResource(if (leave) R.string.action_leave else R.string.action_delete),
+                style = MaterialTheme.typography.labelLarge,
+                color = ExtendedTheme.colors.onSwipeDelete,
+            )
         }
     }
 }

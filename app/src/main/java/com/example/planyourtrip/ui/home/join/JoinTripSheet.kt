@@ -1,28 +1,16 @@
 package com.example.planyourtrip.ui.home.join
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -35,41 +23,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalClipboard
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.R
 import com.example.planyourtrip.data.sharing.InviteCode
-import com.example.planyourtrip.data.sharing.InvitePreview
-import com.example.planyourtrip.ui.common.components.HeroWaves
 import com.example.planyourtrip.ui.common.components.PrimaryButton
-import com.example.planyourtrip.ui.common.datesWithLength
-import com.example.planyourtrip.ui.common.split.avatarLetter
 import com.example.planyourtrip.ui.theme.Dimens
-import com.example.planyourtrip.ui.theme.ExtendedTheme
-import com.example.planyourtrip.ui.theme.HeroLabelStyle
-import com.example.planyourtrip.ui.theme.IconSize
-import com.example.planyourtrip.ui.theme.PlanYourTripTheme
 import com.example.planyourtrip.ui.theme.Spacing
-import java.time.LocalDate
 import kotlinx.coroutines.launch
 
 /** The join sheet while [JoinTripViewModel] says it is open. */
@@ -137,121 +106,27 @@ fun JoinTripContent(
             .navigationBarsPadding()
             .padding(bottom = Spacing.l),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(Dimens.AvatarSize)
-                    .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painterResource(R.drawable.ic_key),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-            }
-            Spacer(Modifier.width(Spacing.l))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.join_title),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                    text = stringResource(R.string.join_subtitle),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Spacer(Modifier.width(Spacing.s))
-            FilledTonalButton(
-                onClick = {
-                    scope.launch {
-                        val text = clipboard.getClipEntry()?.clipData?.takeIf { it.itemCount > 0 }
-                            ?.getItemAt(0)?.text?.toString() ?: return@launch
-                        setCode(InviteCode.extract(text) ?: InviteCode.normalize(text))
-                    }
-                },
-                enabled = !state.isJoining,
-            ) {
-                Icon(painterResource(R.drawable.ic_content_paste), contentDescription = null, Modifier.size(IconSize.s))
-                Spacer(Modifier.width(Spacing.xsPlus))
-                Text(stringResource(R.string.join_paste))
-            }
-        }
+        JoinHeader(
+            isJoining = state.isJoining,
+            onPaste = {
+                scope.launch {
+                    val text = clipboard.getClipEntry()?.clipData?.takeIf { it.itemCount > 0 }
+                        ?.getItemAt(0)?.text?.toString() ?: return@launch
+                    setCode(InviteCode.extract(text) ?: InviteCode.normalize(text))
+                }
+            },
+        )
         Spacer(Modifier.height(Spacing.xl))
 
-        var focused by remember { mutableStateOf(false) }
-        val codeDescription = stringResource(R.string.join_code_description, field.text.length)
-        BasicTextField(
-            value = field,
+        CodeField(
+            field = field,
             onValueChange = { new ->
-                if (state.isJoining) return@BasicTextField
-                setCode(InviteCode.input(field.text, new.text))
+                if (!state.isJoining) setCode(InviteCode.input(field.text, new.text))
             },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(
-                capitalization = KeyboardCapitalization.Characters,
-                autoCorrectEnabled = false,
-                keyboardType = KeyboardType.Ascii,
-                imeAction = ImeAction.Done,
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .onFocusChanged { focused = it.isFocused }
-                .semantics { contentDescription = codeDescription },
-            decorationBox = { CodeBoxes(field.text, focused) },
         )
         Spacer(Modifier.height(Spacing.l))
 
-        when (val lookup = state.lookup) {
-            is CodeLookup.Found -> {
-                JoiningCard(lookup.preview)
-                Spacer(Modifier.height(Spacing.l))
-                Row(verticalAlignment = Alignment.Top) {
-                    Icon(
-                        painterResource(R.drawable.ic_shield),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(IconSize.m),
-                    )
-                    Spacer(Modifier.width(Spacing.m))
-                    Text(
-                        text = stringResource(R.string.join_privacy),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-            CodeLookup.Checking -> Row(verticalAlignment = Alignment.CenterVertically) {
-                CircularProgressIndicator(Modifier.size(IconSize.s), strokeWidth = Dimens.ProgressStroke)
-                Spacer(Modifier.width(Spacing.m))
-                Text(
-                    stringResource(R.string.join_checking),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            CodeLookup.Invalid -> if (state.error == null) Message(stringResource(R.string.join_invalid_code))
-            CodeLookup.Failed -> Column {
-                Message(stringResource(R.string.join_failed))
-                TextButton(onClick = onRetry) { Text(stringResource(R.string.assistant_try_again)) }
-            }
-            CodeLookup.Incomplete -> Unit
-        }
-        state.error?.let { error ->
-            Spacer(Modifier.height(Spacing.s))
-            Message(
-                stringResource(
-                    when (error) {
-                        JoinError.INVALID_CODE -> R.string.join_invalid_code
-                        JoinError.ALREADY_MEMBER -> R.string.join_already_member
-                        JoinError.TRIP_FULL -> R.string.join_trip_full
-                        JoinError.FAILED -> R.string.join_failed
-                    },
-                ),
-            )
-        }
+        CodeLookupStatus(state, onRetry)
         Spacer(Modifier.height(Spacing.xl))
         PrimaryButton(
             text = stringResource(R.string.join_trip),
@@ -272,197 +147,25 @@ fun JoinTripContent(
     }
 }
 
-/** Errors are announced as they appear. */
+/** The invite code, typed into the 8 boxes ([CodeBoxes]) on an ASCII keyboard in capitals, without autocorrect. */
 @Composable
-private fun Message(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.error,
-        modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
-    )
-}
-
-/** 8 boxes, a short dash between the two groups of four; the next box to fill is outlined while focused. */
-@Composable
-private fun CodeBoxes(code: String, focused: Boolean) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(Spacing.xsPlus),
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        repeat(InviteCode.LENGTH) { index ->
-            if (index == InviteCode.LENGTH / 2) {
-                Box(
-                    Modifier
-                        .width(CodeDashWidth)
-                        .height(CodeDashHeight)
-                        .background(MaterialTheme.colorScheme.outlineVariant),
-                )
-            }
-            val current = focused && index == code.length.coerceAtMost(InviteCode.LENGTH - 1)
-            val shape = MaterialTheme.shapes.small
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .weight(1f)
-                    .aspectRatio(0.82f)
-                    .clip(shape)
-                    .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                    .then(
-                        if (current) Modifier.border(CurrentCellBorder, MaterialTheme.colorScheme.primary, shape) else Modifier,
-                    ),
-            ) {
-                Text(
-                    text = code.getOrNull(index)?.toString().orEmpty(),
-                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.primary,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                )
-            }
-        }
-    }
-}
-
-/** "YOU'RE JOINING": the invite's trip on the hero gradient, with who invited me in the band at the bottom. */
-@Composable
-private fun JoiningCard(preview: InvitePreview) {
-    val colors = ExtendedTheme.colors
-    val shape = MaterialTheme.shapes.large
-    Box(
+private fun CodeField(field: TextFieldValue, onValueChange: (TextFieldValue) -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val codeDescription = stringResource(R.string.join_code_description, field.text.length)
+    BasicTextField(
+        value = field,
+        onValueChange = onValueChange,
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(
+            capitalization = KeyboardCapitalization.Characters,
+            autoCorrectEnabled = false,
+            keyboardType = KeyboardType.Ascii,
+            imeAction = ImeAction.Done,
+        ),
         modifier = Modifier
             .fillMaxWidth()
-            .clip(shape)
-            .background(colors.heroGradient)
-            .semantics(mergeDescendants = true) {},
-    ) {
-        HeroWaves(Modifier.matchParentSize())
-        Column {
-            Column(Modifier.padding(start = Spacing.xl, end = Spacing.l, top = Spacing.l, bottom = Spacing.l)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = stringResource(R.string.join_joining_label),
-                        style = HeroLabelStyle,
-                        color = colors.onHeroMuted,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .background(colors.heroOverlay, CircleShape)
-                            .border(Dimens.Hairline, colors.heroOverlayBorder, CircleShape)
-                            .padding(horizontal = Spacing.sPlus, vertical = Spacing.xs),
-                    ) {
-                        Icon(
-                            painterResource(R.drawable.ic_verified),
-                            contentDescription = null,
-                            tint = colors.onHero,
-                            modifier = Modifier.size(IconSize.xs),
-                        )
-                        Spacer(Modifier.width(Spacing.xsPlus))
-                        Text(
-                            text = stringResource(R.string.join_valid_code),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = colors.onHero,
-                        )
-                    }
-                }
-                Spacer(Modifier.height(Spacing.s))
-                Text(
-                    text = preview.destination,
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                    color = colors.onHero,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Spacer(Modifier.height(Spacing.xs))
-                Text(
-                    text = datesWithLength(preview.startDate, preview.endDate),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = colors.onHeroMuted,
-                )
-            }
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(colors.heroOverlay)
-                    .padding(horizontal = Spacing.xl, vertical = Spacing.m),
-            ) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(OverlayBadgeSize)
-                        .background(MaterialTheme.colorScheme.inverseSurface, CircleShape),
-                ) {
-                    Text(
-                        text = avatarLetter(preview.inviterName),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.inverseOnSurface,
-                    )
-                }
-                Spacer(Modifier.width(Spacing.m))
-                Text(
-                    text = stringResource(R.string.join_invited_by, preview.inviterName),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = colors.onHero,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-    }
+            .onFocusChanged { focused = it.isFocused }
+            .semantics { contentDescription = codeDescription },
+        decorationBox = { CodeBoxes(field.text, focused) },
+    )
 }
-
-private val previewInvite = InvitePreview(
-    code = "K7M4XP2R",
-    tripUuid = "t1",
-    destination = "Rome, Italy",
-    startDate = LocalDate.of(2026, 10, 19),
-    endDate = LocalDate.of(2026, 10, 24),
-    inviterName = "Noa",
-)
-
-@Preview(showBackground = true)
-@Composable
-internal fun JoinTripFoundPreview() {
-    PlanYourTripTheme(darkTheme = false) {
-        JoinTripContent(
-            state = JoinUiState(isOpen = true, code = "K7M4XP2R", lookup = CodeLookup.Found(previewInvite)),
-            onCodeChange = {}, onRetry = {}, onJoin = {}, onDismiss = {}, initialCode = "K7M4XP2R",
-        )
-    }
-}
-
-@Preview(showBackground = true, widthDp = 320, fontScale = 1.5f)
-@Composable
-internal fun JoinTripNarrowPreview() {
-    PlanYourTripTheme(darkTheme = false) {
-        JoinTripContent(
-            state = JoinUiState(isOpen = true, code = "K7M4XP2R", lookup = CodeLookup.Found(previewInvite)),
-            onCodeChange = {}, onRetry = {}, onJoin = {}, onDismiss = {}, initialCode = "K7M4XP2R",
-        )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-internal fun JoinTripInvalidPreview() {
-    PlanYourTripTheme(darkTheme = true) {
-        JoinTripContent(
-            state = JoinUiState(isOpen = true, code = "K7M4XP2R", lookup = CodeLookup.Invalid),
-            onCodeChange = {}, onRetry = {}, onJoin = {}, onDismiss = {}, initialCode = "K7M4XP2R",
-        )
-    }
-}
-
-/** The dash between the two halves of the code boxes. */
-private val CodeDashWidth = 6.dp
-private val CodeDashHeight = 2.dp
-
-/** The ring of the code box the next character goes into. */
-private val CurrentCellBorder = 2.dp
-
-/** The round badge at the start of the trip preview's bottom row. */
-private val OverlayBadgeSize = 28.dp

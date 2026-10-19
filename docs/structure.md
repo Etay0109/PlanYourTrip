@@ -101,8 +101,10 @@ app/src/main/java/com/example/planyourtrip/
                                # AuthHero (photo, gradient, app icon, status bar scrim and icons), AuthFields
                                # (AuthTextField, strength bar, AuthButton, SwitchModeLine, error texts), AuthPreviews,
                                # AuthViewModel, AuthUiState, AuthValidator (+ passwordStrength)
-  ui/home/                     # HomeScreen, HomeViewModel, HomeUiState, TripGrouping,
-                               # join/ (JoinTripViewModel, JoinUiState (+ CodeLookup, JoinError), JoinTripSheet),
+  ui/home/                     # HomeScreen, HomeTripList (tripSections: Next / Upcoming / Past cards), HomeMessages
+                               # (snackbars), HomePreviews, HomeViewModel, HomeUiState, TripGrouping,
+                               # join/ (JoinTripViewModel, JoinUiState (+ CodeLookup, JoinError), JoinTripSheet,
+                               # JoinTripParts (header, code boxes, lookup status), JoiningCard, JoinTripPreviews),
                                # components/ (NextTripCard, TripCards: upcoming + past list cards,
                                # SwipeToDeleteBox: swipe left → red "Delete" area)
   ui/tripform/                 # TripFormScreen/ViewModel/UiState, TripValidator, DestinationSuggestionList — new trip
@@ -125,28 +127,32 @@ app/src/main/java/com/example/planyourtrip/
                                # GoogleMaps (pure: googleMapsSearchUrl = the Overview Map card's link,
                                # googleMapsActivityUrl = a Plan card's "Open in Maps"),
                                # components/ (TripHeader, BudgetCard,
-                               # CurrencyCard, CategoryChartCard, BudgetDialog, FeatureCard,
+                               # CurrencyCard (+ CurrencyConverter: the two amount fields), CategoryChartCard,
+                               # BudgetDialog, FeatureCard,
                                # IconChip/CategoryIcon, TravelerAvatar (+ avatarColors, personName),
                                # ExpenseRow (+ ExpenseSplitInfo), ActivityTimeline (TimelineRow, ActivityCard,
                                # CompactActivityCard, TagPill), ItineraryComponents (ItineraryActions, ItineraryHeader,
-                               # DayChipsRow, DaySummaryCard, AddActivityButton, PlanTimeline, DailyPlanProgress,
-                               # DayPreviewCard), OverviewMapIllustration (the Map card's drawn map + pill)),
+                               # DayChipsRow, DaySummaryCard, AddActivityButton, PlanTimeline, DailyPlanProgress),
+                               # DayPreviewCard (the Overview day section), OverviewMapIllustration (the Map card's drawn map + pill)),
                                # prep/ (PrepViewModel, PrepUiState (+ ChecklistState, DocumentFormState, PrepMessage),
                                # PrepProgress (pure: prepProgress, listCount, progressMessage, dueState, itemsOf,
                                # suggestionsToAdd), PrepTab (prepTab, PrepActions, PrepProgressCard),
-                               # DocumentComponents (cards, form + delete dialogs, DocumentType icons/labels),
-                               # ChecklistComponents (chips, rows, "Add item…", edit-text dialog),
+                               # DocumentComponents (cards, DocumentType icons/labels), DocumentDialogs (form + delete),
+                               # ChecklistComponents (chips, "Add item…", edit-text dialog), ChecklistRow (row, its
+                               # long-press menu, due date, check circle),
                                # PrepHost (rememberPrepActions: file picker, viewer, snackbars; PrepDialogs)),
                                # members/ (MembersState (pure: membersState, MemberEntry), MembersCard (+ MemberActions,
                                # InviteButton, OwnerPill), InviteViewModel, InviteUiState (+ MembersSheetMode,
                                # InviteCodeState, InviteMessage), InviteSheet (InviteHost, InviteSheetContent), InviteCodeSection
                                # (code card, share intent), MembersList (member rows, remove dialog),
                                # InviteSheetPreviews),
-                               # split/ (SplitViewModel (+ validateSettleAmount), SplitUiState (+ TravelerDialogState,
-                               # SettleSheetState, SettlePage, SettleAmountError), SplitComponents (SplitActions,
-                               # TravelersSection, WhoOwesWhomCard, TransferRow), SplitDialogs (TravelerDialog,
-                               # SettleUpSheet, delete-payment dialog)),
-                               # expense/ (ExpenseFormScreen/ViewModel/UiState (+ ForeignRateState), ExpenseValidator,
+                               # split/ (SplitViewModel, SettleAmountValidation (validateSettleAmount), SplitUiState (+
+                               # TravelerDialogState, SettleSheetState, SettlePage, SettleAmountError), SplitComponents
+                               # (SplitActions, TravelersSection, MergeSuggestionCard), WhoOwesWhom (WhoOwesWhomCard,
+                               # TransferRow), SplitDialogs (TravelerDialog, delete-payment dialog), SettleUpSheet),
+                               # expense/ (ExpenseFormScreen/ViewModel/UiState (+ ForeignRateState), ExpenseAmountField
+                               # (amount, currency switch, conversion line), ExpenseSplitFields, ExpenseFormPreviews,
+                               # ExpenseValidator,
                                # ExpenseCurrency (pure: per-currency parsing, conversion to agorot, save rule)),
                                # activity/ (ActivityFormScreen/ViewModel/UiState, ActivityValidator),
                                # assistant/ (AssistantScreen, AssistantMessages (bubbles, typing, error), AssistantInputBar,

@@ -21,6 +21,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -83,13 +85,7 @@ fun AuthContent(
 ) {
     val isSignUp = state.mode == AuthMode.SIGN_UP
     val snackbarHostState = remember { SnackbarHostState() }
-    val messageText = state.message?.let { messageText(it) }
-    LaunchedEffect(state.message) {
-        if (messageText != null) {
-            snackbarHostState.showSnackbar(messageText)
-            onMessageShown()
-        }
-    }
+    AuthMessageSnackbar(state.message, snackbarHostState, onMessageShown)
     WhiteStatusBarIcons()
 
     val focus = rememberAuthFormFocus(state)
@@ -124,20 +120,7 @@ fun AuthContent(
                     modifier = Modifier.onSizeChanged { heroHeight = with(density) { it.height.toDp() } },
                 )
 
-                // The sheet overlaps the hero's bottom; the screen behind it has the sheet's color, so the sheet
-                // always reaches the bottom edge.
-                Column(
-                    modifier = Modifier
-                        .offset(y = -Dimens.AuthSheetCorner)
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(topStart = Dimens.AuthSheetCorner, topEnd = Dimens.AuthSheetCorner))
-                        .background(sheetColor)
-                        .bringIntoViewRequester(focus.sheetRequester)
-                        .onGloballyPositioned { focus.layout.sheet = it }
-                        .navigationBarsPadding()
-                        .padding(horizontal = Spacing.xxl, vertical = Spacing.xxlPlus),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
+                AuthSheet(focus, sheetColor) {
                     AuthForm(
                         state = state,
                         onModeToggle = onModeToggle,
@@ -154,4 +137,42 @@ fun AuthContent(
             StatusBarScrim()
         }
     }
+}
+
+/** Shows [message] once in a snackbar, then [onMessageShown]. */
+@Composable
+private fun AuthMessageSnackbar(
+    message: AuthMessage?,
+    snackbarHostState: SnackbarHostState,
+    onMessageShown: () -> Unit,
+) {
+    val messageText = message?.let { messageText(it) }
+    LaunchedEffect(message) {
+        if (messageText != null) {
+            snackbarHostState.showSnackbar(messageText)
+            onMessageShown()
+        }
+    }
+}
+
+/**
+ * The sheet overlaps the hero's bottom; the screen behind it has the sheet's color, so the sheet always reaches the
+ * bottom edge.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun AuthSheet(focus: AuthFormFocus, color: Color, content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        modifier = Modifier
+            .offset(y = -Dimens.AuthSheetCorner)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(topStart = Dimens.AuthSheetCorner, topEnd = Dimens.AuthSheetCorner))
+            .background(color)
+            .bringIntoViewRequester(focus.sheetRequester)
+            .onGloballyPositioned { focus.layout.sheet = it }
+            .navigationBarsPadding()
+            .padding(horizontal = Spacing.xxl, vertical = Spacing.xxlPlus),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        content = content,
+    )
 }

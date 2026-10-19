@@ -97,39 +97,7 @@ fun NextTripCard(
                     .padding(start = Spacing.xxl, end = Dimens.CardMenuEndPadding, top = Spacing.xxl, bottom = Spacing.xxl),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = photo.track(LABEL_AREA)) {
-                        Box(
-                            Modifier
-                                .size(Dimens.Dot)
-                                .background(colors.heroLiveDot, CircleShape)
-                        )
-                        Spacer(Modifier.width(Spacing.s))
-                        Text(
-                            text = stringResource(R.string.home_next_trip),
-                            style = HeroLabelStyle,
-                            color = mutedText,
-                        )
-                    }
-                    Spacer(Modifier.height(Spacing.l))
-                    DestinationTitle(
-                        destination = next.trip.destination,
-                        countryCode = next.trip.countryCode,
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = colors.onHero,
-                        maxLines = 3,
-                        modifier = photo.track(TITLE_AREA),
-                    )
-                    Spacer(Modifier.height(Spacing.l))
-                    TripDatesRow(
-                        start = next.trip.startDate,
-                        end = next.trip.endDate,
-                        currentYear = currentYear,
-                        color = mutedText,
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = photo.track(DATES_AREA),
-                    )
-                }
+                Column(modifier = Modifier.weight(1f)) { NextTripText(next, photo, mutedText, currentYear) }
                 Spacer(Modifier.width(Spacing.m))
                 CountdownBox(next.status, photo, compactCountdown)
                 // The button's own inset gives the gap to the countdown box. On a photo it sits on a round chip.
@@ -141,6 +109,43 @@ fun NextTripCard(
             }
         }
     }
+}
+
+/** "• NEXT TRIP", the destination and the dates, each tracked for the photo scrim. */
+@Composable
+private fun NextTripText(next: ActiveTrip, photo: HeroPhotoState, mutedText: Color, currentYear: Int?) {
+    val colors = ExtendedTheme.colors
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = photo.track(LABEL_AREA)) {
+        Box(
+            Modifier
+                .size(Dimens.Dot)
+                .background(colors.heroLiveDot, CircleShape)
+        )
+        Spacer(Modifier.width(Spacing.s))
+        Text(
+            text = stringResource(R.string.home_next_trip),
+            style = HeroLabelStyle,
+            color = mutedText,
+        )
+    }
+    Spacer(Modifier.height(Spacing.l))
+    DestinationTitle(
+        destination = next.trip.destination,
+        countryCode = next.trip.countryCode,
+        style = MaterialTheme.typography.headlineMedium,
+        color = colors.onHero,
+        maxLines = 3,
+        modifier = photo.track(TITLE_AREA),
+    )
+    Spacer(Modifier.height(Spacing.l))
+    TripDatesRow(
+        start = next.trip.startDate,
+        end = next.trip.endDate,
+        currentYear = currentYear,
+        color = mutedText,
+        style = MaterialTheme.typography.bodyLarge,
+        modifier = photo.track(DATES_AREA),
+    )
 }
 
 /**

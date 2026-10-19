@@ -8,6 +8,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.flow.StateFlow
 import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.navigation.NavGraphBuilder
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -52,6 +54,22 @@ fun AppNavHost(
         onBatteryTipShown = session::onBatteryTipShown,
     )
 
+    SignOutRedirect(navController, session)
+
+    NavHost(navController = navController, startDestination = startDestination) {
+        loginDestination(navController)
+        homeDestination(navController)
+        tripFormDestination(navController)
+        tripDetailsDestination(navController)
+        tripChildDestinations(navController)
+    }
+
+    ReminderLinkHandler(navController, session, reminderLink, onReminderLinkHandled)
+}
+
+/** Signed out (from the avatar menu or by the backend): Login, with the whole back stack cleared. */
+@Composable
+private fun SignOutRedirect(navController: NavHostController, session: SessionViewModel) {
     LaunchedEffect(navController) {
         session.currentUser.collect { user ->
             val onLogin = navController.currentDestination?.hasRoute<Login>() ?: true
@@ -63,97 +81,16 @@ fun AppNavHost(
             }
         }
     }
+}
 
-    NavHost(navController = navController, startDestination = startDestination) {
-        composable<Login> {
-            AuthScreen(
-                onAuthenticated = {
-                    navController.navigate(Home) {
-                        popUpTo<Login> { inclusive = true }
-                        launchSingleTop = true
-                    }
-                },
-            )
-        }
-        composable<Home> { entry ->
-            // A delete confirmed on the trip screen, handed over when it popped back here.
-            val pendingDelete by entry.savedStateHandle.getStateFlow<Long?>(PENDING_DELETE_TRIP, null)
-                .collectAsStateWithLifecycle()
-            // The same for leaving a shared trip.
-            val pendingLeave by entry.savedStateHandle.getStateFlow<Long?>(PENDING_LEAVE_TRIP, null)
-                .collectAsStateWithLifecycle()
-            HomeScreen(
-                onAddTrip = { navController.navigate(TripForm()) { launchSingleTop = true } },
-                onTripClick = { id -> navController.navigate(TripDetails(id)) { launchSingleTop = true } },
-                pendingDeleteTripId = pendingDelete,
-                onPendingDeleteHandled = { entry.savedStateHandle[PENDING_DELETE_TRIP] = null },
-                pendingLeaveTripId = pendingLeave,
-                onPendingLeaveHandled = { entry.savedStateHandle[PENDING_LEAVE_TRIP] = null },
-            )
-        }
-        composable<TripForm> {
-            TripFormScreen(
-                onBack = { navController.popBackStack() },
-                // A new trip returns to Home; an edited trip returns to its details screen.
-                onSaved = { navController.popBackStack() },
-            )
-        }
-        composable<TripDetails> { entry ->
-            val tripId = entry.toRoute<TripDetails>().tripId
-            TripDetailsScreen(
-                onBack = { navController.popBackStack() },
-                onEditTrip = { navController.navigate(TripForm(tripId)) { launchSingleTop = true } },
-                onAddExpense = { navController.navigate(ExpenseForm(tripId)) { launchSingleTop = true } },
-                onExpenseClick = { expenseId ->
-                    navController.navigate(ExpenseForm(tripId, expenseId)) { launchSingleTop = true }
-                },
-                onAddActivity = { day ->
-                    navController.navigate(ActivityForm(tripId, dateEpochDay = day.toEpochDay())) {
-                        launchSingleTop = true
-                    }
-                },
-                onActivityClick = { activityId ->
-                    navController.navigate(ActivityForm(tripId, activityId)) { launchSingleTop = true }
-                },
-                onOpenAssistant = { navController.navigate(TripAssistant(tripId)) { launchSingleTop = true } },
-                onTripDeleted = { id ->
-                    // Back to Home first; Home deletes the trip, animates its card out and says "Trip deleted".
-                    navController.getBackStackEntry<Home>().savedStateHandle[PENDING_DELETE_TRIP] = id
-                    navController.popBackStack<Home>(inclusive = false)
-                },
-                initialTab = entry.toRoute<TripDetails>().initialTab
-                    ?.let { name -> TripTab.entries.firstOrNull { it.name == name } }
-                    ?: TripTab.OVERVIEW,
-                onTripLeft = { id ->
-                    // Back to Home first; Home leaves the trip, animates its card out and says "You left the trip".
-                    navController.getBackStackEntry<Home>().savedStateHandle[PENDING_LEAVE_TRIP] = id
-                    navController.popBackStack<Home>(inclusive = false)
-                },
-            )
-        }
-        composable<TripAssistant> { entry ->
-            // Scoped to the trip screen's entry: the conversation survives closing and reopening the assistant,
-            // and ends when the trip screen is popped.
-            val tripEntry = remember(entry) { navController.getBackStackEntry<TripDetails>() }
-            AssistantScreen(
-                onBack = { navController.popBackStack() },
-                viewModel = viewModel(tripEntry, factory = AssistantViewModel.Factory),
-            )
-        }
-        composable<ExpenseForm> {
-            ExpenseFormScreen(
-                onBack = { navController.popBackStack() },
-                onDone = { navController.popBackStack() },
-            )
-        }
-        composable<ActivityForm> {
-            ActivityFormScreen(
-                onBack = { navController.popBackStack() },
-                onDone = { navController.popBackStack() },
-            )
-        }
-    }
-
+/** A tapped trip reminder opens its trip on the Prep tab, when the trip is still the signed-in account's. */
+@Composable
+private fun ReminderLinkHandler(
+    navController: NavHostController,
+    session: SessionViewModel,
+    reminderLink: StateFlow<ReminderLink?>,
+    onReminderLinkHandled: () -> Unit,
+) {
     val link by reminderLink.collectAsStateWithLifecycle()
     LaunchedEffect(link) {
         val tapped = link ?: return@LaunchedEffect
@@ -162,6 +99,110 @@ fun AppNavHost(
         if (tripId != null) navController.navigate(TripDetails(tripId, initialTab = TripTab.PREP.name)) { popUpTo<Home>() }
         // Last: clearing the link restarts this effect.
         onReminderLinkHandled()
+    }
+}
+
+private fun NavGraphBuilder.loginDestination(navController: NavHostController) {
+    composable<Login> {
+        AuthScreen(
+            onAuthenticated = {
+                navController.navigate(Home) {
+                    popUpTo<Login> { inclusive = true }
+                    launchSingleTop = true
+                }
+            },
+        )
+    }
+}
+
+private fun NavGraphBuilder.homeDestination(navController: NavHostController) {
+    composable<Home> { entry ->
+        // A delete confirmed on the trip screen, handed over when it popped back here.
+        val pendingDelete by entry.savedStateHandle.getStateFlow<Long?>(PENDING_DELETE_TRIP, null)
+            .collectAsStateWithLifecycle()
+        // The same for leaving a shared trip.
+        val pendingLeave by entry.savedStateHandle.getStateFlow<Long?>(PENDING_LEAVE_TRIP, null)
+            .collectAsStateWithLifecycle()
+        HomeScreen(
+            onAddTrip = { navController.navigate(TripForm()) { launchSingleTop = true } },
+            onTripClick = { id -> navController.navigate(TripDetails(id)) { launchSingleTop = true } },
+            pendingDeleteTripId = pendingDelete,
+            onPendingDeleteHandled = { entry.savedStateHandle[PENDING_DELETE_TRIP] = null },
+            pendingLeaveTripId = pendingLeave,
+            onPendingLeaveHandled = { entry.savedStateHandle[PENDING_LEAVE_TRIP] = null },
+        )
+    }
+}
+
+/** New trip, or editing one. */
+private fun NavGraphBuilder.tripFormDestination(navController: NavHostController) {
+    composable<TripForm> {
+        TripFormScreen(
+            onBack = { navController.popBackStack() },
+            // A new trip returns to Home; an edited trip returns to its details screen.
+            onSaved = { navController.popBackStack() },
+        )
+    }
+}
+
+private fun NavGraphBuilder.tripDetailsDestination(navController: NavHostController) {
+    composable<TripDetails> { entry ->
+        val tripId = entry.toRoute<TripDetails>().tripId
+        TripDetailsScreen(
+            onBack = { navController.popBackStack() },
+            onEditTrip = { navController.navigate(TripForm(tripId)) { launchSingleTop = true } },
+            onAddExpense = { navController.navigate(ExpenseForm(tripId)) { launchSingleTop = true } },
+            onExpenseClick = { expenseId ->
+                navController.navigate(ExpenseForm(tripId, expenseId)) { launchSingleTop = true }
+            },
+            onAddActivity = { day ->
+                navController.navigate(ActivityForm(tripId, dateEpochDay = day.toEpochDay())) {
+                    launchSingleTop = true
+                }
+            },
+            onActivityClick = { activityId ->
+                navController.navigate(ActivityForm(tripId, activityId)) { launchSingleTop = true }
+            },
+            onOpenAssistant = { navController.navigate(TripAssistant(tripId)) { launchSingleTop = true } },
+            onTripDeleted = { id ->
+                // Back to Home first; Home deletes the trip, animates its card out and says "Trip deleted".
+                navController.getBackStackEntry<Home>().savedStateHandle[PENDING_DELETE_TRIP] = id
+                navController.popBackStack<Home>(inclusive = false)
+            },
+            initialTab = entry.toRoute<TripDetails>().initialTab
+                ?.let { name -> TripTab.entries.firstOrNull { it.name == name } }
+                ?: TripTab.OVERVIEW,
+            onTripLeft = { id ->
+                // Back to Home first; Home leaves the trip, animates its card out and says "You left the trip".
+                navController.getBackStackEntry<Home>().savedStateHandle[PENDING_LEAVE_TRIP] = id
+                navController.popBackStack<Home>(inclusive = false)
+            },
+        )
+    }
+}
+
+/** The screens opened from a trip: the assistant and the expense and activity forms. */
+private fun NavGraphBuilder.tripChildDestinations(navController: NavHostController) {
+    composable<TripAssistant> { entry ->
+        // Scoped to the trip screen's entry: the conversation survives closing and reopening the assistant,
+        // and ends when the trip screen is popped.
+        val tripEntry = remember(entry) { navController.getBackStackEntry<TripDetails>() }
+        AssistantScreen(
+            onBack = { navController.popBackStack() },
+            viewModel = viewModel(tripEntry, factory = AssistantViewModel.Factory),
+        )
+    }
+    composable<ExpenseForm> {
+        ExpenseFormScreen(
+            onBack = { navController.popBackStack() },
+            onDone = { navController.popBackStack() },
+        )
+    }
+    composable<ActivityForm> {
+        ActivityFormScreen(
+            onBack = { navController.popBackStack() },
+            onDone = { navController.popBackStack() },
+        )
     }
 }
 

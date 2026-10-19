@@ -136,34 +136,38 @@ private fun MemberRow(member: MemberEntry, onRemove: (() -> Unit)?) {
                 Spacer(Modifier.width(Spacing.s))
                 OwnerRowPill()
             }
-            if (onRemove != null) {
-                var open by rememberSaveable { mutableStateOf(false) }
-                Box {
-                    IconButton(onClick = { open = true }) {
-                        Icon(
-                            painterResource(R.drawable.ic_more_vert),
-                            contentDescription = stringResource(R.string.member_more_options, name),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.member_remove), color = MaterialTheme.colorScheme.error) },
-                            leadingIcon = {
-                                Icon(
-                                    painterResource(R.drawable.ic_delete),
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.error,
-                                )
-                            },
-                            onClick = {
-                                open = false
-                                onRemove()
-                            },
-                        )
-                    }
-                }
-            }
+            if (onRemove != null) MemberMenu(name, onRemove)
+        }
+    }
+}
+
+/** Three dots on another member's row (owner only): "Remove from trip". */
+@Composable
+private fun MemberMenu(name: String, onRemove: () -> Unit) {
+    var open by rememberSaveable { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { open = true }) {
+            Icon(
+                painterResource(R.drawable.ic_more_vert),
+                contentDescription = stringResource(R.string.member_more_options, name),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.member_remove), color = MaterialTheme.colorScheme.error) },
+                leadingIcon = {
+                    Icon(
+                        painterResource(R.drawable.ic_delete),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                    )
+                },
+                onClick = {
+                    open = false
+                    onRemove()
+                },
+            )
         }
     }
 }

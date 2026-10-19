@@ -27,13 +27,41 @@ import com.example.planyourtrip.data.trip.ChecklistKind
  */
 @Composable
 fun rememberPrepActions(viewModel: PrepViewModel, snackbarHostState: SnackbarHostState): PrepActions {
-    val context = LocalContext.current
-
     // Picker for PDFs and images; the picked uri is readable for as long as the app runs, enough for the copy.
     val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { viewModel.onFilePicked(it.toString()) }
     }
 
+    PrepSnackbars(viewModel, snackbarHostState)
+    PrepFileViewer(viewModel, snackbarHostState)
+
+    val beforeTripSuggestions = stringArrayResource(R.array.prep_suggested_before_trip).toList()
+    val packingSuggestions = stringArrayResource(R.array.prep_suggested_packing).toList()
+    return remember(viewModel, pickFile, beforeTripSuggestions, packingSuggestions) {
+        PrepActions(
+            onAddItem = viewModel::onAddItem,
+            onToggle = viewModel::onToggle,
+            onEditItemText = viewModel::onEditItemText,
+            onSetDueDate = viewModel::onSetDueDate,
+            onDeleteItem = viewModel::onDeleteItem,
+            onAddSuggested = { kind ->
+                val texts = when (kind) {
+                    ChecklistKind.BEFORE_TRIP -> beforeTripSuggestions
+                    ChecklistKind.PACKING -> packingSuggestions
+                }
+                viewModel.onAddSuggested(kind, texts)
+            },
+            onAddDocument = { pickFile.launch(DOCUMENT_MIME_TYPES) },
+            onViewDocument = viewModel::onViewDocument,
+            onEditDocument = viewModel::onEditDocument,
+            onDeleteDocument = viewModel::onDeleteDocument,
+        )
+    }
+}
+
+/** "Item deleted" with "Undo" (once per delete), and the Prep tab's file messages. */
+@Composable
+private fun PrepSnackbars(viewModel: PrepViewModel, snackbarHostState: SnackbarHostState) {
     // "Item deleted" with "Undo", once per delete.
     val deletedItem by viewModel.deletedItem.collectAsStateWithLifecycle()
     val deletedMessage = stringResource(R.string.prep_item_deleted)
@@ -59,8 +87,12 @@ fun rememberPrepActions(viewModel: PrepViewModel, snackbarHostState: SnackbarHos
             if (message == shown) viewModel.onMessageShown()
         }
     }
+}
 
-    // Opens a stored file in the system viewer, with read access to that one file only.
+/** Opens a stored file in the system viewer, with read access to that one file only. */
+@Composable
+private fun PrepFileViewer(viewModel: PrepViewModel, snackbarHostState: SnackbarHostState) {
+    val context = LocalContext.current
     val pendingView by viewModel.pendingView.collectAsStateWithLifecycle()
     val noViewer = stringResource(R.string.prep_no_viewer)
     LaunchedEffect(pendingView) {
@@ -74,29 +106,6 @@ fun rememberPrepActions(viewModel: PrepViewModel, snackbarHostState: SnackbarHos
         } catch (e: ActivityNotFoundException) {
             snackbarHostState.showSnackbar(noViewer)
         }
-    }
-
-    val beforeTripSuggestions = stringArrayResource(R.array.prep_suggested_before_trip).toList()
-    val packingSuggestions = stringArrayResource(R.array.prep_suggested_packing).toList()
-    return remember(viewModel, pickFile, beforeTripSuggestions, packingSuggestions) {
-        PrepActions(
-            onAddItem = viewModel::onAddItem,
-            onToggle = viewModel::onToggle,
-            onEditItemText = viewModel::onEditItemText,
-            onSetDueDate = viewModel::onSetDueDate,
-            onDeleteItem = viewModel::onDeleteItem,
-            onAddSuggested = { kind ->
-                val texts = when (kind) {
-                    ChecklistKind.BEFORE_TRIP -> beforeTripSuggestions
-                    ChecklistKind.PACKING -> packingSuggestions
-                }
-                viewModel.onAddSuggested(kind, texts)
-            },
-            onAddDocument = { pickFile.launch(DOCUMENT_MIME_TYPES) },
-            onViewDocument = viewModel::onViewDocument,
-            onEditDocument = viewModel::onEditDocument,
-            onDeleteDocument = viewModel::onDeleteDocument,
-        )
     }
 }
 

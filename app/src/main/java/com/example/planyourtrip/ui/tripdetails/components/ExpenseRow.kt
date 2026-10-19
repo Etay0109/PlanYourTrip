@@ -46,7 +46,6 @@ data class ExpenseSplitInfo(
  * a gray line with the payer's small avatar ("Paid by Noa · split 3 ways"). On the right the shekel amount in bold,
  * the original amount ("€10.00") for a foreign expense, and "Your share ₪60" in teal. Tapping opens it for editing.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ExpenseRow(
     expense: Expense,
@@ -54,8 +53,6 @@ fun ExpenseRow(
     modifier: Modifier = Modifier,
     split: ExpenseSplitInfo? = null,
 ) {
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
-    val categoryColor = ExtendedTheme.colors.category(expense.category)
     Surface(
         onClick = onClick,
         shape = MaterialTheme.shapes.large,
@@ -69,66 +66,80 @@ fun ExpenseRow(
         ) {
             CategoryIcon(expense.category)
             Spacer(Modifier.width(Spacing.m))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = expense.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Spacer(Modifier.height(Spacing.xs))
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.s),
-                    verticalArrangement = Arrangement.spacedBy(Spacing.xs),
-                    itemVerticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = TripFormatting.date(expense.date),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = muted,
-                    )
-                    TagPill(
-                        text = stringResource(expense.category.labelRes()),
-                        container = categoryColor.container,
-                        content = categoryColor.content,
-                    )
-                }
-                if (split != null) {
-                    Spacer(Modifier.height(Spacing.xs))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        TravelerAvatar(split.payer, Dimens.TravelerAvatarTinySize)
-                        Spacer(Modifier.width(Spacing.xsPlus))
-                        Text(
-                            text = splitLine(split),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = muted,
-                        )
-                    }
-                }
-            }
+            Column(Modifier.weight(1f)) { ExpenseDetails(expense, split) }
             Spacer(Modifier.width(Spacing.m))
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = shekels(expense.amountAgorot),
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                expense.original?.let { original ->
-                    Text(
-                        text = ExpenseCurrency.formatOriginal(original),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = muted,
-                    )
-                }
-                if (split != null) {
-                    Text(
-                        text = stringResource(R.string.expense_row_your_share, shekels(split.myShareAgorot)),
-                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
-            }
+            ExpenseAmounts(expense, split)
+        }
+    }
+}
+
+/** The name, the date with the category label and, with other travelers, the payer's line. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ExpenseDetails(expense: Expense, split: ExpenseSplitInfo?) {
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val categoryColor = ExtendedTheme.colors.category(expense.category)
+    Text(
+        text = expense.name,
+        style = MaterialTheme.typography.titleMedium,
+        color = MaterialTheme.colorScheme.onSurface,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis,
+    )
+    Spacer(Modifier.height(Spacing.xs))
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(Spacing.s),
+        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+        itemVerticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = TripFormatting.date(expense.date),
+            style = MaterialTheme.typography.bodyMedium,
+            color = muted,
+        )
+        TagPill(
+            text = stringResource(expense.category.labelRes()),
+            container = categoryColor.container,
+            content = categoryColor.content,
+        )
+    }
+    if (split != null) {
+        Spacer(Modifier.height(Spacing.xs))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TravelerAvatar(split.payer, Dimens.TravelerAvatarTinySize)
+            Spacer(Modifier.width(Spacing.xsPlus))
+            Text(
+                text = splitLine(split),
+                style = MaterialTheme.typography.bodySmall,
+                color = muted,
+            )
+        }
+    }
+}
+
+/** The shekel amount, the original foreign amount and "Your share". */
+@Composable
+private fun ExpenseAmounts(expense: Expense, split: ExpenseSplitInfo?) {
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    Column(horizontalAlignment = Alignment.End) {
+        Text(
+            text = shekels(expense.amountAgorot),
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        expense.original?.let { original ->
+            Text(
+                text = ExpenseCurrency.formatOriginal(original),
+                style = MaterialTheme.typography.bodySmall,
+                color = muted,
+            )
+        }
+        if (split != null) {
+            Text(
+                text = stringResource(R.string.expense_row_your_share, shekels(split.myShareAgorot)),
+                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.primary,
+            )
         }
     }
 }

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.FabPosition
 import androidx.compose.material3.MaterialTheme
@@ -190,22 +191,7 @@ fun TripDetailsContent(
             bottomBar = { TripNavigationBar(selectedTab, onTabSelected) },
             snackbarHost = { SnackbarHost(snackbarHostState) },
             // On every tab, above the navigation bar; the Budget tab adds "Add expense" at the bottom left.
-            floatingActionButton = {
-                if (selectedTab == TripTab.BUDGET) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = Spacing.l),
-                    ) {
-                        AddExpenseFab(budgetActions.onAddExpense)
-                        Spacer(Modifier.weight(1f).widthIn(min = Spacing.l))
-                        AssistantFab(onOpenAssistant)
-                    }
-                } else {
-                    AssistantFab(onOpenAssistant)
-                }
-            },
+            floatingActionButton = { TripFabs(selectedTab, budgetActions.onAddExpense, onOpenAssistant) },
             // Centered = the full-width row above lines the two buttons up with both edges.
             floatingActionButtonPosition = if (selectedTab == TripTab.BUDGET) FabPosition.Center else FabPosition.End,
         ) { innerPadding ->
@@ -226,19 +212,7 @@ fun TripDetailsContent(
                         contentPadding = PaddingValues(bottom = innerPadding.calculateBottomPadding() + FabClearance),
                         verticalArrangement = Arrangement.spacedBy(Spacing.l),
                     ) {
-                        item(key = HEADER_KEY) {
-                            TripHeader(
-                                state.trip,
-                                state.status,
-                                onBack = onBack,
-                                onEdit = onEditTrip,
-                                onShare = { onShareTrip(state.trip.id) },
-                                onDelete = { onDeleteTrip(state.trip) },
-                                isOwner = state.members?.isOwner ?: true,
-                                photoUrl = headerPhotoUrl,
-                                currentYear = state.currentYear,
-                            )
-                        }
+                        tripHeaderItem(state, headerPhotoUrl, onBack, onEditTrip, onShareTrip, onDeleteTrip)
                         when (selectedTab) {
                             TripTab.OVERVIEW ->
                                 overviewTab(
@@ -262,6 +236,49 @@ fun TripDetailsContent(
             onInputChange = budgetActions.onBudgetInputChange,
             onSave = budgetActions.onSaveBudget,
             onDismiss = budgetActions.onDismissBudget,
+        )
+    }
+}
+
+/** The floating buttons: the assistant on every tab, with "Add expense" at the bottom left on the Budget tab. */
+@Composable
+private fun TripFabs(selectedTab: TripTab, onAddExpense: () -> Unit, onOpenAssistant: () -> Unit) {
+    if (selectedTab == TripTab.BUDGET) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.l),
+        ) {
+            AddExpenseFab(onAddExpense)
+            Spacer(Modifier.weight(1f).widthIn(min = Spacing.l))
+            AssistantFab(onOpenAssistant)
+        }
+    } else {
+        AssistantFab(onOpenAssistant)
+    }
+}
+
+/** The hero header, the first item of every tab. */
+private fun LazyListScope.tripHeaderItem(
+    state: TripDetailsUiState.Loaded,
+    headerPhotoUrl: String?,
+    onBack: () -> Unit,
+    onEditTrip: () -> Unit,
+    onShareTrip: (Long) -> Unit,
+    onDeleteTrip: (Trip) -> Unit,
+) {
+    item(key = HEADER_KEY) {
+        TripHeader(
+            state.trip,
+            state.status,
+            onBack = onBack,
+            onEdit = onEditTrip,
+            onShare = { onShareTrip(state.trip.id) },
+            onDelete = { onDeleteTrip(state.trip) },
+            isOwner = state.members?.isOwner ?: true,
+            photoUrl = headerPhotoUrl,
+            currentYear = state.currentYear,
         )
     }
 }

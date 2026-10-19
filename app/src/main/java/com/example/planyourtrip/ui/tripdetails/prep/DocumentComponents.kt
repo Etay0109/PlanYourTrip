@@ -8,8 +8,6 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,17 +20,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -53,16 +45,13 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.R
 import com.example.planyourtrip.data.document.DocumentKind
 import com.example.planyourtrip.data.document.DocumentType
-import com.example.planyourtrip.ui.common.components.ConfirmDeleteDialog
 import com.example.planyourtrip.ui.common.components.Pill
-import com.example.planyourtrip.ui.common.errorSupportingText
 import com.example.planyourtrip.ui.theme.Dimens
 import com.example.planyourtrip.ui.theme.IconSize
 import com.example.planyourtrip.ui.theme.Spacing
@@ -152,33 +141,7 @@ private fun DocumentCard(
         modifier = modifier.width(Dimens.DocumentCardWidth),
     ) {
         Column(Modifier.padding(start = Spacing.l, top = Spacing.l, bottom = Spacing.m)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(Dimens.IconChipSize)
-                        .background(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.shapes.small),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        painter = painterResource(document.type.iconRes()),
-                        contentDescription = stringResource(document.type.labelRes()),
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(IconSize.l),
-                    )
-                }
-                Spacer(Modifier.weight(1f))
-                Text(
-                    text = stringResource(
-                        if (document.kind == DocumentKind.PDF) R.string.prep_badge_pdf else R.string.prep_badge_photo,
-                    ),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .background(MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.shapes.extraSmall)
-                        .padding(horizontal = Spacing.s, vertical = TagPaddingVertical),
-                )
-                DocumentMenu(document.name, onEdit, onDelete)
-            }
+            DocumentCardTopRow(document, onEdit, onDelete)
             Spacer(Modifier.height(Spacing.m))
             Column(Modifier.padding(end = Spacing.l).weight(1f)) {
                 Text(
@@ -200,21 +163,59 @@ private fun DocumentCard(
                 }
             }
             Spacer(Modifier.height(Spacing.m))
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.heightIn(min = MetaRowMinHeight)) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_visibility),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(IconSize.s),
-                )
-                Spacer(Modifier.width(Spacing.xsPlus))
-                Text(
-                    text = stringResource(R.string.prep_view_file),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
+            ViewFileRow()
         }
+    }
+}
+
+/** The type icon in a tinted square, the PDF/Photo badge and the menu. */
+@Composable
+private fun DocumentCardTopRow(document: DocumentCardState, onEdit: () -> Unit, onDelete: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(Dimens.IconChipSize)
+                .background(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.shapes.small),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                painter = painterResource(document.type.iconRes()),
+                contentDescription = stringResource(document.type.labelRes()),
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(IconSize.l),
+            )
+        }
+        Spacer(Modifier.weight(1f))
+        Text(
+            text = stringResource(
+                if (document.kind == DocumentKind.PDF) R.string.prep_badge_pdf else R.string.prep_badge_photo,
+            ),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .background(MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.shapes.extraSmall)
+                .padding(horizontal = Spacing.s, vertical = TagPaddingVertical),
+        )
+        DocumentMenu(document.name, onEdit, onDelete)
+    }
+}
+
+/** "👁 View file" at the bottom of a document card. */
+@Composable
+private fun ViewFileRow() {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.heightIn(min = MetaRowMinHeight)) {
+        Icon(
+            painter = painterResource(R.drawable.ic_visibility),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(IconSize.s),
+        )
+        Spacer(Modifier.width(Spacing.xsPlus))
+        Text(
+            text = stringResource(R.string.prep_view_file),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
     }
 }
 
@@ -302,112 +303,6 @@ private fun AddDocumentCard(onClick: () -> Unit, modifier: Modifier = Modifier) 
             textAlign = TextAlign.Center,
         )
     }
-}
-
-/** New document (after the file was picked) or edit: name, type chips and the optional detail line. */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-fun DocumentFormDialog(
-    state: DocumentFormState,
-    onNameChange: (String) -> Unit,
-    onTypeChange: (DocumentType) -> Unit,
-    onDetailChange: (String) -> Unit,
-    onSave: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    // Typed text is Compose state (starting from the file's or document's name), never read back while typing.
-    var name by rememberSaveable { mutableStateOf(state.name) }
-    var detail by rememberSaveable { mutableStateOf(state.detail) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                stringResource(
-                    if (state.isNew) R.string.prep_document_new_title else R.string.prep_document_edit_title,
-                ),
-            )
-        },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = {
-                        name = it
-                        onNameChange(it)
-                    },
-                    label = { Text(stringResource(R.string.prep_document_name)) },
-                    isError = state.nameError,
-                    supportingText = errorSupportingText(R.string.prep_document_name_empty.takeIf { state.nameError }),
-                    singleLine = true,
-                    enabled = !state.isSaving,
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-                    shape = MaterialTheme.shapes.small,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Spacer(Modifier.height(Spacing.m))
-                Text(
-                    text = stringResource(R.string.prep_document_type),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(Spacing.xs))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
-                    DocumentType.entries.forEach { type ->
-                        FilterChip(
-                            selected = state.type == type,
-                            onClick = { onTypeChange(type) },
-                            enabled = !state.isSaving,
-                            label = { Text(stringResource(type.labelRes())) },
-                            leadingIcon = {
-                                Icon(
-                                    painterResource(type.iconRes()),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(IconSize.s),
-                                )
-                            },
-                        )
-                    }
-                }
-                Spacer(Modifier.height(Spacing.m))
-                OutlinedTextField(
-                    value = detail,
-                    onValueChange = {
-                        detail = it
-                        onDetailChange(it)
-                    },
-                    label = { Text(stringResource(R.string.prep_document_detail)) },
-                    placeholder = { Text(stringResource(R.string.prep_document_detail_hint)) },
-                    singleLine = true,
-                    enabled = !state.isSaving,
-                    shape = MaterialTheme.shapes.small,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onSave, enabled = !state.isSaving) {
-                if (state.isSaving) {
-                    CircularProgressIndicator(Modifier.size(IconSize.s), strokeWidth = Dimens.ProgressStroke)
-                } else {
-                    Text(stringResource(R.string.action_save))
-                }
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !state.isSaving) { Text(stringResource(R.string.action_cancel)) }
-        },
-    )
-}
-
-/** "Delete this document?" — the row and its file go. */
-@Composable
-fun DeleteDocumentDialog(name: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
-    ConfirmDeleteDialog(
-        title = stringResource(R.string.prep_delete_document_title),
-        body = stringResource(R.string.prep_delete_document_body, name),
-        onConfirm = onConfirm,
-        onDismiss = onDismiss,
-    )
 }
 
 /** The small type tag on a document card. */

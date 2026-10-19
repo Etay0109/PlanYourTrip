@@ -100,45 +100,67 @@ fun TripHeader(
             // Three buttons leave little room: on narrow screens or large fonts the badge gets its own line.
             val badgeInline = maxWidth >= Dimens.NarrowContentWidth && !isLargeFontScale()
             Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    HeaderButton(R.drawable.ic_arrow_back, stringResource(R.string.action_back), onBack, photo)
-                    Spacer(Modifier.weight(1f))
-                    if (status != null && badgeInline) {
-                        StatusBadge(statusLabel(status), photo)
-                        Spacer(Modifier.width(Spacing.s))
-                    }
-                    HeaderButton(R.drawable.ic_edit, stringResource(R.string.trip_edit), onEdit, photo)
-                    Spacer(Modifier.width(Spacing.s))
-                    val moreDescription = stringResource(R.string.share_more_options, trip.destination)
-                    TripMoreMenu(onShare, onDelete, isOwner = isOwner) { open ->
-                        HeaderButton(R.drawable.ic_more_vert, moreDescription, open, photo)
-                    }
-                }
+                HeaderButtonsRow(trip, status, badgeInline, photo, onBack, onEdit, onShare, onDelete, isOwner)
                 if (status != null && !badgeInline) {
                     Spacer(Modifier.height(Spacing.l))
                     StatusBadge(statusLabel(status), photo)
                 }
                 Spacer(Modifier.height(Spacing.xl))
-                DestinationTitle(
-                    destination = trip.destination,
-                    countryCode = trip.countryCode,
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = colors.onHero,
-                    maxLines = 3,
-                    modifier = photo.track(TITLE_AREA),
-                )
-                Spacer(Modifier.height(Spacing.s))
-                TripDatesRow(
-                    start = trip.startDate,
-                    end = trip.endDate,
-                    currentYear = currentYear,
-                    color = photo.mutedTextColor(),
-                    style = MaterialTheme.typography.bodyLarge,
-                    modifier = photo.track(DATES_AREA),
-                )
+                HeaderTitle(trip, photo, currentYear)
             }
         }
     }
+}
+
+/** Back, the status badge (when it fits), edit and the three-dots menu. */
+@Composable
+private fun HeaderButtonsRow(
+    trip: Trip,
+    status: TripStatus?,
+    badgeInline: Boolean,
+    photo: HeroPhotoState,
+    onBack: () -> Unit,
+    onEdit: () -> Unit,
+    onShare: () -> Unit,
+    onDelete: () -> Unit,
+    isOwner: Boolean,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        HeaderButton(R.drawable.ic_arrow_back, stringResource(R.string.action_back), onBack, photo)
+        Spacer(Modifier.weight(1f))
+        if (status != null && badgeInline) {
+            StatusBadge(statusLabel(status), photo)
+            Spacer(Modifier.width(Spacing.s))
+        }
+        HeaderButton(R.drawable.ic_edit, stringResource(R.string.trip_edit), onEdit, photo)
+        Spacer(Modifier.width(Spacing.s))
+        val moreDescription = stringResource(R.string.share_more_options, trip.destination)
+        TripMoreMenu(onShare, onDelete, isOwner = isOwner) { open ->
+            HeaderButton(R.drawable.ic_more_vert, moreDescription, open, photo)
+        }
+    }
+}
+
+/** The destination (with its flag) and the dates, tracked for the photo scrim. */
+@Composable
+private fun HeaderTitle(trip: Trip, photo: HeroPhotoState, currentYear: Int?) {
+    DestinationTitle(
+        destination = trip.destination,
+        countryCode = trip.countryCode,
+        style = MaterialTheme.typography.headlineLarge,
+        color = ExtendedTheme.colors.onHero,
+        maxLines = 3,
+        modifier = photo.track(TITLE_AREA),
+    )
+    Spacer(Modifier.height(Spacing.s))
+    TripDatesRow(
+        start = trip.startDate,
+        end = trip.endDate,
+        currentYear = currentYear,
+        color = photo.mutedTextColor(),
+        style = MaterialTheme.typography.bodyLarge,
+        modifier = photo.track(DATES_AREA),
+    )
 }
 
 private const val TITLE_AREA = "title"

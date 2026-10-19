@@ -1,10 +1,7 @@
 package com.example.planyourtrip.ui.tripdetails.prep
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,8 +20,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -43,24 +38,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.example.planyourtrip.R
 import com.example.planyourtrip.data.trip.ChecklistKind
 import com.example.planyourtrip.data.trip.TextLimits
 import com.example.planyourtrip.data.trip.limitTo
-import com.example.planyourtrip.ui.common.TripFormatting
-import com.example.planyourtrip.ui.common.components.DatePickerPopup
 import com.example.planyourtrip.ui.common.errorSupportingText
 import com.example.planyourtrip.ui.theme.Dimens
-import com.example.planyourtrip.ui.theme.ExtendedTheme
-import com.example.planyourtrip.ui.theme.IconSize
 import com.example.planyourtrip.ui.theme.Spacing
 
 /**
@@ -160,139 +148,6 @@ private fun EmptyList(onAddSuggested: () -> Unit) {
 }
 
 /**
- * Tap toggles the item; a long press opens its menu (edit text, due date for "Before the trip", delete). Done items
- * have a filled teal check and gray, struck-through text; an overdue date is shown in the warning color.
- */
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun ChecklistRow(row: ChecklistRowState, hasDueDates: Boolean, actions: PrepActions) {
-    var menuOpen by rememberSaveable(row.id) { mutableStateOf(false) }
-    var pickingDate by rememberSaveable(row.id) { mutableStateOf(false) }
-    val doneLabel = stringResource(if (row.checked) R.string.prep_item_done else R.string.prep_item_not_done)
-    Box {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .combinedClickable(
-                    role = Role.Checkbox,
-                    onLongClickLabel = stringResource(R.string.prep_item_options),
-                    onLongClick = { menuOpen = true },
-                    onClick = { actions.onToggle(row.id) },
-                )
-                .semantics { stateDescription = doneLabel }
-                .heightIn(min = RowMinHeight)
-                .padding(horizontal = Spacing.xl, vertical = Spacing.sPlus),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            CheckCircle(row.checked)
-            Spacer(Modifier.width(Spacing.l))
-            Text(
-                text = row.text,
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    textDecoration = if (row.checked) TextDecoration.LineThrough else null,
-                ),
-                color = if (row.checked) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.weight(1f),
-            )
-            row.dueDate?.let { due ->
-                Spacer(Modifier.width(Spacing.m))
-                val overdue = row.dueState == DueState.OVERDUE
-                val date = TripFormatting.dayMonth(due)
-                val spoken = stringResource(if (overdue) R.string.prep_item_overdue else R.string.prep_item_due, date)
-                Text(
-                    text = date,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (overdue) ExtendedTheme.colors.budgetWarning else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.semantics { contentDescription = spoken },
-                )
-            }
-        }
-        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.prep_item_edit_text)) },
-                leadingIcon = { Icon(painterResource(R.drawable.ic_edit), contentDescription = null) },
-                onClick = {
-                    menuOpen = false
-                    actions.onEditItemText(row.id)
-                },
-            )
-            if (hasDueDates) {
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            stringResource(
-                                if (row.dueDate == null) R.string.prep_item_set_due else R.string.prep_item_change_due,
-                            ),
-                        )
-                    },
-                    leadingIcon = { Icon(painterResource(R.drawable.ic_event), contentDescription = null) },
-                    onClick = {
-                        menuOpen = false
-                        pickingDate = true
-                    },
-                )
-                if (row.dueDate != null) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.prep_item_clear_due)) },
-                        leadingIcon = { Icon(painterResource(R.drawable.ic_close), contentDescription = null) },
-                        onClick = {
-                            menuOpen = false
-                            actions.onSetDueDate(row.id, null)
-                        },
-                    )
-                }
-            }
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.action_delete)) },
-                leadingIcon = { Icon(painterResource(R.drawable.ic_delete), contentDescription = null) },
-                onClick = {
-                    menuOpen = false
-                    actions.onDeleteItem(row.id)
-                },
-            )
-        }
-    }
-    if (pickingDate) {
-        DatePickerPopup(
-            initialDate = row.dueDate,
-            onDatePicked = { actions.onSetDueDate(row.id, it) },
-            onDismiss = { pickingDate = false },
-        )
-    }
-}
-
-/**
- * Checked: filled teal with a check. Unchecked: an empty circle with a clear `onSurfaceVariant` ring (≥ 3:1 on the card; the
- * theme's `outline` is too faint), so it
- * reads as something to tap. The whole row is the touch target (at least 56dp tall).
- */
-@Composable
-private fun CheckCircle(checked: Boolean) {
-    val shape = CircleShape
-    Box(
-        modifier = Modifier
-            .size(Dimens.ChecklistCheckSize)
-            .then(
-                if (checked) {
-                    Modifier.background(MaterialTheme.colorScheme.primary, shape)
-                } else {
-                    Modifier.border(Dimens.ChecklistCheckBorder, MaterialTheme.colorScheme.onSurfaceVariant, shape)
-                },
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (checked) {
-            Icon(
-                painter = painterResource(R.drawable.ic_check),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.size(IconSize.xs),
-            )
-        }
-    }
-}
-
-/**
  * The card's last row: "+" and a borderless field. Done adds the item and keeps the field focused (the keyboard
  * stays open for the next one). The text is Compose state (see the converter cursor note in CLAUDE.md).
  */
@@ -300,7 +155,10 @@ private fun CheckCircle(checked: Boolean) {
 private fun AddItemRow(kind: ChecklistKind, onAdd: (ChecklistKind, String) -> Boolean) {
     var text by rememberSaveable(kind) { mutableStateOf("") }
     Row(
-        modifier = Modifier.fillMaxWidth().heightIn(min = RowMinHeight).padding(horizontal = Spacing.xl, vertical = Spacing.sPlus),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = ChecklistRowMinHeight)
+            .padding(horizontal = Spacing.xl, vertical = Spacing.sPlus),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
@@ -379,4 +237,4 @@ fun EditItemTextDialog(
 }
 
 /** A checklist row and the "Add item…" row. */
-private val RowMinHeight = 56.dp
+internal val ChecklistRowMinHeight = 56.dp

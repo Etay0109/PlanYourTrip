@@ -172,35 +172,7 @@ fun InviteSheetContent(
             .navigationBarsPadding()
             .padding(bottom = Spacing.l),
     ) {
-        if (mode == MembersSheetMode.INVITE && members.isOwner) {
-            Box(
-                modifier = Modifier
-                    .size(Dimens.AvatarSize)
-                    .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(painterResource(R.drawable.ic_person_add), contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-            }
-            Spacer(Modifier.height(Spacing.l))
-            Text(
-                text = stringResource(R.string.invite_title, destination),
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.semantics { heading() },
-            )
-            // "Share this code…" only when there is (or is about to be) a code to share.
-            if (state.code is InviteCodeState.Loading || state.code is InviteCodeState.Ready) {
-                Spacer(Modifier.height(Spacing.xs))
-                Text(
-                    text = stringResource(R.string.invite_subtitle),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Spacer(Modifier.height(Spacing.xxl))
-            CodeSection(state.code, destination, actions)
-            Spacer(Modifier.height(Spacing.xxxl))
-        }
+        if (mode == MembersSheetMode.INVITE && members.isOwner) InviteSection(state, destination, actions)
         // Without the invite part, "Members" with the count is the sheet's only title.
         MembersList(members, actions, isSheetTitle = mode != MembersSheetMode.INVITE || !members.isOwner)
         if (!members.isOwner) {
@@ -223,4 +195,36 @@ fun InviteSheetContent(
             }
         }
     }
+}
+
+/** The owner's invite part: icon, "Invite to <trip>", the hint while there is a code, and the code itself. */
+@Composable
+private fun InviteSection(state: InviteUiState, destination: String, actions: InviteSheetActions) {
+    Box(
+        modifier = Modifier
+            .size(Dimens.AvatarSize)
+            .background(MaterialTheme.colorScheme.secondaryContainer, CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(painterResource(R.drawable.ic_person_add), contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+    }
+    Spacer(Modifier.height(Spacing.l))
+    Text(
+        text = stringResource(R.string.invite_title, destination),
+        style = MaterialTheme.typography.headlineSmall,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.semantics { heading() },
+    )
+    // "Share this code…" only when there is (or is about to be) a code to share.
+    if (state.code is InviteCodeState.Loading || state.code is InviteCodeState.Ready) {
+        Spacer(Modifier.height(Spacing.xs))
+        Text(
+            text = stringResource(R.string.invite_subtitle),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    Spacer(Modifier.height(Spacing.xxl))
+    CodeSection(state.code, destination, actions)
+    Spacer(Modifier.height(Spacing.xxxl))
 }

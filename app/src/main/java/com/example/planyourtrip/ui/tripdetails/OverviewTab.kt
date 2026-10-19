@@ -65,54 +65,64 @@ internal fun LazyListScope.overviewTab(
         }
     }
     item(key = "features") {
-        // Equal-height cards side by side, as in the design.
-        Row(
-            modifier = cardPadding.height(IntrinsicSize.Min),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.l),
-        ) {
-            // The map picture fills whatever height the Daily plan card next to it needs.
-            FeatureCard(
-                icon = R.drawable.ic_map,
-                title = stringResource(R.string.trip_map),
-                subtitle = state.trip.destination,
-                subtitleMaxLines = 2,
-                onClick = { onOpenMaps(state.trip.destination) },
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight(),
-                content = {
-                    OverviewMapIllustration(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                    )
-                },
-            )
-            val progress = itinerary.progress
-            val progressContent: (@Composable ColumnScope.() -> Unit)? =
-                if (itinerary.hasActivities) ({ DailyPlanProgress(progress) }) else null
-            FeatureCard(
-                icon = R.drawable.ic_event_note,
-                title = stringResource(R.string.trip_daily_plan),
-                subtitle = if (itinerary.hasActivities) {
-                    pluralStringResource(
-                        R.plurals.plan_days_planned, progress.totalDays, progress.plannedDays, progress.totalDays,
-                    )
-                } else {
-                    stringResource(R.string.trip_plan_empty)
-                },
-                onClick = { onTabSelected(TripTab.PLAN) },
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight(),
-                content = progressContent,
-            )
-        }
+        FeatureCards(state, onOpenMaps, onTabSelected)
     }
     // The day section appears once the trip has at least one activity.
     if (itinerary.hasActivities) {
         item(key = "day-preview") {
             DayPreviewCard(itinerary.overviewDay, itineraryActions, modifier = cardPadding)
         }
+    }
+}
+
+/** The Map card and the Daily plan card side by side, equal height, as in the design. */
+@Composable
+private fun FeatureCards(
+    state: TripDetailsUiState.Loaded,
+    onOpenMaps: (String) -> Unit,
+    onTabSelected: (TripTab) -> Unit,
+) {
+    val itinerary = state.itinerary
+    Row(
+        modifier = cardPadding.height(IntrinsicSize.Min),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.l),
+    ) {
+        // The map picture fills whatever height the Daily plan card next to it needs.
+        FeatureCard(
+            icon = R.drawable.ic_map,
+            title = stringResource(R.string.trip_map),
+            subtitle = state.trip.destination,
+            subtitleMaxLines = 2,
+            onClick = { onOpenMaps(state.trip.destination) },
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight(),
+            content = {
+                OverviewMapIllustration(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                )
+            },
+        )
+        val progress = itinerary.progress
+        val progressContent: (@Composable ColumnScope.() -> Unit)? =
+            if (itinerary.hasActivities) ({ DailyPlanProgress(progress) }) else null
+        FeatureCard(
+            icon = R.drawable.ic_event_note,
+            title = stringResource(R.string.trip_daily_plan),
+            subtitle = if (itinerary.hasActivities) {
+                pluralStringResource(
+                    R.plurals.plan_days_planned, progress.totalDays, progress.plannedDays, progress.totalDays,
+                )
+            } else {
+                stringResource(R.string.trip_plan_empty)
+            },
+            onClick = { onTabSelected(TripTab.PLAN) },
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight(),
+            content = progressContent,
+        )
     }
 }

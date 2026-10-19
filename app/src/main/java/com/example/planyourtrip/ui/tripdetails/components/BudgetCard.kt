@@ -99,29 +99,7 @@ private fun WithBudget(summary: BudgetSummary, showEditButton: Boolean, onEdit: 
         Column(Modifier.weight(1f)) {
             BudgetLabel()
             Spacer(Modifier.height(Spacing.xs))
-            if (summary.isOverBudget) {
-                Text(
-                    text = stringResource(R.string.budget_over, shekels(-summary.leftAgorot)),
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            } else {
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(
-                        text = shekels(summary.leftAgorot),
-                        style = MaterialTheme.typography.displaySmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.alignByBaseline(),
-                    )
-                    Spacer(Modifier.width(Spacing.xsPlus))
-                    Text(
-                        text = stringResource(R.string.budget_left),
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Normal),
-                        color = muted,
-                        modifier = Modifier.alignByBaseline(),
-                    )
-                }
-            }
+            LeftAmount(summary)
         }
         // The Budget tab (with the edit button) is the design's plain card; the Overview keeps the wallet chip.
         if (!showEditButton) {
@@ -144,6 +122,52 @@ private fun WithBudget(summary: BudgetSummary, showEditButton: Boolean, onEdit: 
     )
     Spacer(Modifier.height(Spacing.m))
 
+    SpentRow(summary, showEditButton, onEdit)
+
+    summary.perDay?.let { perDay ->
+        HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.m), color = MaterialTheme.colorScheme.outlineVariant)
+        Text(
+            text = pluralStringResource(R.plurals.budget_per_day, perDay.days, shekels(perDay.amountAgorot), perDay.days),
+            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+            color = muted,
+        )
+    }
+}
+
+/** "₪2,140 left" in teal, or "₪120 over budget" in red. */
+@Composable
+private fun LeftAmount(summary: BudgetSummary) {
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    if (summary.isOverBudget) {
+        Text(
+            text = stringResource(R.string.budget_over, shekels(-summary.leftAgorot)),
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.error,
+        )
+    } else {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                text = shekels(summary.leftAgorot),
+                style = MaterialTheme.typography.displaySmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.alignByBaseline(),
+            )
+            Spacer(Modifier.width(Spacing.xsPlus))
+            Text(
+                text = stringResource(R.string.budget_left),
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Normal),
+                color = muted,
+                modifier = Modifier.alignByBaseline(),
+            )
+        }
+    }
+}
+
+/** The dot and "₪1,860 spent · 46%", the total, and (Budget tab) the edit button. */
+@Composable
+private fun SpentRow(summary: BudgetSummary, showEditButton: Boolean, onEdit: () -> Unit) {
+    val colors = ExtendedTheme.colors
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
     Row(verticalAlignment = Alignment.CenterVertically) {
         Row(
             modifier = Modifier.weight(1f),
@@ -184,15 +208,6 @@ private fun WithBudget(summary: BudgetSummary, showEditButton: Boolean, onEdit: 
                 )
             }
         }
-    }
-
-    summary.perDay?.let { perDay ->
-        HorizontalDivider(modifier = Modifier.padding(vertical = Spacing.m), color = MaterialTheme.colorScheme.outlineVariant)
-        Text(
-            text = pluralStringResource(R.plurals.budget_per_day, perDay.days, shekels(perDay.amountAgorot), perDay.days),
-            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-            color = muted,
-        )
     }
 }
 

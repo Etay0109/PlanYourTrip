@@ -99,7 +99,6 @@ class ActivityFormActions(
     val onDelete: () -> Unit,
 )
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ActivityFormContent(
     state: ActivityFormUiState,
@@ -129,45 +128,16 @@ fun ActivityFormContent(
         var location by rememberSaveable { mutableStateOf(state.location) }
         var cost by rememberSaveable { mutableStateOf(state.cost) }
         var note by rememberSaveable { mutableStateOf(state.note) }
-        OutlinedTextField(
-            value = title,
-            onValueChange = {
+        TitleField(
+            title = title,
+            onTitleChange = {
                 title = it.limitTo(TextLimits.ACTIVITY_TITLE)
                 actions.onTitleChange(title)
             },
-            label = { Text(stringResource(R.string.activity_title)) },
-            placeholder = { Text(stringResource(R.string.activity_title_placeholder)) },
-            singleLine = true,
-            isError = state.titleError != null,
-            supportingText = errorSupportingText(state.titleError?.messageRes()),
-            keyboardOptions = KeyboardOptions(
-                capitalization = KeyboardCapitalization.Sentences,
-                imeAction = ImeAction.Next,
-            ),
-            shape = MaterialTheme.shapes.small,
-            modifier = Modifier.fillMaxWidth(),
+            error = state.titleError,
         )
 
-        Text(
-            text = stringResource(R.string.activity_type),
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(Spacing.s),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            ActivityType.entries.forEach { type ->
-                // Each chip shows its type color: the icon always, the tinted fill when selected.
-                TintedFilterChip(
-                    selected = type == state.type,
-                    onClick = { actions.onTypeChange(type) },
-                    label = stringResource(type.labelRes()),
-                    icon = type.iconRes(),
-                    color = ExtendedTheme.colors.activityType(type),
-                )
-            }
-        }
+        TypeChips(selected = state.type, onTypeChange = actions.onTypeChange)
         Spacer(Modifier.height(Spacing.xs))
 
         DateField(
@@ -182,55 +152,126 @@ fun ActivityFormContent(
 
         TimeField(time = state.startTime, onTimeChange = actions.onStartTimeChange)
 
-        OutlinedTextField(
-            value = location,
-            onValueChange = {
+        LocationField(
+            location = location,
+            onLocationChange = {
                 location = it.limitTo(TextLimits.ACTIVITY_LOCATION)
                 actions.onLocationChange(location)
             },
-            label = { Text(stringResource(R.string.activity_location)) },
-            placeholder = { Text(stringResource(R.string.activity_location_placeholder)) },
-            singleLine = true,
-            leadingIcon = { Icon(painterResource(R.drawable.ic_location), contentDescription = null) },
-            keyboardOptions = KeyboardOptions(
-                capitalization = KeyboardCapitalization.Words,
-                imeAction = ImeAction.Next,
-            ),
-            shape = MaterialTheme.shapes.small,
-            modifier = Modifier.fillMaxWidth(),
         )
 
-        OutlinedTextField(
-            value = cost,
-            onValueChange = {
+        CostField(
+            cost = cost,
+            onCostChange = {
                 cost = it
                 actions.onCostChange(it)
             },
-            label = { Text(stringResource(R.string.activity_cost)) },
-            prefix = { Text(stringResource(R.string.currency_symbol)) },
-            singleLine = true,
-            isError = state.costError != null,
-            supportingText = errorSupportingText(state.costError?.messageRes()),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
-            shape = MaterialTheme.shapes.small,
-            modifier = Modifier.fillMaxWidth(),
+            error = state.costError,
         )
 
         BookedRow(booked = state.booked, onBookedChange = actions.onBookedChange)
 
-        OutlinedTextField(
-            value = note,
-            onValueChange = {
+        NoteField(
+            note = note,
+            onNoteChange = {
                 note = it.limitTo(TextLimits.ACTIVITY_NOTE)
                 actions.onNoteChange(note)
             },
-            label = { Text(stringResource(R.string.activity_note)) },
-            minLines = 3,
-            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-            shape = MaterialTheme.shapes.small,
-            modifier = Modifier.fillMaxWidth(),
         )
     }
+}
+
+@Composable
+private fun TitleField(title: String, onTitleChange: (String) -> Unit, error: ActivityFieldError?) {
+    OutlinedTextField(
+        value = title,
+        onValueChange = onTitleChange,
+        label = { Text(stringResource(R.string.activity_title)) },
+        placeholder = { Text(stringResource(R.string.activity_title_placeholder)) },
+        singleLine = true,
+        isError = error != null,
+        supportingText = errorSupportingText(error?.messageRes()),
+        keyboardOptions = KeyboardOptions(
+            capitalization = KeyboardCapitalization.Sentences,
+            imeAction = ImeAction.Next,
+        ),
+        shape = MaterialTheme.shapes.small,
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+/** "Type" and one chip per activity type. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TypeChips(selected: ActivityType, onTypeChange: (ActivityType) -> Unit) {
+    Text(
+        text = stringResource(R.string.activity_type),
+        style = MaterialTheme.typography.titleMedium,
+        color = MaterialTheme.colorScheme.onBackground,
+    )
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(Spacing.s),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        ActivityType.entries.forEach { type ->
+            // Each chip shows its type color: the icon always, the tinted fill when selected.
+            TintedFilterChip(
+                selected = type == selected,
+                onClick = { onTypeChange(type) },
+                label = stringResource(type.labelRes()),
+                icon = type.iconRes(),
+                color = ExtendedTheme.colors.activityType(type),
+            )
+        }
+    }
+}
+
+@Composable
+private fun LocationField(location: String, onLocationChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = location,
+        onValueChange = onLocationChange,
+        label = { Text(stringResource(R.string.activity_location)) },
+        placeholder = { Text(stringResource(R.string.activity_location_placeholder)) },
+        singleLine = true,
+        leadingIcon = { Icon(painterResource(R.drawable.ic_location), contentDescription = null) },
+        keyboardOptions = KeyboardOptions(
+            capitalization = KeyboardCapitalization.Words,
+            imeAction = ImeAction.Next,
+        ),
+        shape = MaterialTheme.shapes.small,
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+/** The planned cost in shekels (optional). */
+@Composable
+private fun CostField(cost: String, onCostChange: (String) -> Unit, error: ActivityFieldError?) {
+    OutlinedTextField(
+        value = cost,
+        onValueChange = onCostChange,
+        label = { Text(stringResource(R.string.activity_cost)) },
+        prefix = { Text(stringResource(R.string.currency_symbol)) },
+        singleLine = true,
+        isError = error != null,
+        supportingText = errorSupportingText(error?.messageRes()),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+        shape = MaterialTheme.shapes.small,
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+@Composable
+private fun NoteField(note: String, onNoteChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = note,
+        onValueChange = onNoteChange,
+        label = { Text(stringResource(R.string.activity_note)) },
+        minLines = 3,
+        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+        shape = MaterialTheme.shapes.small,
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 @Composable

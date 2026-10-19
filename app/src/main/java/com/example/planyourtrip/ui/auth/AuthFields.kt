@@ -34,6 +34,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextFieldColors
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
@@ -46,6 +47,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -93,40 +95,12 @@ internal fun AuthTextField(
     val errorText = error?.let { stringResource(it.messageRes()) }
     val isError = errorText != null
     val shape = MaterialTheme.shapes.medium
-    val colors = TextFieldDefaults.colors(
-        focusedTextColor = colorScheme.onSurface,
-        unfocusedTextColor = colorScheme.onSurface,
-        errorTextColor = colorScheme.onSurface,
-        cursorColor = colorScheme.primary,
-        errorCursorColor = colorScheme.error,
-        focusedLeadingIconColor = colorScheme.primary,
-        unfocusedLeadingIconColor = colorScheme.onSurfaceVariant,
-        errorLeadingIconColor = colorScheme.error,
-        focusedTrailingIconColor = colorScheme.onSurfaceVariant,
-        unfocusedTrailingIconColor = colorScheme.onSurfaceVariant,
-        errorTrailingIconColor = colorScheme.onSurfaceVariant,
-        focusedLabelColor = colorScheme.primary,
-        unfocusedLabelColor = colorScheme.onSurfaceVariant,
-        errorLabelColor = colorScheme.error,
-        focusedSupportingTextColor = colorScheme.onSurfaceVariant,
-        unfocusedSupportingTextColor = colorScheme.onSurfaceVariant,
-        errorSupportingTextColor = colorScheme.error,
-    )
+    val colors = authFieldColors()
     val supportingText: (@Composable () -> Unit)? =
         if (strength == null && errorText == null && hint == null) {
             null
         } else {
-            {
-                Column {
-                    if (strength != null) {
-                        PasswordStrengthBar(strength)
-                        Spacer(Modifier.height(Spacing.xsPlus))
-                    }
-                    // The field itself carries the error for TalkBack, so this line isn't read a second time.
-                    if (errorText != null) Text(errorText, Modifier.clearAndSetSemantics {})
-                    else if (hint != null) Text(hint)
-                }
-            }
+            { FieldSupportingText(strength, errorText, hint) }
         }
 
     BasicTextField(
@@ -155,42 +129,89 @@ internal fun AuthTextField(
                 label = { Text(stringResource(label)) },
                 leadingIcon = { Icon(painterResource(icon), contentDescription = null) },
                 trailingIcon = if (isPassword) {
-                    {
-                        IconButton(onClick = { visible = !visible }) {
-                            Icon(
-                                // The icon shows the current state: crossed-out eye while hidden, open eye while visible.
-                                painter = painterResource(
-                                    if (visible) R.drawable.ic_visibility else R.drawable.ic_visibility_off
-                                ),
-                                contentDescription = stringResource(
-                                    if (visible) R.string.auth_hide_password else R.string.auth_show_password
-                                ),
-                            )
-                        }
-                    }
+                    { PasswordVisibilityButton(visible, onToggle = { visible = !visible }) }
                 } else {
                     null
                 },
                 supportingText = supportingText,
                 shape = shape,
                 colors = colors,
-                container = {
-                    val borderColor = when {
-                        isError -> colorScheme.error
-                        focused -> colorScheme.primary
-                        else -> Color.Transparent
-                    }
-                    Box(
-                        Modifier
-                            .background(
-                                if (focused) colorScheme.surfaceContainerLowest else colorScheme.surfaceContainerHighest,
-                                shape,
-                            )
-                            .border(Dimens.AuthFieldBorder, borderColor, shape),
-                    )
-                },
+                container = { FieldContainer(isError, focused, shape) },
             )
         },
+    )
+}
+
+@Composable
+private fun authFieldColors(): TextFieldColors {
+    val colorScheme = MaterialTheme.colorScheme
+    return TextFieldDefaults.colors(
+        focusedTextColor = colorScheme.onSurface,
+        unfocusedTextColor = colorScheme.onSurface,
+        errorTextColor = colorScheme.onSurface,
+        cursorColor = colorScheme.primary,
+        errorCursorColor = colorScheme.error,
+        focusedLeadingIconColor = colorScheme.primary,
+        unfocusedLeadingIconColor = colorScheme.onSurfaceVariant,
+        errorLeadingIconColor = colorScheme.error,
+        focusedTrailingIconColor = colorScheme.onSurfaceVariant,
+        unfocusedTrailingIconColor = colorScheme.onSurfaceVariant,
+        errorTrailingIconColor = colorScheme.onSurfaceVariant,
+        focusedLabelColor = colorScheme.primary,
+        unfocusedLabelColor = colorScheme.onSurfaceVariant,
+        errorLabelColor = colorScheme.error,
+        focusedSupportingTextColor = colorScheme.onSurfaceVariant,
+        unfocusedSupportingTextColor = colorScheme.onSurfaceVariant,
+        errorSupportingTextColor = colorScheme.error,
+    )
+}
+
+/** The Sign Up strength bar, then the error or else the hint. */
+@Composable
+private fun FieldSupportingText(strength: Int?, errorText: String?, hint: String?) {
+    Column {
+        if (strength != null) {
+            PasswordStrengthBar(strength)
+            Spacer(Modifier.height(Spacing.xsPlus))
+        }
+        // The field itself carries the error for TalkBack, so this line isn't read a second time.
+        if (errorText != null) Text(errorText, Modifier.clearAndSetSemantics {})
+        else if (hint != null) Text(hint)
+    }
+}
+
+/** The eye at the end of a password field. */
+@Composable
+private fun PasswordVisibilityButton(visible: Boolean, onToggle: () -> Unit) {
+    IconButton(onClick = onToggle) {
+        Icon(
+            // The icon shows the current state: crossed-out eye while hidden, open eye while visible.
+            painter = painterResource(
+                if (visible) R.drawable.ic_visibility else R.drawable.ic_visibility_off
+            ),
+            contentDescription = stringResource(
+                if (visible) R.string.auth_hide_password else R.string.auth_show_password
+            ),
+        )
+    }
+}
+
+/** The field's background: light at rest, white when focused, with the focus or error border. */
+@Composable
+private fun FieldContainer(isError: Boolean, focused: Boolean, shape: Shape) {
+    val colorScheme = MaterialTheme.colorScheme
+    val borderColor = when {
+        isError -> colorScheme.error
+        focused -> colorScheme.primary
+        else -> Color.Transparent
+    }
+    Box(
+        Modifier
+            .background(
+                if (focused) colorScheme.surfaceContainerLowest else colorScheme.surfaceContainerHighest,
+                shape,
+            )
+            .border(Dimens.AuthFieldBorder, borderColor, shape),
     )
 }
 

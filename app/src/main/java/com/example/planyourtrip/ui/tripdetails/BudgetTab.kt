@@ -57,48 +57,14 @@ internal fun LazyListScope.budgetTab(
             modifier = cardPadding.padding(top = Spacing.s),
         )
     }
-    if (split is SplitUiState.Loaded) {
-        split.suggestion?.let { suggestion ->
-            item(key = "merge-${suggestion.traveler.uuid}") {
-                MergeSuggestionCard(
-                    suggestion = suggestion,
-                    isMerging = split.isMerging,
-                    actions = splitActions,
-                    modifier = cardPadding.padding(top = Spacing.s),
-                )
-            }
-        }
-        item(key = "travelers") {
-            TravelersSection(split, splitActions, modifier = Modifier.padding(top = Spacing.s))
-        }
-        // Only me: nobody to owe or be owed.
-        if (split.hasOthers) {
-            item(key = "owes") {
-                WhoOwesWhomCard(split, splitActions, modifier = cardPadding)
-            }
-        }
-    }
+    if (split is SplitUiState.Loaded) splitSections(split, splitActions)
     if (state.categoryTotals.isNotEmpty()) {
         item(key = "categories") {
             CategoryChartCard(state.categoryTotals, modifier = cardPadding)
         }
     }
     item(key = "expenses-header") {
-        Row(cardPadding.padding(top = Spacing.s), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = stringResource(R.string.budget_expenses),
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.weight(1f),
-            )
-            if (state.expenses.isNotEmpty()) {
-                Text(
-                    text = stringResource(R.string.budget_newest_first),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
+        ExpensesHeader(hasExpenses = state.expenses.isNotEmpty())
     }
     if (state.expenses.isEmpty()) {
         item(key = "expenses-empty") {
@@ -121,7 +87,6 @@ internal fun LazyListScope.budgetTab(
     }
 }
 
-
 /** "+ Add expense" at the bottom left of the Budget tab (the assistant button stays at the right). */
 @Composable
 internal fun AddExpenseFab(onClick: () -> Unit) {
@@ -133,4 +98,47 @@ internal fun AddExpenseFab(onClick: () -> Unit) {
         icon = { Icon(painterResource(R.drawable.ic_add), contentDescription = null) },
         text = { Text(stringResource(R.string.budget_add_expense), maxLines = 1) },
     )
+}
+
+/** A suggested merge, the travelers row and (with others on the trip) "Who owes whom". */
+private fun LazyListScope.splitSections(split: SplitUiState.Loaded, splitActions: SplitActions) {
+    split.suggestion?.let { suggestion ->
+        item(key = "merge-${suggestion.traveler.uuid}") {
+            MergeSuggestionCard(
+                suggestion = suggestion,
+                isMerging = split.isMerging,
+                actions = splitActions,
+                modifier = cardPadding.padding(top = Spacing.s),
+            )
+        }
+    }
+    item(key = "travelers") {
+        TravelersSection(split, splitActions, modifier = Modifier.padding(top = Spacing.s))
+    }
+    // Only me: nobody to owe or be owed.
+    if (split.hasOthers) {
+        item(key = "owes") {
+            WhoOwesWhomCard(split, splitActions, modifier = cardPadding)
+        }
+    }
+}
+
+/** "Expenses", with "Newest first" when there are any. */
+@Composable
+private fun ExpensesHeader(hasExpenses: Boolean) {
+    Row(cardPadding.padding(top = Spacing.s), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = stringResource(R.string.budget_expenses),
+            style = MaterialTheme.typography.headlineSmall,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.weight(1f),
+        )
+        if (hasExpenses) {
+            Text(
+                text = stringResource(R.string.budget_newest_first),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
 }

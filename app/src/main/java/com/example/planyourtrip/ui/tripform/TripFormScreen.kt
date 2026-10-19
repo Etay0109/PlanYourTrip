@@ -147,45 +147,18 @@ fun TripFormContent(
                 onOverlayHeight = { overlayHeight = it },
                 modifier = Modifier.onPlaced { fieldBottom = it.positionInParent().y + it.size.height },
             ) {
-                OutlinedTextField(
-                    value = destination,
-                    onValueChange = {
+                DestinationTextField(
+                    destination = destination,
+                    onDestinationChange = {
                         destination = it.limitTo(TextLimits.DESTINATION)
                         onDestinationChange(destination)
                     },
-                    label = { Text(stringResource(R.string.new_trip_destination)) },
-                    placeholder = { Text(stringResource(R.string.new_trip_destination_placeholder)) },
-                    singleLine = true,
-                    isError = state.destinationError != null,
-                    supportingText = errorSupportingText(state.destinationError?.messageRes()),
-                    keyboardOptions = KeyboardOptions(
-                        capitalization = KeyboardCapitalization.Words,
-                        imeAction = ImeAction.Done,
-                    ),
-                    shape = MaterialTheme.shapes.small,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .onFocusChanged { if (!it.isFocused) onSuggestionsDismissed() },
+                    error = state.destinationError,
+                    onFocusLost = onSuggestionsDismissed,
                 )
             }
 
-            DateField(
-                label = R.string.new_trip_start_date,
-                date = state.startDate,
-                errorRes = state.startError?.messageRes(),
-                initialPickerDate = state.startDate ?: state.endDate,
-                onDatePicked = onStartDateChange,
-            )
-
-            DateField(
-                label = R.string.new_trip_end_date,
-                date = state.endDate,
-                errorRes = state.endError?.messageRes(),
-                initialPickerDate = state.endDate ?: state.startDate,
-                onDatePicked = onEndDateChange,
-                // Guide the user away from an end date before the start; the ViewModel still validates.
-                minDate = state.startDate,
-            )
+            TripDateFields(state, onStartDateChange, onEndDateChange)
 
             CurrencyField(
                 code = state.currencyCode,
@@ -213,6 +186,58 @@ fun TripFormContent(
             }
         }
     }
+}
+
+@Composable
+private fun DestinationTextField(
+    destination: String,
+    onDestinationChange: (String) -> Unit,
+    error: TripFieldError?,
+    onFocusLost: () -> Unit,
+) {
+    OutlinedTextField(
+        value = destination,
+        onValueChange = onDestinationChange,
+        label = { Text(stringResource(R.string.new_trip_destination)) },
+        placeholder = { Text(stringResource(R.string.new_trip_destination_placeholder)) },
+        singleLine = true,
+        isError = error != null,
+        supportingText = errorSupportingText(error?.messageRes()),
+        keyboardOptions = KeyboardOptions(
+            capitalization = KeyboardCapitalization.Words,
+            imeAction = ImeAction.Done,
+        ),
+        shape = MaterialTheme.shapes.small,
+        modifier = Modifier
+            .fillMaxWidth()
+            .onFocusChanged { if (!it.isFocused) onFocusLost() },
+    )
+}
+
+/** Start and end date; the end date's picker starts at the start date. */
+@Composable
+private fun TripDateFields(
+    state: TripFormUiState,
+    onStartDateChange: (LocalDate) -> Unit,
+    onEndDateChange: (LocalDate) -> Unit,
+) {
+    DateField(
+        label = R.string.new_trip_start_date,
+        date = state.startDate,
+        errorRes = state.startError?.messageRes(),
+        initialPickerDate = state.startDate ?: state.endDate,
+        onDatePicked = onStartDateChange,
+    )
+
+    DateField(
+        label = R.string.new_trip_end_date,
+        date = state.endDate,
+        errorRes = state.endError?.messageRes(),
+        initialPickerDate = state.endDate ?: state.startDate,
+        onDatePicked = onEndDateChange,
+        // Guide the user away from an end date before the start; the ViewModel still validates.
+        minDate = state.startDate,
+    )
 }
 
 /**

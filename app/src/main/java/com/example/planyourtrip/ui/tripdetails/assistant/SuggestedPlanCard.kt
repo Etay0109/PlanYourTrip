@@ -46,7 +46,6 @@ fun SuggestedPlanCard(
     modifier: Modifier = Modifier,
 ) {
     val plan = card.plan
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
     val cardColor = MaterialTheme.colorScheme.surfaceContainerLow
     Surface(
         shape = MaterialTheme.shapes.large,
@@ -55,29 +54,7 @@ fun SuggestedPlanCard(
         modifier = modifier.fillMaxWidth(),
     ) {
         Column(Modifier.padding(Spacing.xl)) {
-            Text(
-                text = stringResource(R.string.assistant_plan_label),
-                style = HeroLabelStyle,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            Spacer(Modifier.height(Spacing.xs))
-            Text(
-                text = if (card.withinTrip) {
-                    stringResource(R.string.assistant_plan_day, card.dayNumber, TripFormatting.weekdayDayMonth(plan.date))
-                } else {
-                    TripFormatting.date(plan.date)
-                },
-                style = MaterialTheme.typography.labelLarge,
-                color = muted,
-            )
-            if (plan.title.isNotEmpty()) {
-                Spacer(Modifier.height(Spacing.xxs))
-                Text(
-                    text = plan.title,
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-            }
+            PlanHeading(card)
             Spacer(Modifier.height(Spacing.l))
             val selectable = card.withinTrip && card.status == AddStatus.NEW
             plan.activities.forEachIndexed { index, suggestion ->
@@ -97,28 +74,64 @@ fun SuggestedPlanCard(
                 }
             }
             Spacer(Modifier.height(Spacing.xl))
-            if (card.withinTrip) {
-                val added = card.status == AddStatus.ADDED
-                PrimaryButton(
-                    text = if (added) {
-                        stringResource(R.string.assistant_plan_added)
-                    } else {
-                        stringResource(R.string.assistant_plan_add, card.dayNumber)
-                    },
-                    onClick = onAdd,
-                    enabled = card.canAdd,
-                    loading = card.status == AddStatus.ADDING,
-                    leadingIcon = if (added) R.drawable.ic_check else R.drawable.ic_add,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            } else {
-                Text(
-                    text = stringResource(R.string.assistant_plan_outside, TripFormatting.date(plan.date)),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = muted,
-                )
-            }
+            PlanFooter(card, onAdd)
         }
+    }
+}
+
+/** "SUGGESTED PLAN", the day ("Day 2 · Fri 13 Nov", or the date outside the trip) and the plan's title. */
+@Composable
+private fun PlanHeading(card: PlanCardState) {
+    val plan = card.plan
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    Text(
+        text = stringResource(R.string.assistant_plan_label),
+        style = HeroLabelStyle,
+        color = MaterialTheme.colorScheme.primary,
+    )
+    Spacer(Modifier.height(Spacing.xs))
+    Text(
+        text = if (card.withinTrip) {
+            stringResource(R.string.assistant_plan_day, card.dayNumber, TripFormatting.weekdayDayMonth(plan.date))
+        } else {
+            TripFormatting.date(plan.date)
+        },
+        style = MaterialTheme.typography.labelLarge,
+        color = muted,
+    )
+    if (plan.title.isNotEmpty()) {
+        Spacer(Modifier.height(Spacing.xxs))
+        Text(
+            text = plan.title,
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
+
+/** "Add to Day N" ("Added" once done), or why a day outside the trip can't be added. */
+@Composable
+private fun PlanFooter(card: PlanCardState, onAdd: () -> Unit) {
+    if (card.withinTrip) {
+        val added = card.status == AddStatus.ADDED
+        PrimaryButton(
+            text = if (added) {
+                stringResource(R.string.assistant_plan_added)
+            } else {
+                stringResource(R.string.assistant_plan_add, card.dayNumber)
+            },
+            onClick = onAdd,
+            enabled = card.canAdd,
+            loading = card.status == AddStatus.ADDING,
+            leadingIcon = if (added) R.drawable.ic_check else R.drawable.ic_add,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    } else {
+        Text(
+            text = stringResource(R.string.assistant_plan_outside, TripFormatting.date(card.plan.date)),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

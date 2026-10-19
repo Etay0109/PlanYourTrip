@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -32,46 +31,33 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.planyourtrip.R
 import com.example.planyourtrip.data.trip.Trip
-import com.example.planyourtrip.data.trip.TripColor
 import com.example.planyourtrip.ui.common.account.AccountState
 import com.example.planyourtrip.ui.common.account.AccountViewModel
 import com.example.planyourtrip.ui.common.account.actions
 import com.example.planyourtrip.ui.common.components.AccountActions
 import com.example.planyourtrip.ui.common.components.AccountButton
 import com.example.planyourtrip.ui.common.components.BrandMark
-import com.example.planyourtrip.ui.common.components.Pill
 import com.example.planyourtrip.ui.common.components.PrimaryButton
 import com.example.planyourtrip.ui.common.components.RefreshBox
 import com.example.planyourtrip.ui.common.delete.DeleteTripHost
-import com.example.planyourtrip.ui.common.delete.DeleteTripMessage
 import com.example.planyourtrip.ui.common.delete.DeleteTripViewModel
 import com.example.planyourtrip.ui.common.refresh.RefreshViewModel
 import com.example.planyourtrip.ui.common.share.ShareTripHost
 import com.example.planyourtrip.ui.common.share.ShareTripViewModel
-import com.example.planyourtrip.ui.home.components.NextTripCard
-import com.example.planyourtrip.ui.home.components.PastTripCard
-import com.example.planyourtrip.ui.home.components.SwipeToDeleteBox
-import com.example.planyourtrip.ui.home.components.UpcomingTripCard
 import com.example.planyourtrip.ui.home.join.JoinTripHost
 import com.example.planyourtrip.ui.home.join.JoinTripViewModel
 import com.example.planyourtrip.ui.theme.Dimens
-import com.example.planyourtrip.ui.theme.ExtendedTheme
-import com.example.planyourtrip.ui.theme.PlanYourTripTheme
 import com.example.planyourtrip.ui.theme.Spacing
-import java.time.LocalDate
 
 @Composable
 fun HomeScreen(
@@ -107,47 +93,17 @@ fun HomeScreen(
         onPendingLeaveHandled()
         deleteViewModel.leaveConfirmed(id)
     }
-    val deletedText = stringResource(R.string.trip_deleted)
-    val failedText = stringResource(R.string.trip_delete_failed)
-    val leftText = stringResource(R.string.trip_left)
-    val leaveFailedText = stringResource(R.string.trip_leave_failed)
-    // Each message is cleared after its snackbar (clearing first changes the effect's key and cancels it), and only
-    // if it is still the current one: a newer message replaces it without being cleared.
-    LaunchedEffect(deleteState.message) {
-        val message = deleteState.message ?: return@LaunchedEffect
-        try {
-            snackbarHostState.showSnackbar(
-                when (message) {
-                    DeleteTripMessage.DELETED -> deletedText
-                    DeleteTripMessage.FAILED -> failedText
-                    DeleteTripMessage.LEFT -> leftText
-                    DeleteTripMessage.LEAVE_FAILED -> leaveFailedText
-                },
-            )
-        } finally {
-            if (deleteState.message == message) deleteViewModel.onMessageShown()
-        }
-    }
-    val joinedDestination = joinState.joinedDestination
-    val joinedText = joinedDestination?.let { stringResource(R.string.join_joined, it) }
-    LaunchedEffect(joinedDestination) {
-        val text = joinedText ?: return@LaunchedEffect
-        try {
-            snackbarHostState.showSnackbar(text)
-        } finally {
-            if (joinState.joinedDestination == joinedDestination) joinViewModel.onJoinedShown()
-        }
-    }
-    val refreshFailedText = stringResource(R.string.refresh_failed)
-    LaunchedEffect(refresh.failed) {
-        if (!refresh.failed) return@LaunchedEffect
-        // Cleared only after the snackbar: clearing first changes this effect's key, which cancels the snackbar.
-        try {
-            snackbarHostState.showSnackbar(refreshFailedText)
-        } finally {
-            refreshViewModel.onMessageShown()
-        }
-    }
+    HomeMessages(
+        snackbarHostState = snackbarHostState,
+        deleteMessage = deleteState.message,
+        currentDeleteMessage = { deleteState.message },
+        onDeleteMessageShown = deleteViewModel::onMessageShown,
+        joinedDestination = joinState.joinedDestination,
+        currentJoinedDestination = { joinState.joinedDestination },
+        onJoinedShown = joinViewModel::onJoinedShown,
+        refreshFailed = refresh.failed,
+        onRefreshMessageShown = refreshViewModel::onMessageShown,
+    )
 
     ShareTripHost(shareViewModel)
     DeleteTripHost(deleteViewModel)
@@ -192,57 +148,9 @@ fun HomeContent(
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButtonPosition = FabPosition.Center,
-        floatingActionButton = {
-            // "Join trip" next to "Add trip", across the bottom (design/home_join.png).
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(Spacing.m),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = Dimens.ScreenPadding),
-            ) {
-                OutlinedButton(
-                    onClick = onJoinTrip,
-                    shape = CircleShape,
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-                        contentColor = MaterialTheme.colorScheme.primary,
-                    ),
-                    contentPadding = PaddingValues(horizontal = Spacing.l),
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(JoinButtonHeight),
-                ) {
-                    Icon(painterResource(R.drawable.ic_key), contentDescription = null)
-                    Spacer(Modifier.width(Spacing.s))
-                    Text(
-                        stringResource(R.string.join_trip),
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                ExtendedFloatingActionButton(
-                    onClick = onAddTrip,
-                    shape = CircleShape,
-                    containerColor = MaterialTheme.colorScheme.secondary,
-                    contentColor = MaterialTheme.colorScheme.onSecondary,
-                    icon = { Icon(painterResource(R.drawable.ic_add), contentDescription = null) },
-                    text = {
-                        Text(
-                            stringResource(R.string.home_add_trip),
-                            style = MaterialTheme.typography.titleMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    },
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        },
+        floatingActionButton = { HomeButtons(onJoinTrip, onAddTrip) },
     ) { innerPadding ->
         val content = state as? HomeUiState.Content ?: return@Scaffold
-        val sections = content.sections
         val layoutDirection = LocalLayoutDirection.current
 
         RefreshBox(
@@ -266,109 +174,64 @@ fun HomeContent(
                     HomeHeader(content, account, accountActions)
                 }
 
-                if (sections.isEmpty) {
+                if (content.sections.isEmpty) {
                     item(key = "empty") { EmptyState(onAddTrip, Modifier.animateItem()) }
                     return@LazyColumn
                 }
 
-                // Every card is keyed by its trip, whatever its section: a deleted card fades out and the trip that
-                // takes the Next trip place moves there from the Upcoming list.
-                sections.next?.let { next ->
-                    item(key = tripKey(next.trip.id)) {
-                        SwipeToDeleteBox(
-                            shape = MaterialTheme.shapes.extraLarge,
-                            deletePending = deletingTripId == next.trip.id,
-                            onDelete = { onDeleteTrip(next.trip) },
-                            leave = !content.isOwner(next.trip),
-                            modifier = Modifier.animateItem().padding(top = Spacing.s),
-                        ) {
-                            NextTripCard(
-                                next = next,
-                                onClick = { onTripClick(next.trip.id) },
-                                onShare = { onShareTrip(next.trip.id) },
-                                onDelete = { onDeleteTrip(next.trip) },
-                                isOwner = content.isOwner(next.trip),
-                                photoUrl = content.photos[next.trip.id]?.cardUrl,
-                                currentYear = content.currentYear,
-                            )
-                        }
-                    }
-                }
-
-                if (sections.upcoming.isNotEmpty()) {
-                    item(key = "upcoming-header") {
-                        SectionHeader(
-                            modifier = Modifier.animateItem(),
-                            title = stringResource(R.string.home_upcoming),
-                            titleColor = MaterialTheme.colorScheme.onSurface,
-                        ) {
-                            Pill(
-                                text = pluralStringResource(
-                                    R.plurals.home_trip_count, sections.upcoming.size, sections.upcoming.size
-                                ),
-                                container = MaterialTheme.colorScheme.secondaryContainer,
-                                content = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                    }
-                    items(sections.upcoming, key = { tripKey(it.trip.id) }) { item ->
-                        SwipeToDeleteBox(
-                            shape = MaterialTheme.shapes.large,
-                            deletePending = deletingTripId == item.trip.id,
-                            onDelete = { onDeleteTrip(item.trip) },
-                            leave = !content.isOwner(item.trip),
-                            modifier = Modifier.animateItem(),
-                        ) {
-                            UpcomingTripCard(
-                                item = item,
-                                onClick = { onTripClick(item.trip.id) },
-                                onShare = { onShareTrip(item.trip.id) },
-                                onDelete = { onDeleteTrip(item.trip) },
-                                isOwner = content.isOwner(item.trip),
-                                thumbUrl = content.photos[item.trip.id]?.thumbUrl,
-                                currentYear = content.currentYear,
-                            )
-                        }
-                    }
-                }
-
-                if (sections.past.isNotEmpty()) {
-                    item(key = "past-header") {
-                        SectionHeader(
-                            modifier = Modifier.animateItem(),
-                            title = stringResource(R.string.home_past_trips),
-                            titleColor = ExtendedTheme.colors.onPastCard,
-                        ) {
-                            Text(
-                                text = pluralStringResource(
-                                    R.plurals.home_archived_count, sections.past.size, sections.past.size
-                                ),
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                    items(sections.past, key = { tripKey(it.id) }) { trip ->
-                        SwipeToDeleteBox(
-                            shape = MaterialTheme.shapes.large,
-                            deletePending = deletingTripId == trip.id,
-                            onDelete = { onDeleteTrip(trip) },
-                            leave = !content.isOwner(trip),
-                            modifier = Modifier.animateItem(),
-                        ) {
-                            PastTripCard(
-                                trip = trip,
-                                onClick = { onTripClick(trip.id) },
-                                onShare = { onShareTrip(trip.id) },
-                                onDelete = { onDeleteTrip(trip) },
-                                isOwner = content.isOwner(trip),
-                                thumbUrl = content.photos[trip.id]?.thumbUrl,
-                            )
-                        }
-                    }
-                }
+                tripSections(content, deletingTripId, TripCardActions(onTripClick, onShareTrip, onDeleteTrip))
             }
         }
+    }
+}
+
+/** "Join trip" next to "Add trip", across the bottom (design/home_join.png). */
+@Composable
+private fun HomeButtons(onJoinTrip: () -> Unit, onAddTrip: () -> Unit) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(Spacing.m),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Dimens.ScreenPadding),
+    ) {
+        OutlinedButton(
+            onClick = onJoinTrip,
+            shape = CircleShape,
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                contentColor = MaterialTheme.colorScheme.primary,
+            ),
+            contentPadding = PaddingValues(horizontal = Spacing.l),
+            modifier = Modifier
+                .weight(1f)
+                .height(JoinButtonHeight),
+        ) {
+            Icon(painterResource(R.drawable.ic_key), contentDescription = null)
+            Spacer(Modifier.width(Spacing.s))
+            Text(
+                stringResource(R.string.join_trip),
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        ExtendedFloatingActionButton(
+            onClick = onAddTrip,
+            shape = CircleShape,
+            containerColor = MaterialTheme.colorScheme.secondary,
+            contentColor = MaterialTheme.colorScheme.onSecondary,
+            icon = { Icon(painterResource(R.drawable.ic_add), contentDescription = null) },
+            text = {
+                Text(
+                    stringResource(R.string.home_add_trip),
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            },
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 
@@ -391,31 +254,6 @@ private fun HomeHeader(content: HomeUiState.Content, account: AccountState?, acc
             Spacer(Modifier.width(Spacing.l))
             AccountButton(account, accountActions, size = Dimens.AvatarSize)
         }
-    }
-}
-
-private fun tripKey(id: Long) = "trip-$id"
-
-@Composable
-private fun SectionHeader(
-    title: String,
-    titleColor: Color,
-    modifier: Modifier = Modifier,
-    trailing: @Composable () -> Unit,
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(top = Spacing.l),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.headlineSmall,
-            color = titleColor,
-            modifier = Modifier.weight(1f),
-        )
-        trailing()
     }
 }
 
@@ -444,73 +282,6 @@ private fun EmptyState(onAddTrip: () -> Unit, modifier: Modifier = Modifier) {
         )
         Spacer(Modifier.height(Spacing.xxl))
         PrimaryButton(text = stringResource(R.string.home_empty_button), onClick = onAddTrip)
-    }
-}
-
-// ---------- Previews (sample data lives only here, never in the database) ----------
-
-private val previewToday = LocalDate.of(2026, 10, 5)
-
-private val previewTrips = listOf(
-    Trip(1, "Rome, Italy", LocalDate.of(2026, 11, 12), LocalDate.of(2026, 11, 17), TripColor.SKY),
-    Trip(2, "Athens, Greece", LocalDate.of(2027, 2, 3), LocalDate.of(2027, 2, 7), TripColor.SKY),
-    Trip(3, "Lisbon, Portugal", LocalDate.of(2027, 4, 20), LocalDate.of(2027, 4, 26), TripColor.PEACH),
-    Trip(4, "Prague, Czech Republic", LocalDate.of(2026, 8, 10), LocalDate.of(2026, 8, 14), TripColor.MINT),
-)
-
-private fun previewState(trips: List<Trip>) = HomeUiState.Content(
-    userName = "Etay Zahavi",
-    firstName = "Etay",
-    sections = groupTrips(trips, previewToday),
-)
-
-private val previewAccount = AccountState(userName = "Etay Zahavi", email = "traveler@example.com", initials = "EZ")
-
-@Preview(name = "Home", widthDp = 411, heightDp = 891)
-@Composable
-internal fun HomePreview() {
-    PlanYourTripTheme(darkTheme = false) {
-        HomeContent(previewState(previewTrips), previewAccount, onAddTrip = {}, onTripClick = {}, onShareTrip = {})
-    }
-}
-
-@Preview(name = "Home – narrow, large font", widthDp = 320, heightDp = 800, fontScale = 1.5f)
-@Composable
-internal fun HomeNarrowPreview() {
-    PlanYourTripTheme(darkTheme = false) {
-        HomeContent(
-            previewState(
-                previewTrips + listOf(
-                    Trip(
-                        5, "Reykjavík, Iceland", LocalDate.of(2027, 12, 28), LocalDate.of(2028, 1, 3),
-                        TripColor.LAVENDER,
-                    ),
-                    // Long name and long dates next to the three-dots button: nothing may be cut off.
-                    Trip(
-                        6, "San Carlos de Bariloche, Argentina", LocalDate.of(2026, 3, 28),
-                        LocalDate.of(2026, 4, 3), TripColor.ROSE,
-                    ),
-                )
-            ),
-            previewAccount,
-            onAddTrip = {}, onTripClick = {}, onShareTrip = {},
-        )
-    }
-}
-
-@Preview(name = "Home – dark", widthDp = 411, heightDp = 891)
-@Composable
-internal fun HomeDarkPreview() {
-    PlanYourTripTheme(darkTheme = true) {
-        HomeContent(previewState(previewTrips), previewAccount, onAddTrip = {}, onTripClick = {}, onShareTrip = {})
-    }
-}
-
-@Preview(name = "Home – empty", widthDp = 411, heightDp = 891)
-@Composable
-internal fun HomeEmptyPreview() {
-    PlanYourTripTheme(darkTheme = false) {
-        HomeContent(previewState(emptyList()), previewAccount, onAddTrip = {}, onTripClick = {}, onShareTrip = {})
     }
 }
 

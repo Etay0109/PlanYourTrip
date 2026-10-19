@@ -80,6 +80,6 @@ Reference: `design/home_screen.png`. Match it closely when adding or changing sc
   with an ellipsis. Text columns use `weight(1f)`. Upcoming cards move the countdown badge under the dates when
   the card is narrower than 360dp or the font scale is above 1.2. Trip lengths and badges use non-breaking spaces
   ("6 days", "In 120 days"), so a line can break only before the length. Check new layouts with the
-  320dp / fontScale 1.5 preview in `HomeScreen.kt`.
+  320dp / fontScale 1.5 preview in `HomePreviews.kt`.
 - Icons are small vector drawables in `res/drawable` (Material Symbols paths), not `material-icons-extended`.
 
