@@ -105,3 +105,12 @@ the connection returns), `firstName`/`initials`/`greetingName`, `TripColor`, and
   the app comes to the foreground and again on every return, a reconnect in the background waits for the foreground,
   a reconnect in the foreground syncs, a sign-in in the foreground syncs, and a local change is still uploaded in the
   background (quick sync).
+- **Release build (R8)**: `assembleRelease` shrinks, obfuscates and drops unused resources (`isMinifyEnabled`,
+  `isShrinkResources`; the app's rules in `app/proguard-rules.pro`, each explained). R8 problems only show at run time,
+  so after a dependency upgrade or new reflection-like code, check the release build on the **emulator**: sign the
+  unsigned APK outside the project with the SDK's `zipalign -p 4` + `apksigner sign --ks ~/.android/debug.keystore`
+  (testing only; never add a signing config or keystore to the project), `adb install -r` it over the debug app (same
+  debug key, so the account stays signed in), and go through Home, a trip's four tabs, adding an expense, pull to
+  refresh ("All changes saved"), the currency card and picker, place suggestions, photos, Share trip, a reminder (clock
+  moved to 18:00 the day before) and a form after `am kill`. Release builds log nothing of ours: watch
+  `adb logcat -b crash`. The assistant can't be checked on an emulator (release App Check uses Play Integrity).

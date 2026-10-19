@@ -1,21 +1,31 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
+# R8 rules for release builds (isMinifyEnabled + isShrinkResources in app/build.gradle.kts).
 #
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# Nothing here for the libraries: Firebase (Auth, Firestore, AI Logic, App Check), Room, WorkManager, Navigation,
+# kotlinx.serialization, coroutines, Coil and OkHttp ship their own consumer rules. The app's own code uses no
+# reflection: JSON is read as JsonElement trees (FrankfurterJson, PhotonJson, WikipediaJson, AssistantJson), Firestore
+# documents are plain maps (SyncDocuments), and the activity, receivers and worker are named in the manifest or by
+# WorkManager, which keeps them.
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Readable stack traces in crash reports (file names are replaced by "SourceFile", line numbers kept).
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Form drafts (SavedFormState) are java.io.Serializable and go into the SavedStateHandle, so they come back after
+# process death. Keep what Java serialization looks up by name.
+-keepclassmembers class com.example.planyourtrip.** implements java.io.Serializable {
+    static final long serialVersionUID;
+    private static final java.io.ObjectStreamField[] serialPersistentFields;
+    !static !transient <fields>;
+    private void writeObject(java.io.ObjectOutputStream);
+    private void readObject(java.io.ObjectInputStream);
+    java.lang.Object writeReplace();
+    java.lang.Object readResolve();
+}
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Type-safe navigation routes (ui/navigation/Routes.kt): Navigation finds each route's serializer at run time.
+# kotlinx.serialization's own rules cover this; kept explicitly so a route can never lose its serializer.
+-keep,includedescriptorclasses class com.example.planyourtrip.ui.navigation.**$$serializer { *; }
+-keepclassmembers class com.example.planyourtrip.ui.navigation.** {
+    *** Companion;
+    kotlinx.serialization.KSerializer serializer(...);
+}

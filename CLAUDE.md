@@ -49,7 +49,8 @@ Detailed references live in `docs/` (see "Detailed docs" at the end). Read the r
 - Gradle 8.13 fails on the system JDK 24 ("Type T not present"). From the terminal, use Android Studio's JDK:
   `export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"`
 - Build: `./gradlew assembleDebug` (also regenerates the Room schema JSON in `app/schemas/`)
-- Release build: `./gradlew assembleRelease` (unsigned APK; must compile too, see the Compose BoM note in Conventions)
+- Release build: `./gradlew assembleRelease` (unsigned APK, shrunk by R8 with `app/proguard-rules.pro`; must compile
+  too, see the Compose BoM note in Conventions; how to check it on the emulator: `docs/testing.md`)
 - Unit tests: `./gradlew testDebugUnitTest`
 - Lint: `./gradlew lintDebug` must report "No issues found" (dependency version checks are off in `app/lint.xml`:
   versions are pinned for Kotlin 2.0.21).
