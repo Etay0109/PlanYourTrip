@@ -11,63 +11,44 @@ import androidx.navigation.toRoute
 import com.example.planyourtrip.appContainer
 import com.example.planyourtrip.data.auth.AuthRepository
 import com.example.planyourtrip.data.currency.CurrencyRepository
-import com.example.planyourtrip.data.currency.ILS
-import com.example.planyourtrip.data.currency.isStale
 import com.example.planyourtrip.data.photo.DestinationPhoto
 import com.example.planyourtrip.data.photo.DestinationPhotoRepository
-import com.example.planyourtrip.data.photo.photoQuery
 import com.example.planyourtrip.data.trip.ActivityRepository
 import com.example.planyourtrip.data.trip.DeletedActivity
 import com.example.planyourtrip.data.trip.DeletedActivityStore
-import com.example.planyourtrip.data.trip.Expense
 import com.example.planyourtrip.data.trip.ExpenseRepository
-import com.example.planyourtrip.data.trip.Traveler
 import com.example.planyourtrip.data.trip.TravelerRepository
-import com.example.planyourtrip.data.trip.TripMember
 import com.example.planyourtrip.data.trip.TripMemberRepository
 import com.example.planyourtrip.data.trip.TripRepository
 import com.example.planyourtrip.ui.common.CurrencyPickerState
-import com.example.planyourtrip.ui.common.Money
-import com.example.planyourtrip.ui.common.SavedFormState
 import com.example.planyourtrip.ui.common.WhileUiSubscribed
-import com.example.planyourtrip.ui.common.categoryTotals
-import com.example.planyourtrip.ui.common.split.inListOrder
-import com.example.planyourtrip.ui.common.split.myShare
-import com.example.planyourtrip.ui.common.split.personOf
-import com.example.planyourtrip.ui.common.split.travelerOrder
 import com.example.planyourtrip.ui.common.tripStatus
 import com.example.planyourtrip.ui.navigation.TripDetails
-import com.example.planyourtrip.ui.tripdetails.components.ExpenseSplitInfo
 import com.example.planyourtrip.ui.tripdetails.members.membersState
 import java.time.Clock
 import java.time.LocalDate
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalCoroutinesApi::class)
+/**
+ * The trip screen's ViewModel. It observes the trip's data once ([observeTripData]) and hands it to its parts, each
+ * with one job: the budget numbers ([BudgetCache]) and the budget dialog ([BudgetDialogController]), the itinerary
+ * days ([ItinerarySelection]), the currency card and picker ([CurrencyCardController]) and the [headerPhoto].
+ */
 class TripDetailsViewModel(
     private val tripId: Long,
-    private val tripRepository: TripRepository,
+    tripRepository: TripRepository,
     expenseRepository: ExpenseRepository,
     travelerRepository: TravelerRepository,
     private val activityRepository: ActivityRepository,
     private val authRepository: AuthRepository,
-    private val currencyRepository: CurrencyRepository,
+    currencyRepository: CurrencyRepository,
     private val clock: Clock,
     /** Where budget totals are computed; tests pass their test dispatcher. */
     computeDispatcher: CoroutineDispatcher = Dispatchers.Default,
@@ -81,75 +62,48 @@ class TripDetailsViewModel(
     savedState: SavedStateHandle? = null,
 ) : ViewModel() {
 
-    /**
-     * The header's destination photo; null while there is none (the gradient only). An edited destination is a new
-     * lookup, so its photo replaces the old one.
-     */
-    val headerPhoto: StateFlow<DestinationPhoto?> = authRepository.currentUser
-        .flatMapLatest { user ->
-            if (user == null) flowOf(null) else tripRepository.observeTrip(tripId, user.uid).map { it?.photoQuery }
-        }
-        .distinctUntilChanged()
-        .flatMapLatest { query ->
-            if (query == null) return@flatMapLatest flowOf(null)
-            photoRepository.request(listOf(query))
-            photoRepository.observe(setOf(query.key)).map { it[query.key] }
-        }
-        .stateIn(viewModelScope, WhileUiSubscribed, null)
+    private val tripData = observeTripData(
+        tripId, authRepository, tripRepository, expenseRepository, travelerRepository, memberRepository,
+        activityRepository, computeDispatcher, viewModelScope,
+    )
 
-    /** Day chosen on the Plan tab; null = the default day (first day, or today during the trip). */
-    private val planDay = MutableStateFlow<LocalDate?>(null)
+    private fun loaded(): TripDetailsUiState.Loaded? = uiState.value as? TripDetailsUiState.Loaded
 
-    /** Day shown in the Overview day section; null = the default day. */
-    private val overviewDay = MutableStateFlow<LocalDate?>(null)
+    private val itinerary = ItinerarySelection(current = { loaded()?.itinerary })
+    private val budget = BudgetCache()
 
     /** The trip with its expenses, activities, budget and itinerary math, if it belongs to the signed-in user. */
-    val uiState: StateFlow<TripDetailsUiState> = authRepository.currentUser
-        .flatMapLatest { user ->
-            if (user == null) return@flatMapLatest flowOf(TripDetailsUiState.NotFound)
-            combine(
-                tripRepository.observeTrip(tripId, user.uid),
-                combine(
-                    expenseRepository.observeExpenses(tripId, user.uid),
-                    travelerRepository.observeTravelers(tripId, user.uid),
-                    memberRepository.observeMembers(tripId, user.uid),
-                    ::Triple,
-                ),
-                activityRepository.observeActivities(tripId, user.uid),
-                planDay,
-                overviewDay,
-            ) { trip, (expenses, travelers, members), activities, planSelection, overviewSelection ->
-                if (trip == null) return@combine TripDetailsUiState.NotFound
-                // The budget counts only my share of each expense.
-                val order = travelerOrder(user.uid, trip.memberIds, travelers)
-                val myShares = expenses.associate { it.id to it.myShare(order, user.uid) }
-                val today = LocalDate.now(clock)
-                val itinerary = itineraryState(
-                    trip.startDate, trip.endDate, activities, planSelection, overviewSelection, today,
-                )
-                TripDetailsUiState.Loaded(
-                    trip = trip,
-                    status = tripStatus(trip, today),
-                    currentYear = today.year,
-                    summary = budgetSummary(
-                        trip.budgetAgorot, myShares.values.sum(), trip.startDate, trip.endDate, today,
-                    ),
-                    categoryTotals = categoryTotals(
-                        expenses, amountOf = { myShares.getValue(it.id) }, includeZeroCategories = true,
-                    ),
-                    expenses = expenses,
-                    travelers = travelers,
-                    myShares = myShares,
-                    expenseSplits = expenseSplits(
-                        expenses, travelers, myShares, user.uid, order, trip.memberIds, members,
-                    ),
-                    itinerary = itinerary,
-                    members = membersState(user.uid, trip, members, clock.zone),
-                )
-            }
-        }
+    val uiState: StateFlow<TripDetailsUiState> = combine(
+        tripData, itinerary.planDay, itinerary.overviewDay,
+    ) { data, planSelection, overviewSelection ->
+        if (data == null) return@combine TripDetailsUiState.NotFound
+        val trip = data.trip
+        val today = LocalDate.now(clock)
+        // A day chosen on the Plan tab or in the Overview only builds the itinerary again; the budget is reused.
+        val money = budget.of(data, today)
+        TripDetailsUiState.Loaded(
+            trip = trip,
+            status = tripStatus(trip, today),
+            currentYear = today.year,
+            summary = money.summary,
+            categoryTotals = money.categoryTotals,
+            expenses = data.expenses,
+            travelers = data.travelers,
+            myShares = money.myShares,
+            expenseSplits = money.expenseSplits,
+            itinerary = itineraryState(
+                trip.startDate, trip.endDate, data.activities, planSelection, overviewSelection, today,
+            ),
+            members = membersState(data.uid, trip, data.members, clock.zone),
+        )
+    }
         .flowOn(computeDispatcher)
         .stateIn(viewModelScope, WhileUiSubscribed, TripDetailsUiState.Loading)
+
+    /** The header's destination photo; null while there is none (the gradient only). */
+    val headerPhoto: StateFlow<DestinationPhoto?> = headerPhoto(tripData, photoRepository, viewModelScope)
+
+    // ---------- Deleted activity ----------
 
     /** An activity of this trip that was just deleted: the screen shows "Activity deleted" with "Undo". */
     val deletedActivity: StateFlow<DeletedActivity?> = deletedActivities.last
@@ -166,192 +120,62 @@ class TripDetailsViewModel(
     /** The message went away without "Undo": the delete stays. */
     fun onDeleteMessageDismissed(deleted: DeletedActivity) = deletedActivities.clear(deleted)
 
-    private val _budgetDialog = SavedFormState<BudgetDialogState?, BudgetDialogState>(null, savedState, KEY_BUDGET_DIALOG) {
-        it
-    }.also { form -> form.restored?.let { restored -> form.update { restored } } }
+    // ---------- Budget dialog ----------
+
+    private val budgetDialogController = BudgetDialogController(
+        tripId, tripRepository, authRepository, viewModelScope, savedState,
+        currentBudget = { loaded()?.trip?.budgetAgorot },
+    )
 
     /** The open "Set budget" dialog, or null when closed. */
-    val budgetDialog: StateFlow<BudgetDialogState?> = _budgetDialog.flow
+    val budgetDialog: StateFlow<BudgetDialogState?> = budgetDialogController.state
 
-    /** Opens the dialog, prefilled with the current budget (empty when none). */
-    fun onEditBudget() {
-        val current = (uiState.value as? TripDetailsUiState.Loaded)?.trip?.budgetAgorot
-        _budgetDialog.update { BudgetDialogState(input = current?.let(Money::toInput).orEmpty()) }
-    }
+    fun onEditBudget() = budgetDialogController.onEdit()
 
-    fun onBudgetInputChange(value: String) =
-        _budgetDialog.update { it?.copy(input = value, error = null) }
+    fun onBudgetInputChange(value: String) = budgetDialogController.onInputChange(value)
 
-    fun onDismissBudget() {
-        _budgetDialog.update { null }
-    }
+    fun onDismissBudget() = budgetDialogController.onDismiss()
 
-    /** Validates (a number greater than zero), stores the budget and closes the dialog. */
-    fun onSaveBudget() {
-        val dialog = _budgetDialog.value ?: return
-        val error = validateBudget(dialog.input)
-        if (error != null) {
-            _budgetDialog.update { dialog.copy(error = error) }
-            return
-        }
-        val ownerId = authRepository.currentUser.value?.uid ?: return
-        val agorot = checkNotNull(Money.parseAgorot(dialog.input))
-        _budgetDialog.update { null }
-        viewModelScope.launch { tripRepository.setBudget(tripId, ownerId, agorot) }
-    }
+    fun onSaveBudget() = budgetDialogController.onSave()
 
     // ---------- Itinerary ----------
 
-    private fun loadedItinerary(): ItineraryState? = (uiState.value as? TripDetailsUiState.Loaded)?.itinerary
+    fun onPlanDaySelected(day: LocalDate) = itinerary.onPlanDaySelected(day)
 
-    /** A day chip on the Plan tab. */
-    fun onPlanDaySelected(day: LocalDate) {
-        planDay.value = day
-    }
+    fun onOverviewPreviousDay() = itinerary.onOverviewPreviousDay()
 
-    /** "<" in the Overview day section; does nothing on the first day. */
-    fun onOverviewPreviousDay() {
-        val shown = loadedItinerary()?.overviewDay ?: return
-        if (shown.hasPrevious) overviewDay.value = shown.day.minusDays(1)
-    }
+    fun onOverviewNextDay() = itinerary.onOverviewNextDay()
 
-    /** ">" in the Overview day section; does nothing on the last day. */
-    fun onOverviewNextDay() {
-        val shown = loadedItinerary()?.overviewDay ?: return
-        if (shown.hasNext) overviewDay.value = shown.day.plusDays(1)
-    }
+    fun onSeeFullPlan() = itinerary.onSeeFullPlan()
 
-    /** "See full plan": the Plan tab opens on the day shown in the Overview (the screen switches the tab). */
-    fun onSeeFullPlan() {
-        loadedItinerary()?.let { planDay.value = it.overviewDay.day }
-    }
+    // ---------- Currency card and picker ----------
 
-    // ---------- Currency card ----------
+    private val currency = CurrencyCardController(
+        tripId, tripData, tripRepository, authRepository, currencyRepository, clock, viewModelScope,
+        currentCurrency = { loaded()?.trip?.currencyCode },
+    )
 
-    /** Currency code of the loaded trip; null inside [Selected] = no currency chosen yet. */
-    private data class Selected(val code: String?)
+    /** The Overview currency card; null until the trip is loaded. */
+    val currencyCard: StateFlow<CurrencyCardState?> = currency.card
 
-    /** Code whose last refresh failed, so the card can tell "loading" from "unavailable". */
-    private val refreshFailedFor = MutableStateFlow<String?>(null)
-    private var refreshJob: Job? = null
+    fun onOverviewShown() = currency.onOverviewShown()
 
-    /** The currency the Overview last showed, to notice a change (made on the card or in the trip form). */
-    private var shownCode: String? = null
-    private var hasShown = false
-
-    /**
-     * The Overview currency card; null until the trip is loaded (nothing is drawn). The converter's text is
-     * not here: it lives in the card, so typing never waits for this flow.
-     */
-    val currencyCard: StateFlow<CurrencyCardState?> = uiState
-        .map { state -> (state as? TripDetailsUiState.Loaded)?.let { Selected(it.trip.currencyCode) } }
-        .distinctUntilChanged()
-        .flatMapLatest { selected ->
-            val code = selected?.code
-            when {
-                selected == null -> flowOf(null)
-                code == null -> flowOf(CurrencyCardState.NoCurrency)
-                code == ILS -> flowOf(CurrencyCardState.Shekel)
-                else -> combine(currencyRepository.observeRate(code), refreshFailedFor) { rate, failedFor ->
-                    when {
-                        rate != null -> CurrencyCardState.Rate(code, rate.ilsPerUnit, rate.date)
-                        failedFor == code -> CurrencyCardState.Unavailable(code)
-                        else -> CurrencyCardState.Loading(code)
-                    }
-                }
-            }
-        }
-        .stateIn(viewModelScope, WhileUiSubscribed, null)
-
-    private fun currentCurrency(): String? = (uiState.value as? TripDetailsUiState.Loaded)?.trip?.currencyCode
-
-    /**
-     * Called whenever the Overview is shown or the trip's currency changes. A currency different from the one
-     * shown before is fetched right away; otherwise the rate is refreshed only when 12 hours old or more.
-     */
-    fun onOverviewShown() {
-        val code = currentCurrency()
-        val changed = hasShown && code != shownCode
-        hasShown = true
-        shownCode = code
-        if (code != null) refreshRate(code, force = changed)
-    }
-
-    /** "Try again" on the card. */
-    fun onRetryRate() {
-        currentCurrency()?.let { refreshRate(it, force = true) }
-    }
-
-    private fun refreshRate(code: String, force: Boolean) {
-        if (code == ILS) return
-        if (refreshJob?.isActive == true) {
-            if (!force) return
-            refreshJob?.cancel()
-        }
-        refreshJob = viewModelScope.launch {
-            if (!force) {
-                val cached = currencyRepository.observeRate(code).first()
-                if (!isStale(cached?.fetchedAt, clock.instant())) return@launch
-            }
-            refreshFailedFor.value = null
-            val ok = currencyRepository.refreshRate(code)
-            refreshFailedFor.value = if (ok) null else code
-        }
-    }
-
-    // ---------- Currency picker ----------
-
-    private val _currencyPicker = MutableStateFlow<CurrencyPickerState?>(null)
+    fun onRetryRate() = currency.onRetryRate()
 
     /** The open currency picker, or null when closed. */
-    val currencyPicker: StateFlow<CurrencyPickerState?> = _currencyPicker.asStateFlow()
+    val currencyPicker: StateFlow<CurrencyPickerState?> = currency.picker
 
-    /** "Choose currency" or a tap on the currency chip: opens the picker and loads the list. */
-    fun onChooseCurrency() {
-        _currencyPicker.value = CurrencyPickerState(selectedCode = currentCurrency())
-        loadCurrencies()
-    }
+    fun onChooseCurrency() = currency.onChooseCurrency()
 
-    fun onRetryCurrencies() = loadCurrencies()
+    fun onRetryCurrencies() = currency.onRetryCurrencies()
 
-    private fun loadCurrencies() {
-        _currencyPicker.update { it?.loading() }
-        viewModelScope.launch {
-            val list = currencyRepository.currencies()
-            _currencyPicker.update { it?.loaded(list) }
-        }
-    }
+    fun onCurrencyQueryChange(query: String) = currency.onQueryChange(query)
 
-    fun onCurrencyQueryChange(query: String) = _currencyPicker.update { it?.withQuery(query) }
+    fun onDismissCurrencyPicker() = currency.onDismissPicker()
 
-    fun onDismissCurrencyPicker() {
-        _currencyPicker.value = null
-    }
-
-    /**
-     * Saves [code] on the trip, closes the picker and fetches the new rate right away. The card clears its
-     * converter fields itself because they are keyed by the currency code.
-     */
-    fun onCurrencySelected(code: String) {
-        val ownerId = authRepository.currentUser.value?.uid ?: return
-        _currencyPicker.value = null
-        if (code == currentCurrency()) return
-        refreshFailedFor.value = null
-        hasShown = true
-        shownCode = code
-        viewModelScope.launch { tripRepository.setCurrency(tripId, ownerId, code) }
-        refreshRate(code, force = true)
-    }
+    fun onCurrencySelected(code: String) = currency.onCurrencySelected(code)
 
     companion object {
-        private const val KEY_BUDGET_DIALOG = "budgetDialog"
-
-        /** Null when [input] is a valid budget: a number of shekels greater than zero. */
-        fun validateBudget(input: String): BudgetFieldError? {
-            if (input.isBlank()) return BudgetFieldError.EMPTY
-            return if (Money.parsePositiveAgorot(input) == null) BudgetFieldError.INVALID else null
-        }
-
         val Factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val handle: SavedStateHandle = createSavedStateHandle()
@@ -372,29 +196,5 @@ class TripDetailsViewModel(
                 )
             }
         }
-    }
-}
-
-/**
- * What each expense row shows with other travelers: who paid, who shares it (in list [order]) and my ([me]) share
- * (from [myShares]). Empty when the trip has only me, so the rows show no split line.
- */
-internal fun expenseSplits(
-    expenses: List<Expense>,
-    travelers: List<Traveler>,
-    myShares: Map<Long, Long>,
-    me: String,
-    order: List<String>,
-    memberIds: List<String> = emptyList(),
-    members: List<TripMember> = emptyList(),
-): Map<Long, ExpenseSplitInfo> {
-    if (order.none { it != me }) return emptyMap()
-    fun person(key: String) = personOf(key, me, travelers, memberIds, members)
-    return expenses.associate { expense ->
-        expense.id to ExpenseSplitInfo(
-            payer = person(expense.paidBy),
-            splitWith = inListOrder(expense.splitBetween, order).map(::person),
-            myShareAgorot = myShares[expense.id] ?: 0L,
-        )
     }
 }

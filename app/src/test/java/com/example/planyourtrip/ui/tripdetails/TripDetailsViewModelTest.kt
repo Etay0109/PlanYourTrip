@@ -24,6 +24,7 @@ import com.example.planyourtrip.data.trip.Trip
 import com.example.planyourtrip.data.trip.TripActivity
 import com.example.planyourtrip.data.trip.TripColor
 import com.example.planyourtrip.data.trip.TripPlace
+import com.example.planyourtrip.data.trip.TripRepository
 import com.example.planyourtrip.ui.common.TripStatus
 import com.example.planyourtrip.ui.common.split.Person
 import java.math.BigDecimal
@@ -34,6 +35,7 @@ import java.time.LocalTime
 import java.time.ZoneOffset
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
@@ -46,6 +48,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -575,5 +578,57 @@ class TripDetailsViewModelTest {
         trips.updateTrip(1, "u1", "Lisbon", rome.startDate, rome.endDate, null, TripPlace.NONE)
         assertEquals(PhotoQuery("Lisbon"), photos.requested.last())
         assertNull(vm.headerPhoto.value)
+    }
+
+    @Test
+    fun choosingADay_reusesTheBudgetNumbers() = runTest(dispatcher) {
+        trips.trips.value = listOf("u1" to rome.copy(budgetAgorot = 600_000))
+        expenses.expenses.value = listOf(
+            Expense(1, 1, "Dinner", 45_000, ExpenseCategory.FOOD, LocalDate.of(2026, 9, 20), paidBy = ME, splitBetween = listOf(ME)),
+        )
+        activities.activities.value = listOf(activity(1, nov(12)), activity(2, nov(14)))
+        val vm = vm()
+        val before = vm.loaded()
+
+        vm.onPlanDaySelected(nov(14))
+        vm.onOverviewNextDay()
+        val after = vm.loaded()
+
+        assertEquals(nov(14), after.itinerary.plan.day)
+        assertEquals(nov(13), after.itinerary.overviewDay.day)
+        // Not computed again: the very same objects.
+        assertSame(before.summary, after.summary)
+        assertSame(before.categoryTotals, after.categoryTotals)
+        assertSame(before.myShares, after.myShares)
+        assertSame(before.expenseSplits, after.expenseSplits)
+
+        // New expense data does compute them again.
+        expenses.expenses.value = expenses.expenses.value + Expense(
+            2, 1, "Museum", 5_000, ExpenseCategory.ATTRACTIONS, LocalDate.of(2026, 9, 21), paidBy = ME, splitBetween = listOf(ME),
+        )
+        assertEquals(550_000L, vm.loaded().summary?.leftAgorot)
+        assertEquals(nov(14), vm.loaded().itinerary.plan.day)
+    }
+
+    @Test
+    fun theTripIsObservedOnce_forAllParts() = runTest(dispatcher) {
+        var observed = 0
+        val counting = object : TripRepository by trips {
+            override fun observeTrip(id: Long, ownerId: String): Flow<Trip?> {
+                observed++
+                return trips.observeTrip(id, ownerId)
+            }
+        }
+        val vm = TripDetailsViewModel(
+            1, counting, expenses, travelers, activities, auth, currencies, clock, dispatcher, deleted,
+            photoRepository = FakeDestinationPhotoRepository(),
+        )
+        backgroundScope.launch { vm.uiState.collect {} }
+        backgroundScope.launch { vm.headerPhoto.collect {} }
+        backgroundScope.launch { vm.currencyCard.collect {} }
+
+        assertEquals(rome, vm.loaded().trip)
+        assertEquals(CurrencyCardState.NoCurrency, vm.currencyCard.value)
+        assertEquals(1, observed)
     }
 }

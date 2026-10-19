@@ -112,7 +112,12 @@ app/src/main/java/com/example/planyourtrip/
                                # links), TripDetailsOverlays (sheets and dialogs), TripDetailsChrome (nav bar, FABs,
                                # status bar shade, "not found"), TripDetailsCommon (EmptyMessage, cardPadding), OverviewTab / BudgetTab (+ BudgetActions, AddExpenseFab) / PlanTab (the
                                # tabs' LazyListScope builders), TripDetailsPreviews (all previews), TripDetailsViewModel
-                               # (+ expenseSplits: each row's ExpenseSplitInfo),
+                               # (wires the parts below and delegates to them), TripData (observeTripData: the trip,
+                               # expenses, travelers, members and activities observed once and shared), TripBudget
+                               # (budgetPart + BudgetCache: the budget numbers, reused when only a day changes;
+                               # expenseSplits: each row's ExpenseSplitInfo), BudgetDialogController (+ validateBudget),
+                               # ItinerarySelection (Plan/Overview days), CurrencyCardController (card + picker),
+                               # HeaderPhoto (headerPhoto),
                                # TripDetailsUiState (+ TripTab, BudgetDialogState, CurrencyCardState, ItineraryState,
                                # PlanDayState, OverviewDayState),
                                # BudgetCalculations (pure), CurrencyConversion (pure: converter math + typing reducer),

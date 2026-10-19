@@ -168,7 +168,8 @@ the By category legend uses round dots, ₪0 rows (expenses I'm not part of) com
 - **Shares** (`shares`, pure): equal split of the shekel `amountAgorot` in whole agorot; the remainder goes one agora
   each to the first travelers in **list order** (keys sorted by list order, unknown keys last by key), so the shares
   always add up exactly to the amount. `myShare` = my entry (0 when I'm not in the split).
-- **Budget counts my share only:** `TripDetailsViewModel` computes `myShares` (expense id → my share) and feeds
+- **Budget counts my share only:** `TripDetailsViewModel` (through `budgetPart` in `TripBudget.kt`; `BudgetCache` keeps
+  the result, so choosing a Plan or Overview day doesn't compute it again) computes `myShares` (expense id → my share) and feeds
   `budgetSummary(spentAgorot = sum)` (left, spent + percent, per-day line) and `categoryTotals(amountOf = my share,
   includeZeroCategories = true)`. The Overview `BudgetCard`, the PDF cost section (`buildTripPdfContent(…, travelers)`,
   categories > 0 only) and the assistant's "spent" (`myTotal`) use the same numbers. An expense I'm not part of counts
@@ -250,7 +251,8 @@ no assistant button inside the tab (the trip screen's sparkle FAB opens the assi
 never looks like a second type label.
 - A day is **planned** when it has ≥ 1 activity. Activities outside the trip dates never count.
 - **Default day:** today while the trip is happening (`start ≤ today ≤ end`), otherwise (before *or* after the
-  trip) the first day. The selected days live in `TripDetailsViewModel` (`planDay`, `overviewDay`, null = default);
+  trip) the first day. The selected days live in `TripDetailsViewModel`'s `ItinerarySelection` (`planDay`, `overviewDay`, null =
+  default);
   a selection that is no longer inside the trip dates (dates edited) falls back to the default
   (`validDayOrDefault`). The tab itself stays Compose state.
 - **Ordering** (`sortActivities`, `ui/common/TripDays.kt`): by date, then start time with **untimed activities last**, then id.
@@ -332,7 +334,8 @@ Reference: `design/trip_prep.png`, **with these deliberate differences**: the us
   missing file → "This document's file is no longer on this device."; no app → "No app found to open this file".
 
 ### Currency card (`CurrencyCard`, `CurrencyConversion.kt`, `data/currency`)
-- `TripDetailsViewModel.currencyCard` (`CurrencyCardState?`, null = nothing drawn until the trip loads):
+- `TripDetailsViewModel.currencyCard` (from `CurrencyCardController`, which also owns the picker;
+  `CurrencyCardState?`, null = nothing drawn until the trip loads):
   `NoCurrency` (message + "Choose currency") / `Shekel` (trip currency is ILS: code chip + one-line message, no
   converter, no fetch) / `Loading` (no cached rate, fetching) / `Unavailable` (no cached rate, fetch failed →
   "Try again") / `Rate`.

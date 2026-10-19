@@ -112,7 +112,7 @@ ZW → ZWG, MR → MRU, ST → STN, BY → BYN, CW/SX → XCG; every ISO country
   (`cacheDir/destination_photos`, 50 MB, cache headers ignored), so photos show offline after the first load.
 - **Wiring:** `HomeViewModel` asks for every trip's `photoQuery` whenever the trip list emits and puts
   `photos: Map<tripId, DestinationPhoto>` in `HomeUiState.Content`; `TripDetailsViewModel.headerPhoto` (its own
-  `StateFlow`) follows the trip's query. An edited destination is a new key, so it is looked up and its photo replaces
+  `StateFlow`, built by `headerPhoto()` in `HeaderPhoto.kt` from the shared `TripData`) follows the trip's query. An edited destination is a new key, so it is looked up and its photo replaces
   the old one. Nothing about photos goes to Firestore; `firestore.rules` and the sync are untouched.
 - **Credit:** not shown yet; `file_page_url` keeps each image's Commons page for when it is.
 - Tests: `PhotoRulesTest`, `WikipediaPhotoSourceTest` (recorded real answers in `src/test/resources/wikipedia/` +
