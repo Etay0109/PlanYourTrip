@@ -1,0 +1,111 @@
+# Continuous integration for Plan Your Trip.
+#
+# Runs on every push to main and on every pull request:
+#   - android: unit tests, lint, debug + release APKs (release is unsigned, shrunk by R8)
+#   - rules:   Firestore security rules tests on the Firebase Emulator (project demo-planyourtrip)
+#
+# No secrets are used: app/google-services.json is committed, the release build has no signing config and the
+# emulator runs a demo- project that needs no login. Instrumented (device) tests are never run here.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Read-only token: the workflow only checks out code and uploads artifacts.
+permissions:
+  contents: read
+
+# A newer push to the same branch or PR cancels the run that is still going.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    name: Unit tests, lint and builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      # Java 21, the same major version as Android Studio's bundled JDK (Gradle 8.13 fails on JDK 24).
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      # Caches Gradle's dependencies and wrapper, and checks that gradle-wrapper.jar is a genuine Gradle jar.
+      # The cache is saved only from main; pull requests read it.
+      - uses: gradle/actions/setup-gradle@v6
+
+      # The runner has the Android SDK preinstalled (ANDROID_HOME); no local.properties is needed.
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest
+
+      # Runs even if the unit tests failed, so one run reports both.
+      - name: Lint
+        if: ${{ !cancelled() }}
+        run: ./gradlew lintDebug
+
+      - name: Build debug and release APKs
+        run: ./gradlew assembleDebug assembleRelease
+
+      - name: Upload test and lint reports
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-reports
+          path: |
+            app/build/reports/tests/
+            app/build/test-results/
+            app/build/reports/lint-results-debug.*
+          retention-days: 14
+          if-no-files-found: ignore
+
+  rules:
+    name: Firestore rules tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: rules-tests
+    steps:
+      - uses: actions/checkout@v7
+
+      # The Firestore emulator in firebase-tools 14 needs Java 21 or newer.
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      # Caches npm's download cache, keyed on the lock file.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: rules-tests/package-lock.json
+
+      # The Firestore emulator jar is downloaded on first use; keep it between runs.
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/firebase/emulators
+          key: firebase-emulators-${{ runner.os }}-${{ hashFiles('rules-tests/package-lock.json') }}
+
+      - name: Install
+        run: npm ci
+
+      # firebase emulators:exec starts the emulator, runs mocha and stops it (see package.json).
+      - name: Rules tests
+        run: npm test
+
+      - name: Upload emulator log
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: rules-test-logs
+          path: rules-tests/firestore-debug.log
+          retention-days: 14
+          if-no-files-found: ignore

@@ -2,6 +2,10 @@
 
 What each test suite covers.
 
+CI (`.github/workflows/ci.yml`) runs the unit tests, `lintDebug`, `assembleDebug assembleRelease` and the rules tests
+on every push to `main` and every pull request. The instrumented tests are not run in CI (they need an emulator; run
+them manually as in `CLAUDE.md`).
+
 - Keep pure logic in plain Kotlin and unit-test it: expense splitting (`SplitTest`: uneven split with the extra agorot
   in list order, an expense I'm not part of, not shared, paid for someone else, three travelers with crossing debts,
   independent pairs and zero-sum groups (minimum transfers), partial settlement, deleted settlement, everything

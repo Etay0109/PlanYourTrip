@@ -70,6 +70,8 @@ Detailed references live in `docs/` (see "Detailed docs" at the end). Read the r
 - Security rules tests (Firebase Emulator, project id `demo-planyourtrip`, never the real project): `cd rules-tests &&
   npm install` once, then `JAVA_HOME=<Android Studio jbr> PATH="$JAVA_HOME/bin:$PATH" npm test`. Run after every rules
   change.
+- CI: `.github/workflows/ci.yml` (GitHub Actions, every push to `main` and every PR) runs unit tests, lint, both APK
+  builds and the rules tests on JDK 21; no secrets, no device tests. Failed runs upload the reports as artifacts.
 - Firebase config: `app/google-services.json` (project `planyourtrip-79724`); the plugin only reads it from `app/`.
 - Log tags (debug builds only): `CloudSync`, `TripAssistant`, `TripPdf`, `DestinationPhoto`, `TripReminder`, `App`.
   App code logs only through `AppLog` (never `android.util.Log`); release builds log nothing (`LogConfig.kt` in
